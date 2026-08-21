@@ -1,0 +1,31 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+
+export async function updateMarketplaceBalances(formData: FormData) {
+  const shopeeToSettle = Number(formData.get("shopee_to_settle")) || 0;
+  const tokopediaToSettle = Number(formData.get("tokopedia_to_settle")) || 0;
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("marketplace_balances")
+    .select("id")
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("marketplace_balances")
+      .update({ shopee_to_settle: shopeeToSettle, tokopedia_to_settle: tokopediaToSettle })
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase.from("marketplace_balances").insert({
+      shopee_to_settle: shopeeToSettle,
+      tokopedia_to_settle: tokopediaToSettle,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+}
