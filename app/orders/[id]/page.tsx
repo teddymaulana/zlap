@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { InventoryBatchAvailability, Order, OrderLine, Product } from "@/lib/types";
+import { formatStatus } from "@/lib/format";
 import OrderStatus from "./OrderStatus";
+import OrderAwb from "./OrderAwb";
 import OrderLines from "./OrderLines";
+import CancellationPanel from "./CancellationPanel";
 
 export default async function OrderDetailPage({
   params,
@@ -42,6 +45,41 @@ export default async function OrderDetailPage({
           </div>
         </div>
         <OrderStatus order={o} />
+      </div>
+      {(o.customer_name || o.customer_phone || o.customer_address) && (
+        <div className="mb-6 rounded border p-4 text-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-medium">Customer</span>
+            <span className="flex items-center gap-2">
+              {o.status === "cancelled" && (
+                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-700">
+                  Cancelled
+                </span>
+              )}
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs ${
+                  o.payment_status === "paid"
+                    ? "bg-green-100 text-green-800"
+                    : o.payment_status === "pending"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : o.payment_status === "refund_pending" || o.payment_status === "refunded"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {formatStatus(o.payment_status)}
+                {o.payment_method ? ` · ${o.payment_method}` : ""}
+              </span>
+            </span>
+          </div>
+          {o.customer_name && <div>{o.customer_name}</div>}
+          {o.customer_phone && <div className="text-gray-600">{o.customer_phone}</div>}
+          {o.customer_address && <div className="text-gray-600">{o.customer_address}</div>}
+        </div>
+      )}
+      <CancellationPanel order={o} />
+      <div className="mb-6">
+        <OrderAwb order={o} />
       </div>
       <OrderLines
         orderId={id}

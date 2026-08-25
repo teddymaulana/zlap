@@ -3,9 +3,18 @@
 import { useTransition } from "react";
 import { updateProduct, uploadProductImage } from "@/app/actions/products";
 import TagPicker from "@/app/products/TagPicker";
-import type { Product } from "@/lib/types";
+import BrandSetPicker from "@/app/products/BrandSetPicker";
+import type { CardSet, Product } from "@/lib/types";
 
-export default function ProductHeaderForm({ product }: { product: Product }) {
+export default function ProductHeaderForm({
+  product,
+  allTags,
+  sets,
+}: {
+  product: Product;
+  allTags: string[];
+  sets: CardSet[];
+}) {
   const [isUploadPending, startUploadTransition] = useTransition();
   const [isSavePending, startSaveTransition] = useTransition();
 
@@ -62,9 +71,10 @@ export default function ProductHeaderForm({ product }: { product: Product }) {
             className="rounded border px-3 py-2"
           />
         </div>
+        <BrandSetPicker sets={sets} initialBrand={product.brand} initialSetId={product.set_id} />
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium">Tags</span>
-          <TagPicker initialTags={product.tags} />
+          <TagPicker initialTags={product.tags} allTags={allTags} />
         </div>
         <button
           type="submit"

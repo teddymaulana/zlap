@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Order } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/constants";
+import { formatStatus } from "@/lib/format";
 import Pagination from "@/app/Pagination";
 
 export default async function OrdersPage({
@@ -47,7 +48,7 @@ export default async function OrdersPage({
                 {o.channel} · {o.date}
               </div>
             </div>
-            <div className="text-sm text-gray-600">{o.status}</div>
+            <div className="text-sm text-gray-600">{formatStatus(o.status)}</div>
           </Link>
         ))}
         {orders?.length === 0 && (

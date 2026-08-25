@@ -1,11 +1,34 @@
+export type CardSet = {
+  id: string;
+  name: string;
+  brand: "pokemon" | "one_piece";
+  language: "en" | "jp" | "id";
+};
+
 export type Product = {
   id: string;
   name: string;
   sku: string | null;
   tags: string[];
   image_url: string | null;
+  brand: "pokemon" | "one_piece" | null;
+  set_id: string | null;
+  featured_section_1: boolean;
+  featured_section_1_order: number | null;
+  featured_section_2: boolean;
+  featured_section_2_order: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type StorefrontSection = {
+  id: "featured_section_1" | "featured_section_2";
+  title: string;
+};
+
+export type PopularKeyword = {
+  id: string;
+  keyword: string;
 };
 
 export type InventoryBatch = {
@@ -19,6 +42,11 @@ export type InventoryBatch = {
   locked: boolean;
   purchase_id: string | null;
   created_at: string;
+  direct_price: number | null;
+  is_storefront_price: boolean;
+  is_preorder: boolean;
+  preorder_duration_days: number | null;
+  preorder_arrival_date: string | null;
 };
 
 export type InventoryBatchAvailability = InventoryBatch & { available: number };
@@ -56,7 +84,25 @@ export type Order = {
   channel: "tokopedia" | "shopee" | "website" | "direct" | null;
   date: string | null;
   order_url: string | null;
-  status: "pending" | "completed";
+  status: "pending" | "completed" | "cancelled";
+  awb: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
+  payment_status: "unpaid" | "pending" | "paid" | "failed" | "expired" | "refund_pending" | "refunded";
+  payment_method: string | null;
+  payment_details: {
+    transaction_id?: string;
+    va_number?: string;
+    bank?: string;
+    qr_url?: string;
+    qr_expiry?: string;
+    deeplink_url?: string;
+    payment_code?: string;
+    store?: string;
+  } | null;
+  cancellation_requested_at: string | null;
+  cancellation_reason: string | null;
   created_at: string;
 };
 

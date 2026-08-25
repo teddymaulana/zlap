@@ -12,9 +12,14 @@ export default async function ChartsPage() {
   if (error) throw new Error(error.message);
 
   const snapshots = (data ?? []) as Snapshot[];
+  // Zlap Value = total assets + marketplace balances not yet settled to the
+  // bank − the amount owed back to the owner (each stored per snapshot row).
   const points = snapshots
     .filter((s) => s.value !== null)
-    .map((s) => ({ date: s.snapshot_date, value: s.value as number }));
+    .map((s) => ({
+      date: s.snapshot_date,
+      value: (s.value ?? 0) + (s.shopee ?? 0) + (s.tokopedia ?? 0) - (s.deposit ?? 0),
+    }));
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">

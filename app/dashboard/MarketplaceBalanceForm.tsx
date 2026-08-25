@@ -1,24 +1,36 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateMarketplaceBalances } from "@/app/actions/dashboard";
+import { createSnapshot, updateMarketplaceBalances } from "@/app/actions/dashboard";
 
 export default function MarketplaceBalanceForm({
   shopeeToSettle,
   tokopediaToSettle,
+  totalValue,
+  depositToPay,
 }: {
   shopeeToSettle: number;
   tokopediaToSettle: number;
+  totalValue: number;
+  depositToPay: number;
 }) {
   const [shopee, setShopee] = useState(shopeeToSettle);
   const [tokopedia, setTokopedia] = useState(tokopediaToSettle);
-  const [isPending, startTransition] = useTransition();
+  const [isSavePending, startSaveTransition] = useTransition();
+  const [isSnapshotPending, startSnapshotTransition] = useTransition();
 
   const save = () => {
     const fd = new FormData();
     fd.set("shopee_to_settle", String(shopee));
     fd.set("tokopedia_to_settle", String(tokopedia));
-    startTransition(() => updateMarketplaceBalances(fd));
+    startSaveTransition(() => updateMarketplaceBalances(fd));
+  };
+
+  const snapshot = () => {
+    const fd = new FormData();
+    fd.set("totalValue", String(totalValue));
+    fd.set("depositToPay", String(depositToPay));
+    startSnapshotTransition(() => createSnapshot(fd));
   };
 
   return (
@@ -43,14 +55,24 @@ export default function MarketplaceBalanceForm({
           className="w-32 rounded border px-2 py-1 text-right"
         />
       </label>
-      <button
-        type="button"
-        onClick={save}
-        disabled={isPending}
-        className="self-start rounded bg-black px-3 py-1 text-xs text-white disabled:opacity-50"
-      >
-        {isPending ? "Saving…" : "Save"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={isSavePending}
+          className="rounded bg-black px-3 py-1 text-xs text-white disabled:opacity-50"
+        >
+          {isSavePending ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={snapshot}
+          disabled={isSnapshotPending}
+          className="rounded border px-3 py-1 text-xs disabled:opacity-50"
+        >
+          {isSnapshotPending ? "Saving…" : "Snapshot"}
+        </button>
+      </div>
     </div>
   );
 }

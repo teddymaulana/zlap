@@ -326,6 +326,8 @@ export default async function DashboardPage({
             <MarketplaceBalanceForm
               shopeeToSettle={shopeeToSettle}
               tokopediaToSettle={tokopediaToSettle}
+              totalValue={totalValue}
+              depositToPay={depositToPay}
             />
           </div>
           <div className="rounded border p-4">

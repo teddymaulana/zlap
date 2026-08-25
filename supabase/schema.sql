@@ -3,12 +3,134 @@
 
 create extension if not exists "pgcrypto";
 
+-- Reference catalog of card sets/expansions, managed from /sets in the ERP.
+-- Seeded below with real Pokemon (EN/JP/ID) and One Piece (EN) sets; admins
+-- add new ones as they release rather than needing a code change.
+create table if not exists card_sets (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  brand text not null check (brand in ('pokemon', 'one_piece')),
+  language text not null check (language in ('en', 'jp', 'id')),
+  created_at timestamptz not null default now(),
+  unique (name, brand, language)
+);
+
+insert into card_sets (name, brand, language) values
+  -- English Pokemon sets, Base Set (1999) through the most recent release.
+  ('Base Set', 'pokemon', 'en'), ('Jungle', 'pokemon', 'en'), ('Fossil', 'pokemon', 'en'),
+  ('Base Set 2', 'pokemon', 'en'), ('Team Rocket', 'pokemon', 'en'), ('Gym Heroes', 'pokemon', 'en'),
+  ('Gym Challenge', 'pokemon', 'en'), ('Neo Genesis', 'pokemon', 'en'), ('Neo Discovery', 'pokemon', 'en'),
+  ('Neo Revelation', 'pokemon', 'en'), ('Neo Destiny', 'pokemon', 'en'), ('Legendary Collection', 'pokemon', 'en'),
+  ('Expedition Base Set', 'pokemon', 'en'), ('Aquapolis', 'pokemon', 'en'), ('Skyridge', 'pokemon', 'en'),
+  ('EX Ruby & Sapphire', 'pokemon', 'en'), ('EX Sandstorm', 'pokemon', 'en'), ('EX Dragon', 'pokemon', 'en'),
+  ('EX Team Magma vs Team Aqua', 'pokemon', 'en'), ('EX Hidden Legends', 'pokemon', 'en'),
+  ('EX FireRed & LeafGreen', 'pokemon', 'en'), ('EX Team Rocket Returns', 'pokemon', 'en'),
+  ('EX Deoxys', 'pokemon', 'en'), ('EX Emerald', 'pokemon', 'en'), ('EX Unseen Forces', 'pokemon', 'en'),
+  ('EX Delta Species', 'pokemon', 'en'), ('EX Legend Maker', 'pokemon', 'en'), ('EX Holon Phantoms', 'pokemon', 'en'),
+  ('EX Crystal Guardians', 'pokemon', 'en'), ('EX Dragon Frontiers', 'pokemon', 'en'),
+  ('EX Power Keepers', 'pokemon', 'en'), ('Diamond & Pearl', 'pokemon', 'en'), ('Mysterious Treasures', 'pokemon', 'en'),
+  ('Secret Wonders', 'pokemon', 'en'), ('Great Encounters', 'pokemon', 'en'), ('Majestic Dawn', 'pokemon', 'en'),
+  ('Legends Awakened', 'pokemon', 'en'), ('Stormfront', 'pokemon', 'en'), ('Platinum', 'pokemon', 'en'),
+  ('Rising Rivals', 'pokemon', 'en'), ('Supreme Victors', 'pokemon', 'en'), ('Arceus', 'pokemon', 'en'),
+  ('HeartGold & SoulSilver', 'pokemon', 'en'), ('Unleashed', 'pokemon', 'en'), ('Undaunted', 'pokemon', 'en'),
+  ('Triumphant', 'pokemon', 'en'), ('Call of Legends', 'pokemon', 'en'), ('Black & White', 'pokemon', 'en'),
+  ('Emerging Powers', 'pokemon', 'en'), ('Noble Victories', 'pokemon', 'en'), ('Next Destinies', 'pokemon', 'en'),
+  ('Dark Explorers', 'pokemon', 'en'), ('Dragon Vault', 'pokemon', 'en'), ('Boundaries Crossed', 'pokemon', 'en'),
+  ('Plasma Storm', 'pokemon', 'en'), ('Plasma Freeze', 'pokemon', 'en'), ('Plasma Blast', 'pokemon', 'en'),
+  ('Legendary Treasures', 'pokemon', 'en'), ('Kalos Starter Set', 'pokemon', 'en'), ('XY', 'pokemon', 'en'),
+  ('Flashfire', 'pokemon', 'en'), ('Furious Fists', 'pokemon', 'en'), ('Phantom Forces', 'pokemon', 'en'),
+  ('Primal Clash', 'pokemon', 'en'), ('Double Crisis', 'pokemon', 'en'), ('Roaring Skies', 'pokemon', 'en'),
+  ('Ancient Origins', 'pokemon', 'en'), ('BREAKthrough', 'pokemon', 'en'), ('BREAKpoint', 'pokemon', 'en'),
+  ('Generations', 'pokemon', 'en'), ('Fates Collide', 'pokemon', 'en'), ('Steam Siege', 'pokemon', 'en'),
+  ('Evolutions', 'pokemon', 'en'), ('Sun & Moon', 'pokemon', 'en'), ('Guardians Rising', 'pokemon', 'en'),
+  ('Burning Shadows', 'pokemon', 'en'), ('Shining Legends', 'pokemon', 'en'), ('Crimson Invasion', 'pokemon', 'en'),
+  ('Ultra Prism', 'pokemon', 'en'), ('Forbidden Light', 'pokemon', 'en'), ('Celestial Storm', 'pokemon', 'en'),
+  ('Dragon Majesty', 'pokemon', 'en'), ('Lost Thunder', 'pokemon', 'en'), ('Team Up', 'pokemon', 'en'),
+  ('Detective Pikachu', 'pokemon', 'en'), ('Unbroken Bonds', 'pokemon', 'en'), ('Hidden Fates', 'pokemon', 'en'),
+  ('Unified Minds', 'pokemon', 'en'), ('Cosmic Eclipse', 'pokemon', 'en'), ('Sword & Shield', 'pokemon', 'en'),
+  ('Rebel Clash', 'pokemon', 'en'), ('Darkness Ablaze', 'pokemon', 'en'), ('Pokémon Futsal', 'pokemon', 'en'),
+  ('Champion''s Path', 'pokemon', 'en'), ('Vivid Voltage', 'pokemon', 'en'), ('Shining Fates', 'pokemon', 'en'),
+  ('Battle Styles', 'pokemon', 'en'), ('Chilling Reign', 'pokemon', 'en'), ('Evolving Skies', 'pokemon', 'en'),
+  ('Celebrations', 'pokemon', 'en'), ('Fusion Strike', 'pokemon', 'en'), ('Brilliant Stars', 'pokemon', 'en'),
+  ('Astral Radiance', 'pokemon', 'en'), ('Pokémon GO', 'pokemon', 'en'), ('Lost Origin', 'pokemon', 'en'),
+  ('Silver Tempest', 'pokemon', 'en'), ('Crown Zenith', 'pokemon', 'en'), ('Scarlet & Violet', 'pokemon', 'en'),
+  ('Paldea Evolved', 'pokemon', 'en'), ('Obsidian Flames', 'pokemon', 'en'), ('151', 'pokemon', 'en'),
+  ('Paradox Rift', 'pokemon', 'en'), ('Paldean Fates', 'pokemon', 'en'), ('Temporal Forces', 'pokemon', 'en'),
+  ('Twilight Masquerade', 'pokemon', 'en'), ('Shrouded Fable', 'pokemon', 'en'), ('Stellar Crown', 'pokemon', 'en'),
+  ('Surging Sparks', 'pokemon', 'en'), ('Prismatic Evolutions', 'pokemon', 'en'), ('Journey Together', 'pokemon', 'en'),
+  ('Destined Rivals', 'pokemon', 'en'), ('Black Bolt', 'pokemon', 'en'), ('White Flare', 'pokemon', 'en'),
+  ('Mega Evolution', 'pokemon', 'en'), ('Phantasmal Flames', 'pokemon', 'en'), ('Ascended Heroes', 'pokemon', 'en'),
+  ('Perfect Order', 'pokemon', 'en'), ('Chaos Rising', 'pokemon', 'en'), ('Pitch Black', 'pokemon', 'en'),
+
+  -- Japanese Pokemon sets — Sword & Shield era onward (matches the modern
+  -- Japanese product this shop actually stocks; dual releases like
+  -- "Sword • Shield" are split into their two individual box names).
+  ('Sword', 'pokemon', 'jp'), ('Shield', 'pokemon', 'jp'), ('Rebellion Crash', 'pokemon', 'jp'),
+  ('Infinity Zone', 'pokemon', 'jp'), ('Amazing Volt Tackle', 'pokemon', 'jp'),
+  ('Single Strike Master', 'pokemon', 'jp'), ('Rapid Strike Master', 'pokemon', 'jp'),
+  ('Silver Lance', 'pokemon', 'jp'), ('Jet-Black Spirit', 'pokemon', 'jp'),
+  ('Skyscraping Perfection', 'pokemon', 'jp'), ('Blue Sky Stream', 'pokemon', 'jp'),
+  ('Fusion Arts', 'pokemon', 'jp'), ('Star Birth', 'pokemon', 'jp'), ('Time Gazer', 'pokemon', 'jp'),
+  ('Space Juggler', 'pokemon', 'jp'), ('Lost Abyss', 'pokemon', 'jp'), ('Paradigm Trigger', 'pokemon', 'jp'),
+  ('Scarlet ex', 'pokemon', 'jp'), ('Violet ex', 'pokemon', 'jp'), ('Snow Hazard', 'pokemon', 'jp'),
+  ('Clay Burst', 'pokemon', 'jp'), ('Ruler of the Black Flame', 'pokemon', 'jp'), ('Ancient Roar', 'pokemon', 'jp'),
+  ('Future Flash', 'pokemon', 'jp'), ('Wild Force', 'pokemon', 'jp'), ('Cyber Judge', 'pokemon', 'jp'),
+  ('Transformation Mask', 'pokemon', 'jp'), ('Stellar Miracle', 'pokemon', 'jp'),
+  ('Super Electric Breaker', 'pokemon', 'jp'), ('Battle Partners', 'pokemon', 'jp'),
+  ('Glory of the Rocket Gang', 'pokemon', 'jp'), ('Black Bolt', 'pokemon', 'jp'), ('White Flare', 'pokemon', 'jp'),
+  ('Mega Brave', 'pokemon', 'jp'), ('Mega Symphonia', 'pokemon', 'jp'), ('Inferno X', 'pokemon', 'jp'),
+  ('Nihil Zero', 'pokemon', 'jp'), ('Ninja Spinner', 'pokemon', 'jp'), ('Abyss Eye', 'pokemon', 'jp'),
+  ('Storm Emeralda', 'pokemon', 'jp'), ('Mega Dream', 'pokemon', 'jp'),
+
+  -- Indonesian-language Pokemon releases (locally printed translations of
+  -- Japanese sets).
+  ('Topeng Transfigurasi', 'pokemon', 'id'), ('Bimbingan Rasi', 'pokemon', 'id'),
+  ('Hitam & Putih', 'pokemon', 'id'), ('Pertemuan Paradoks', 'pokemon', 'id'),
+
+  -- One Piece Card Game, English releases.
+  ('OP-01 Romance Dawn', 'one_piece', 'en'), ('OP-02 Paramount War', 'one_piece', 'en'),
+  ('OP-03 Pillars of Strength', 'one_piece', 'en'), ('OP-04 Kingdoms of Intrigue', 'one_piece', 'en'),
+  ('OP-05 Awakening of the New Era', 'one_piece', 'en'), ('OP-06 Wings of the Captain', 'one_piece', 'en'),
+  ('OP-07 500 Years Into the Future', 'one_piece', 'en'), ('OP-08 Two Legends', 'one_piece', 'en'),
+  ('OP-09 Emperors in the New World', 'one_piece', 'en'), ('OP-10 Royal Blood', 'one_piece', 'en'),
+  ('OP-11 A Fist of Divine Speed', 'one_piece', 'en'), ('OP-12 Legacy of the Master', 'one_piece', 'en'),
+  ('OP-13 Carrying On His Will', 'one_piece', 'en'), ('OP-14 The Azure Sea''s Seven', 'one_piece', 'en'),
+  ('OP-15 Adventure on Kami''s Island', 'one_piece', 'en'), ('OP-16 The Time of Battle', 'one_piece', 'en'),
+  ('EB-01 Memorial Collection', 'one_piece', 'en'), ('EB-02 Anime 25th Collection', 'one_piece', 'en'),
+  ('EB-03 Heroines Edition', 'one_piece', 'en'),
+
+  -- One Piece Card Game, Japanese releases — same OP-01..OP-16 line (Japan
+  -- gets each set first, English follows later), so these mirror the EN
+  -- names above but tracked as separate catalog entries under language 'jp'
+  -- since a booster box is printed as either the JP or EN version.
+  ('OP-01 Romance Dawn', 'one_piece', 'jp'), ('OP-02 Paramount War', 'one_piece', 'jp'),
+  ('OP-03 Pillars of Strength', 'one_piece', 'jp'), ('OP-04 Kingdoms of Intrigue', 'one_piece', 'jp'),
+  ('OP-05 Awakening of the New Era', 'one_piece', 'jp'), ('OP-06 Wings of the Captain', 'one_piece', 'jp'),
+  ('OP-07 500 Years Into the Future', 'one_piece', 'jp'), ('OP-08 Two Legends', 'one_piece', 'jp'),
+  ('OP-09 Emperors in the New World', 'one_piece', 'jp'), ('OP-10 Royal Blood', 'one_piece', 'jp'),
+  ('OP-11 A Fist of Divine Speed', 'one_piece', 'jp'), ('OP-12 Legacy of the Master', 'one_piece', 'jp'),
+  ('OP-13 Carrying On His Will', 'one_piece', 'jp'), ('OP-14 The Azure Sea''s Seven', 'one_piece', 'jp'),
+  ('OP-15 Adventure on Kami''s Island', 'one_piece', 'jp'), ('OP-16 The Time of Battle', 'one_piece', 'jp')
+on conflict (name, brand, language) do nothing;
+
 create table if not exists products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   sku text unique,
   tags text[] not null default '{}',
   image_url text,
+  brand text check (brand in ('pokemon', 'one_piece')),
+  set_id uuid references card_sets(id) on delete set null,
+  -- Shown in the storefront's featured carousels (set from /storefront in the ERP).
+  -- Sections are generic slots (see storefront_sections for their display
+  -- titles) rather than fixed categories, since what goes in them may change.
+  -- The _order columns control carousel display order within each section —
+  -- null when not featured, otherwise a per-section rank assigned on toggle-on
+  -- and adjusted by the reorder up/down controls.
+  featured_section_1 boolean not null default false,
+  featured_section_1_order integer,
+  featured_section_2 boolean not null default false,
+  featured_section_2_order integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -48,8 +170,24 @@ create table if not exists inventory_batches (
   acquired_date date,
   locked boolean not null default false,
   purchase_id uuid references purchases(id) on delete set null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- null = track the default (115% of cost); a stored value is a manual
+  -- override the "Reset" button clears back to null.
+  direct_price numeric,
+  -- Which batch's direct_price the storefront shows for this product — at
+  -- most one per product, enforced below.
+  is_storefront_price boolean not null default false,
+  -- Pre-order estimate is either a fixed arrival date OR a duration in days
+  -- counted from when the customer orders — mutually exclusive, set by
+  -- app/products/[id]/ProductBatches.tsx. When is_preorder is true and
+  -- neither is set, the app falls back to a 30-day default.
+  is_preorder boolean not null default false,
+  preorder_duration_days integer,
+  preorder_arrival_date date
 );
+
+create unique index if not exists one_storefront_price_per_product
+  on inventory_batches (product_id) where is_storefront_price;
 
 create table if not exists purchase_lines (
   id uuid primary key default gen_random_uuid(),
@@ -65,13 +203,90 @@ create table if not exists purchase_lines (
   created_at timestamptz not null default now()
 );
 
+-- Storefront customer accounts — a lightweight auth system deliberately kept
+-- separate from Supabase Auth (used only for ERP staff sign-in). Reusing
+-- Supabase Auth here would mean every logged-in customer inherits the
+-- 'authenticated' role that the RLS policies below grant full ERP access to,
+-- so these tables have NO RLS policies at all — every read/write goes
+-- through the service-role client from app/actions/customer.ts and
+-- lib/customerAuth.ts, gated by the app's own session-cookie check instead
+-- of a Supabase session.
+create table if not exists customers (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  password_hash text not null,
+  name text,
+  phone text,
+  address text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists customer_sessions (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists wishlist_items (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references customers(id) on delete cascade,
+  product_id uuid not null references products(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (customer_id, product_id)
+);
+
+-- One row per storefront product-detail-page view (app/actions/storefront.ts
+-- recordProductView) — anonymous, no visitor/session identity, just enough
+-- to compute "most viewed" over a time window for a future "People often
+-- visit" section. Not recorded in local dev (see recordProductView).
+create table if not exists product_views (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references products(id) on delete cascade,
+  viewed_at timestamptz not null default now()
+);
+
+create index if not exists product_views_product_id_idx on product_views (product_id);
+create index if not exists product_views_viewed_at_idx on product_views (viewed_at);
+
 create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
   order_id text unique not null,
   channel text check (channel in ('tokopedia','shopee','website','direct')),
   date timestamptz,
   order_url text,
-  status text not null default 'pending' check (status in ('pending','completed')),
+  status text not null default 'pending' check (status in ('pending','completed','cancelled')),
+  -- J&T Express AWB/resi number, entered manually once a package ships.
+  -- Looked up via Biteship on the public /store/track page to show live
+  -- courier status.
+  awb text,
+  -- Set on storefront checkout (app/actions/checkout.ts) — orders created
+  -- from the ERP directly (Tokopedia/Shopee imports) leave these null.
+  customer_name text,
+  customer_phone text,
+  customer_address text,
+  -- Distinct from `status` (fulfillment) — this tracks the Midtrans payment
+  -- lifecycle and is updated by the /api/midtrans/notification webhook and
+  -- the cancellation-refund flow in app/actions/orders.ts.
+  -- refund_pending = approved for cancellation but Midtrans can't refund the
+  -- payment method automatically (bank transfer VA) — staff must wire the
+  -- money back manually, then mark it refunded.
+  payment_status text not null default 'unpaid'
+    check (payment_status in ('unpaid','pending','paid','failed','expired','refund_pending','refunded')),
+  payment_method text,
+  -- Payment-method-specific details to show the customer (VA number + bank,
+  -- or a QRIS image URL) plus the Midtrans transaction_id, e.g.
+  -- {"transaction_id": "...", "va_number": "12345", "bank": "bca"}.
+  payment_details jsonb,
+  -- Set when the order was placed while signed into a storefront account
+  -- (app/actions/checkout.ts). Null for guest checkouts.
+  customer_id uuid references customers(id) on delete set null,
+  -- Customer-initiated cancellation request (app/actions/customer.ts) —
+  -- requires staff approval (app/actions/orders.ts) before status actually
+  -- becomes 'cancelled', per the business requirement that cancellation
+  -- isn't automatic.
+  cancellation_requested_at timestamptz,
+  cancellation_reason text,
   created_at timestamptz not null default now()
 );
 
@@ -136,6 +351,33 @@ create table if not exists marketplace_balances (
 insert into marketplace_balances (shopee_to_settle, tokopedia_to_settle)
   select 0, 0 where not exists (select 1 from marketplace_balances);
 
+-- Display titles for the storefront's featured carousel slots (set from
+-- /storefront in the ERP). id matches the products.featured_* column it
+-- controls, so lookups need no extra mapping.
+create table if not exists storefront_sections (
+  id text primary key,
+  title text not null
+);
+
+insert into storefront_sections (id, title) values
+  ('featured_section_1', 'Section 1'),
+  ('featured_section_2', 'Section 2')
+on conflict (id) do nothing;
+
+-- Clickable chips under the storefront search box (set from /storefront in
+-- the ERP).
+create table if not exists popular_keywords (
+  id uuid primary key default gen_random_uuid(),
+  keyword text not null,
+  created_at timestamptz not null default now()
+);
+
+insert into popular_keywords (keyword)
+  select v.keyword from (values
+    ('Booster Box'), ('Graded'), ('ETB'), ('PSA 10'), ('Charizard')
+  ) as v(keyword)
+  where not exists (select 1 from popular_keywords);
+
 create table if not exists supplier_pricelist (
   id uuid primary key default gen_random_uuid(),
   category text,
@@ -154,11 +396,15 @@ create table if not exists supplier_pricelist (
 
 -- "Available" is derived from order_lines rather than stored as a counter,
 -- so add/remove-line is a plain insert/delete with no read-modify-write race.
+-- Lines on a cancelled order don't count against stock — cancellation frees
+-- it back up instead of leaving it reserved forever.
 create or replace view inventory_batch_availability as
   select
     b.*,
     b.qty - coalesce(
-      (select count(*) from order_lines ol where ol.inventory_batch_id = b.id),
+      (select count(*) from order_lines ol
+        join orders o on o.id = ol.order_id
+        where ol.inventory_batch_id = b.id and o.status <> 'cancelled'),
       0
     ) as available
   from inventory_batches b;
@@ -166,6 +412,7 @@ create or replace view inventory_batch_availability as
 -- Row Level Security: internal tool, any authenticated user has full access.
 -- Cash / snapshots / supplier_pricelist have no app pages and are meant to be
 -- edited directly in Supabase Studio (which uses the service role and bypasses RLS).
+alter table card_sets enable row level security;
 alter table products enable row level security;
 alter table purchases enable row level security;
 alter table purchase_lines enable row level security;
@@ -177,9 +424,28 @@ alter table snapshots enable row level security;
 alter table supplier_pricelist enable row level security;
 alter table balances enable row level security;
 alter table marketplace_balances enable row level security;
+alter table storefront_sections enable row level security;
+alter table popular_keywords enable row level security;
+-- Customer accounts: RLS enabled with NO policies at all (see the comment
+-- above the customers table) — default-deny for anon/authenticated, service
+-- role only.
+alter table customers enable row level security;
+alter table customer_sessions enable row level security;
+alter table wishlist_items enable row level security;
+-- No policies here either — writes go through the service-role client in
+-- recordProductView, reads through getMostViewedProducts.
+alter table product_views enable row level security;
 
+create policy "authenticated full access" on card_sets for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Storefront (public, unauthenticated) needs to read set names for display.
+create policy "public read access" on card_sets for select
+  using (true);
 create policy "authenticated full access" on products for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Storefront (public, unauthenticated) needs read access to the catalog.
+create policy "public read access" on products for select
+  using (true);
 create policy "authenticated full access" on purchases for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on purchase_lines for all
@@ -200,6 +466,16 @@ create policy "authenticated full access" on balances for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on marketplace_balances for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated full access" on storefront_sections for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Storefront (public, unauthenticated) needs to read the section titles.
+create policy "public read access" on storefront_sections for select
+  using (true);
+create policy "authenticated full access" on popular_keywords for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Storefront (public, unauthenticated) needs to read the keyword chips.
+create policy "public read access" on popular_keywords for select
+  using (true);
 
 -- Storage bucket for product images (create it once here rather than clicking through the UI).
 insert into storage.buckets (id, name, public)

@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/"];
+// "/store" is the public storefront — it has its own dev password gate
+// (see app/store/layout.tsx), not the admin app's Supabase auth.
+const PUBLIC_PATHS = ["/login", "/", "/store"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

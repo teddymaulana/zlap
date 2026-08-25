@@ -1,0 +1,51 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+const MESSAGES = [
+  "We currently ship within Indonesia only",
+  "100% authentic cards, checked before shipping",
+];
+
+export default function AnnouncementBar() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (MESSAGES.length <= 1) return;
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % MESSAGES.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="bg-black text-xs font-medium tracking-wide text-white">
+      {/* Mobile: one message at a time, auto-sliding */}
+      <div className="overflow-hidden py-2 sm:hidden">
+        <div
+          className="flex transition-transform duration-500 ease-in-out"
+          style={{
+            width: `${MESSAGES.length * 100}%`,
+            transform: `translateX(-${(index * 100) / MESSAGES.length}%)`,
+          }}
+        >
+          {MESSAGES.map((msg, i) => (
+            <div key={i} className="shrink-0 text-center" style={{ width: `${100 / MESSAGES.length}%` }}>
+              {msg}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop: all messages in a row, separated by a rounded dot */}
+      <div className="hidden items-center justify-center gap-3 py-2 sm:flex">
+        {MESSAGES.map((msg, i) => (
+          <span key={i} className="flex items-center gap-3">
+            {i > 0 && <span className="h-1 w-1 rounded-full bg-white/50" />}
+            {msg}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}

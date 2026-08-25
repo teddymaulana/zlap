@@ -12,6 +12,17 @@ export const BALANCE_CATEGORIES = [
   { value: "ads", label: "Ads" },
 ] as const;
 
+export const PRODUCT_BRANDS = [
+  { value: "pokemon", label: "Pokemon Card Game" },
+  { value: "one_piece", label: "One Piece Trading Card Game" },
+] as const;
+
+export const CARD_SET_LANGUAGES = [
+  { value: "en", label: "English" },
+  { value: "jp", label: "Japanese" },
+  { value: "id", label: "Indonesian" },
+] as const;
+
 export const PRODUCT_TAGS = [
   "booster_box",
   "booster_pack",

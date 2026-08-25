@@ -29,3 +29,21 @@ export async function updateMarketplaceBalances(formData: FormData) {
 
   revalidatePath("/dashboard");
 }
+
+export async function createSnapshot(formData: FormData) {
+  const value = Number(formData.get("totalValue")) || 0;
+  const deposit = Number(formData.get("depositToPay")) || 0;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("snapshots").insert({
+    snapshot_date: new Date().toISOString().slice(0, 10),
+    value,
+    deposit,
+    shopee: 0,
+    tokopedia: 0,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/charts");
+  revalidatePath("/dashboard");
+}

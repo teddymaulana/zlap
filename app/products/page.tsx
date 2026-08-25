@@ -53,9 +53,12 @@ export default async function ProductsPage({
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Products</h1>
-        <Link href="/products/new" className="rounded bg-black px-3 py-2 text-sm text-white">
-          New product
-        </Link>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{count} products</span>
+          <Link href="/products/new" className="rounded bg-black px-3 py-2 text-sm text-white">
+            New product
+          </Link>
+        </div>
       </div>
       <form className="mb-4">
         <input

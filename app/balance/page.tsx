@@ -37,15 +37,25 @@ export default async function BalancePage({
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .range(from, to),
-    supabase.from("balances").select("type, amount"),
+    supabase
+      .from("balances")
+      .select("type, amount, date, created_at")
+      .order("date", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
   if (error) throw new Error(error.message);
   if (allError) throw new Error(allError.message);
 
-  const totalIncome = ((allEntries ?? []) as Pick<Balance, "type" | "amount">[])
+  // The summary boxes exclude the very first entry ever recorded (the
+  // beginning-balance seed row) — it isn't a period movement in/out.
+  const summaryEntries = (
+    (allEntries ?? []) as Pick<Balance, "type" | "amount" | "date" | "created_at">[]
+  ).slice(1);
+
+  const totalIncome = summaryEntries
     .filter((b) => b.type !== "out")
     .reduce((sum, b) => sum + b.amount, 0);
-  const totalOutcome = ((allEntries ?? []) as Pick<Balance, "type" | "amount">[])
+  const totalOutcome = summaryEntries
     .filter((b) => b.type === "out")
     .reduce((sum, b) => sum + b.amount, 0);
   const currentBalance = totalIncome - totalOutcome;

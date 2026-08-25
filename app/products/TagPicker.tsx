@@ -6,16 +6,25 @@ import { PRODUCT_TAGS } from "@/lib/constants";
 export default function TagPicker({
   name = "tags",
   initialTags = [],
+  allTags = [],
 }: {
   name?: string;
   initialTags?: string[];
+  allTags?: string[];
 }) {
   const [tags, setTags] = useState<string[]>(initialTags);
   const [search, setSearch] = useState("");
 
-  const suggestions = PRODUCT_TAGS.filter(
+  const trimmedSearch = search.trim();
+
+  const knownTags = [...new Set([...PRODUCT_TAGS, ...allTags])];
+  const suggestions = knownTags.filter(
     (t) => !tags.includes(t) && t.toLowerCase().includes(search.toLowerCase())
   );
+
+  const isNewTag =
+    trimmedSearch.length > 0 &&
+    !tags.some((t) => t.toLowerCase() === trimmedSearch.toLowerCase());
 
   function addTag(t: string) {
     setTags((prev) => [...prev, t]);
@@ -24,6 +33,13 @@ export default function TagPicker({
 
   function removeTag(t: string) {
     setTags((prev) => prev.filter((x) => x !== t));
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && isNewTag && !suggestions.some((s) => s === trimmedSearch)) {
+      e.preventDefault();
+      addTag(trimmedSearch);
+    }
   }
 
   return (
@@ -53,10 +69,11 @@ export default function TagPicker({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search tag to add…"
+          onKeyDown={handleKeyDown}
+          placeholder="Search or type a new tag…"
           className="w-full rounded border px-3 py-2 text-sm"
         />
-        {search && suggestions.length > 0 && (
+        {search && (suggestions.length > 0 || isNewTag) && (
           <div className="absolute z-10 mt-1 w-full rounded border bg-white shadow">
             {suggestions.map((t) => (
               <button
@@ -68,6 +85,15 @@ export default function TagPicker({
                 {t}
               </button>
             ))}
+            {isNewTag && !suggestions.some((s) => s === trimmedSearch) && (
+              <button
+                type="button"
+                onClick={() => addTag(trimmedSearch)}
+                className="block w-full border-t px-3 py-1.5 text-left text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Add &ldquo;{trimmedSearch}&rdquo; as new tag
+              </button>
+            )}
           </div>
         )}
       </div>

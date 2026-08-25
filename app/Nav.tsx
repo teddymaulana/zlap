@@ -11,6 +11,8 @@ export default function Nav() {
         <Link href="/orders">Orders</Link>
         <Link href="/balance">Balance</Link>
         <Link href="/charts">Charts</Link>
+        <Link href="/storefront">Storefront</Link>
+        <Link href="/sets">Sets</Link>
       </div>
       <form action={logout}>
         <button type="submit" className="text-sm text-gray-500 hover:underline">
