@@ -497,7 +497,9 @@ export async function getPopularKeywords(): Promise<string[]> {
 
 // Anonymous view event, feeding a future "People often visit" section (see
 // getMostViewedProducts below). Skipped outside production so local dev/QA
-// traffic doesn't skew real visit counts.
+// traffic doesn't skew real visit counts. Best-effort: a write failure here
+// (missing table, transient DB hiccup, etc.) must never take down the
+// product page itself, so errors are logged rather than thrown.
 export async function recordProductView(productId: string): Promise<void> {
   if (process.env.NODE_ENV !== "production") return;
 
@@ -506,7 +508,7 @@ export async function recordProductView(productId: string): Promise<void> {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
   const { error } = await service.from("product_views").insert({ product_id: productId });
-  if (error) throw new Error(error.message);
+  if (error) console.error("recordProductView failed:", error.message);
 }
 
 // Not wired into any page yet — ready for whenever a "People often visit"
