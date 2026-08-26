@@ -151,18 +151,14 @@ export type CustomerOrderDetail = {
   total: number;
 };
 
-export async function getCustomerOrderDetail(orderId: string): Promise<CustomerOrderDetail | null> {
-  const customerId = await getCurrentCustomerId();
-  if (!customerId) return null;
-
-  const service = serviceClient();
-  const { data: order } = await service.from("orders").select("*").eq("id", orderId).maybeSingle();
-  if (!order || order.customer_id !== customerId) return null;
-
+async function loadOrderDetail(
+  service: ReturnType<typeof serviceClient>,
+  order: { id: string; [key: string]: unknown }
+): Promise<CustomerOrderDetail> {
   const { data: rawLines, error } = await service
     .from("order_lines")
     .select("product_id, price, products(name, image_url)")
-    .eq("order_id", orderId);
+    .eq("order_id", order.id);
   if (error) throw new Error(error.message);
 
   const grouped = new Map<string, CustomerOrderLine>();
@@ -189,21 +185,56 @@ export async function getCustomerOrderDetail(orderId: string): Promise<CustomerO
 
   return {
     id: order.id,
-    order_id: order.order_id,
-    date: order.date,
-    status: order.status,
-    payment_status: order.payment_status,
-    payment_method: order.payment_method,
-    payment_details: order.payment_details,
-    awb: order.awb,
-    customer_name: order.customer_name,
-    customer_phone: order.customer_phone,
-    customer_address: order.customer_address,
-    cancellation_requested_at: order.cancellation_requested_at,
-    cancellation_reason: order.cancellation_reason,
+    order_id: order.order_id as string,
+    date: order.date as string | null,
+    status: order.status as CustomerOrderDetail["status"],
+    payment_status: order.payment_status as CustomerOrderDetail["payment_status"],
+    payment_method: order.payment_method as string | null,
+    payment_details: order.payment_details as CustomerOrderDetail["payment_details"],
+    awb: order.awb as string | null,
+    customer_name: order.customer_name as string | null,
+    customer_phone: order.customer_phone as string | null,
+    customer_address: order.customer_address as string | null,
+    cancellation_requested_at: order.cancellation_requested_at as string | null,
+    cancellation_reason: order.cancellation_reason as string | null,
     lines,
     total,
   };
+}
+
+export async function getCustomerOrderDetail(orderId: string): Promise<CustomerOrderDetail | null> {
+  const customerId = await getCurrentCustomerId();
+  if (!customerId) return null;
+
+  const service = serviceClient();
+  const { data: order } = await service.from("orders").select("*").eq("id", orderId).maybeSingle();
+  if (!order || order.customer_id !== customerId) return null;
+
+  return loadOrderDetail(service, order);
+}
+
+// Public lookup for guest checkouts, which have no account to sign into.
+// Gated by order code + the email used at checkout (not by session), since
+// a guest has no other credential to prove they own the order.
+export async function getGuestOrderDetail(
+  orderCode: string,
+  email: string
+): Promise<CustomerOrderDetail | null> {
+  const trimmedCode = orderCode.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!trimmedCode || !normalizedEmail) return null;
+
+  const service = serviceClient();
+  const { data: order } = await service
+    .from("orders")
+    .select("*")
+    .eq("order_id", trimmedCode)
+    .maybeSingle();
+  if (!order || !order.customer_email || order.customer_email.toLowerCase() !== normalizedEmail) {
+    return null;
+  }
+
+  return loadOrderDetail(service, order);
 }
 
 export async function requestOrderCancellation(

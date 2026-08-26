@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { updatePurchaseHeader } from "@/app/actions/purchases";
+import ButtonSpinner from "@/app/ButtonSpinner";
 import type { Purchase } from "@/lib/types";
 
 const FEE_FIELDS: { key: keyof Purchase; label: string }[] = [
@@ -55,9 +56,10 @@ export default function PurchaseHeaderForm({ purchase }: { purchase: Purchase })
       <button
         type="submit"
         disabled={isPending}
-        className="self-start rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+        className="relative self-start rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
       >
-        {isPending ? "Saving…" : "Save"}
+        <span className={isPending ? "invisible" : ""}>Save</span>
+        {isPending && <ButtonSpinner />}
       </button>
     </form>
   );

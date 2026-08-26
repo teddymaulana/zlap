@@ -7,6 +7,7 @@ import {
   setStorefrontPriceBatch,
   updateInventoryBatch,
 } from "@/app/actions/products";
+import ButtonSpinner from "@/app/ButtonSpinner";
 import type { InventoryBatchAvailability } from "@/lib/types";
 
 function formatMoney(amount: number) {
@@ -330,9 +331,10 @@ function BatchRow({
             type="button"
             onClick={save}
             disabled={isPending}
-            className="mt-3 rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            className="relative mt-3 rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
           >
-            {isPending ? "Saving…" : "Save batch"}
+            <span className={isPending ? "invisible" : ""}>Save batch</span>
+            {isPending && <ButtonSpinner />}
           </button>
         </>
       )}
@@ -358,9 +360,10 @@ export default function ProductBatches({
         type="button"
         onClick={() => startTransition(() => addInventoryBatch(productId))}
         disabled={isPending}
-        className="self-start rounded border px-3 py-2 text-sm"
+        className="relative self-start rounded border px-3 py-2 text-sm disabled:opacity-50"
       >
-        Add batch
+        <span className={isPending ? "invisible" : ""}>Add batch</span>
+        {isPending && <ButtonSpinner />}
       </button>
     </div>
   );

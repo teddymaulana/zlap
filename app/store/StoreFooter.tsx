@@ -1,6 +1,6 @@
 export default function StoreFooter() {
   return (
-    <footer className="mt-16 border-t bg-white">
+    <footer className="border-t bg-white">
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-4 px-4 py-8">
         <span className="text-sm font-bold tracking-wide">ZLAP CARD</span>
         <div className="flex items-center gap-4">

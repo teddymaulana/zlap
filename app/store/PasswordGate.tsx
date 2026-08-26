@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { unlockStorefront } from "@/app/actions/storefront";
+import ButtonSpinner from "@/app/ButtonSpinner";
 
 export default function PasswordGate() {
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +38,10 @@ export default function PasswordGate() {
         <button
           type="submit"
           disabled={isPending}
-          className="rounded bg-black px-3 py-2 text-white hover:bg-gray-800 disabled:opacity-50"
+          className="relative rounded bg-black px-3 py-2 text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          {isPending ? "Checking…" : "Enter"}
+          <span className={isPending ? "invisible" : ""}>Enter</span>
+          {isPending && <ButtonSpinner />}
         </button>
       </form>
     </div>

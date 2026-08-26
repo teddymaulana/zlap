@@ -131,6 +131,11 @@ create table if not exists products (
   featured_section_1_order integer,
   featured_section_2 boolean not null default false,
   featured_section_2_order integer,
+  -- "Make an offer" (see the offers table): whether the PDP shows the offer
+  -- button at all, and the staff-only reference floor shown when reviewing
+  -- an incoming offer in the admin Offers page (never shown to customers).
+  offers_enabled boolean not null default false,
+  offer_min_price numeric,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -265,6 +270,9 @@ create table if not exists orders (
   customer_name text,
   customer_phone text,
   customer_address text,
+  -- Used to send the order-lifecycle emails (lib/email.ts): confirmation,
+  -- payment confirmed, shipped, cancellation/refund updates.
+  customer_email text,
   -- Distinct from `status` (fulfillment) — this tracks the Midtrans payment
   -- lifecycle and is updated by the /api/midtrans/notification webhook and
   -- the cancellation-refund flow in app/actions/orders.ts.
@@ -296,6 +304,31 @@ create table if not exists order_lines (
   product_id uuid not null references products(id),
   inventory_batch_id uuid references inventory_batches(id),
   price numeric,
+  created_at timestamptz not null default now()
+);
+
+-- Customer "make an offer" submissions on products with offers_enabled.
+-- Staff approve/reject from the admin Offers page; approving mints a
+-- one-time checkout_token that lets the customer pay at the offered price
+-- through /store/offers/[token] (app/actions/offers.ts), independent of the
+-- product's normal storefront price and normal cart checkout.
+create table if not exists offers (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references products(id) on delete cascade,
+  -- Set when the offer was submitted while signed into a storefront account
+  -- (mirrors orders.customer_id). Null for guest offers.
+  customer_id uuid references customers(id) on delete set null,
+  customer_name text,
+  customer_email text not null,
+  offered_price numeric not null,
+  qty integer not null default 1,
+  status text not null default 'pending'
+    check (status in ('pending','approved','rejected','expired','completed')),
+  checkout_token text unique,
+  token_expires_at timestamptz,
+  responded_at timestamptz,
+  -- Set once the customer completes payment through the offer checkout link.
+  order_id uuid references orders(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -419,6 +452,10 @@ alter table purchase_lines enable row level security;
 alter table inventory_batches enable row level security;
 alter table orders enable row level security;
 alter table order_lines enable row level security;
+-- Customer submissions (pending status) and the checkout-token lookup both
+-- go through the service-role client, same as orders — staff review/approve
+-- through the authenticated policy below.
+alter table offers enable row level security;
 alter table cash enable row level security;
 alter table snapshots enable row level security;
 alter table supplier_pricelist enable row level security;
@@ -455,6 +492,8 @@ create policy "authenticated full access" on inventory_batches for all
 create policy "authenticated full access" on orders for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on order_lines for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated full access" on offers for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on cash for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

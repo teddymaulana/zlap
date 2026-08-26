@@ -17,8 +17,26 @@ export type Product = {
   featured_section_1_order: number | null;
   featured_section_2: boolean;
   featured_section_2_order: number | null;
+  offers_enabled: boolean;
+  offer_min_price: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Offer = {
+  id: string;
+  product_id: string;
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_email: string;
+  offered_price: number;
+  qty: number;
+  status: "pending" | "approved" | "rejected" | "expired" | "completed";
+  checkout_token: string | null;
+  token_expires_at: string | null;
+  responded_at: string | null;
+  order_id: string | null;
+  created_at: string;
 };
 
 export type StorefrontSection = {
@@ -89,6 +107,7 @@ export type Order = {
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
+  customer_email: string | null;
   payment_status: "unpaid" | "pending" | "paid" | "failed" | "expired" | "refund_pending" | "refunded";
   payment_method: string | null;
   payment_details: {

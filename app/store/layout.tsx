@@ -23,7 +23,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       <WishlistProvider>
         <StoreHeader />
         <AnnouncementBar />
-        {children}
+        <main className="pb-16">{children}</main>
         <StoreFooter />
         <CartDrawer />
       </WishlistProvider>

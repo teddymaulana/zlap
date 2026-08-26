@@ -1,11 +1,18 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { approveCancellation, rejectCancellation, markRefundComplete } from "@/app/actions/orders";
+import ButtonSpinner from "@/app/ButtonSpinner";
 import type { Order } from "@/lib/types";
 
 export default function CancellationPanel({ order }: { order: Order }) {
   const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<"approve" | "reject" | "refund" | null>(null);
+
+  const run = (action: () => Promise<void>, which: "approve" | "reject" | "refund") => {
+    setPendingAction(which);
+    startTransition(() => action());
+  };
 
   if (order.status !== "cancelled" && order.cancellation_requested_at) {
     return (
@@ -18,18 +25,20 @@ export default function CancellationPanel({ order }: { order: Order }) {
           <button
             type="button"
             disabled={isPending}
-            onClick={() => startTransition(() => approveCancellation(order.id))}
-            className="rounded bg-black px-3 py-1.5 text-xs text-white hover:bg-gray-800 disabled:opacity-50"
+            onClick={() => run(() => approveCancellation(order.id), "approve")}
+            className="relative rounded bg-black px-3 py-1.5 text-xs text-white hover:bg-gray-800 disabled:opacity-50"
           >
-            Approve
+            <span className={isPending && pendingAction === "approve" ? "invisible" : ""}>Approve</span>
+            {isPending && pendingAction === "approve" && <ButtonSpinner className="h-3 w-3" />}
           </button>
           <button
             type="button"
             disabled={isPending}
-            onClick={() => startTransition(() => rejectCancellation(order.id))}
-            className="rounded border px-3 py-1.5 text-xs hover:bg-gray-50 disabled:opacity-50"
+            onClick={() => run(() => rejectCancellation(order.id), "reject")}
+            className="relative rounded border px-3 py-1.5 text-xs hover:bg-gray-50 disabled:opacity-50"
           >
-            Reject
+            <span className={isPending && pendingAction === "reject" ? "invisible" : ""}>Reject</span>
+            {isPending && pendingAction === "reject" && <ButtonSpinner className="h-3 w-3" />}
           </button>
         </div>
       </div>
@@ -47,10 +56,11 @@ export default function CancellationPanel({ order }: { order: Order }) {
         <button
           type="button"
           disabled={isPending}
-          onClick={() => startTransition(() => markRefundComplete(order.id))}
-          className="rounded bg-black px-3 py-1.5 text-xs text-white hover:bg-gray-800 disabled:opacity-50"
+          onClick={() => run(() => markRefundComplete(order.id), "refund")}
+          className="relative rounded bg-black px-3 py-1.5 text-xs text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          Mark as refunded
+          <span className={isPending && pendingAction === "refund" ? "invisible" : ""}>Mark as refunded</span>
+          {isPending && pendingAction === "refund" && <ButtonSpinner className="h-3 w-3" />}
         </button>
       </div>
     );

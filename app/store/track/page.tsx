@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { trackShipment, type TrackingResult } from "@/app/actions/tracking";
 import { getRecommendedProducts, type StorefrontProduct } from "@/app/actions/storefront";
+import ButtonSpinner from "@/app/ButtonSpinner";
 import ProductCard from "../ProductCard";
 
 function initialAwb() {
@@ -39,7 +41,14 @@ export default function TrackPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
-      <h1 className="mb-4 text-lg font-semibold">Track your order</h1>
+      <h1 className="mb-1 text-lg font-semibold">Track your order</h1>
+      <p className="mb-4 text-sm text-gray-500">
+        Looking for your order&apos;s payment status instead of shipment tracking?{" "}
+        <Link href="/store/orders/lookup" className="text-black underline">
+          Check your order
+        </Link>
+        .
+      </p>
       <form onSubmit={handleSubmit} className="mb-8 flex gap-2">
         <input
           type="text"
@@ -50,9 +59,11 @@ export default function TrackPage() {
         />
         <button
           type="submit"
-          className="rounded bg-black px-5 py-3 text-sm font-medium text-white"
+          disabled={isSearching}
+          className="relative rounded bg-black px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
         >
-          Track
+          <span className={isSearching ? "invisible" : ""}>Track</span>
+          {isSearching && <ButtonSpinner />}
         </button>
       </form>
 

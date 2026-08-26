@@ -45,11 +45,22 @@ export async function updateProduct(productId: string, formData: FormData) {
   const tags = formData.getAll("tags").map(String);
   const brand = String(formData.get("brand") ?? "").trim();
   const setId = String(formData.get("set_id") ?? "").trim();
+  const offersEnabled = formData.get("offers_enabled") === "on";
+  const offerMinPriceRaw = String(formData.get("offer_min_price") ?? "").trim();
+  const offerMinPrice = offerMinPriceRaw ? Number(offerMinPriceRaw) : null;
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("products")
-    .update({ name, sku: sku || null, tags, brand: brand || null, set_id: setId || null })
+    .update({
+      name,
+      sku: sku || null,
+      tags,
+      brand: brand || null,
+      set_id: setId || null,
+      offers_enabled: offersEnabled,
+      offer_min_price: offerMinPrice,
+    })
     .eq("id", productId);
 
   if (error) throw new Error(error.message);

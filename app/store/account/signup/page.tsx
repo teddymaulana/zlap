@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUpCustomer } from "@/app/actions/customer";
+import ButtonSpinner from "@/app/ButtonSpinner";
 
 export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +65,10 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={isPending}
-          className="rounded bg-black px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="relative rounded bg-black px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          {isPending ? "Creating account…" : "Create account"}
+          <span className={isPending ? "invisible" : ""}>Create account</span>
+          {isPending && <ButtonSpinner />}
         </button>
       </form>
       <p className="text-sm text-gray-500">

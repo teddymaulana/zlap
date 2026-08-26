@@ -6,6 +6,7 @@ import {
   deletePurchaseLine,
   pushToInventory,
 } from "@/app/actions/purchases";
+import ButtonSpinner from "@/app/ButtonSpinner";
 import type { Product, PurchaseLine } from "@/lib/types";
 
 function formatMoney(amount: number) {
@@ -117,9 +118,10 @@ export default function PurchaseLines({
           <button
             type="submit"
             disabled={!selectedProductId || isPending}
-            className="col-span-2 rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50 sm:col-span-1"
+            className="relative col-span-2 rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50 sm:col-span-1"
           >
-            Add line
+            <span className={isPending ? "invisible" : ""}>Add line</span>
+            {isPending && <ButtonSpinner />}
           </button>
         </form>
       </div>
@@ -167,9 +169,10 @@ export default function PurchaseLines({
         type="button"
         disabled={!anyUnpushed || isPending}
         onClick={() => startTransition(() => pushToInventory(purchaseId))}
-        className="self-start rounded bg-black px-3 py-2 text-sm text-white disabled:opacity-50"
+        className="relative self-start rounded bg-black px-3 py-2 text-sm text-white disabled:opacity-50"
       >
-        {isPending ? "Pushing…" : "Push unpushed lines to inventory"}
+        <span className={isPending ? "invisible" : ""}>Push unpushed lines to inventory</span>
+        {isPending && <ButtonSpinner />}
       </button>
     </div>
   );

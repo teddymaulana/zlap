@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { sendPaymentConfirmedEmail } from "@/lib/email";
 
 type MidtransNotification = {
   order_id: string;
@@ -40,12 +41,26 @@ export async function POST(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  const { data: existing } = await service
+    .from("orders")
+    .select("id, customer_email, payment_status")
+    .eq("order_id", body.order_id)
+    .maybeSingle();
+
+  const newStatus = paymentStatusFor(body);
   const { error } = await service
     .from("orders")
-    .update({ payment_status: paymentStatusFor(body) })
+    .update({ payment_status: newStatus })
     .eq("order_id", body.order_id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Midtrans can send the same notification more than once (retries) — only
+  // email on the actual unpaid -> paid transition, not every redelivery.
+  if (newStatus === "paid" && existing?.payment_status !== "paid" && existing?.customer_email) {
+    await sendPaymentConfirmedEmail({ to: existing.customer_email, orderCode: body.order_id });
   }
 
   return NextResponse.json({ received: true });

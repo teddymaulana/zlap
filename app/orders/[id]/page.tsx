@@ -6,6 +6,7 @@ import OrderStatus from "./OrderStatus";
 import OrderAwb from "./OrderAwb";
 import OrderLines from "./OrderLines";
 import CancellationPanel from "./CancellationPanel";
+import DeleteOrderButton from "./DeleteOrderButton";
 
 export default async function OrderDetailPage({
   params,
@@ -44,9 +45,12 @@ export default async function OrderDetailPage({
             {o.channel} · {o.date}
           </div>
         </div>
-        <OrderStatus order={o} />
+        <div className="flex items-center gap-2">
+          <OrderStatus order={o} />
+          <DeleteOrderButton orderId={o.id} orderCode={o.order_id} />
+        </div>
       </div>
-      {(o.customer_name || o.customer_phone || o.customer_address) && (
+      {(o.customer_name || o.customer_email || o.customer_phone || o.customer_address) && (
         <div className="mb-6 rounded border p-4 text-sm">
           <div className="mb-2 flex items-center justify-between">
             <span className="font-medium">Customer</span>
@@ -73,6 +77,7 @@ export default async function OrderDetailPage({
             </span>
           </div>
           {o.customer_name && <div>{o.customer_name}</div>}
+          {o.customer_email && <div className="text-gray-600">{o.customer_email}</div>}
           {o.customer_phone && <div className="text-gray-600">{o.customer_phone}</div>}
           {o.customer_address && <div className="text-gray-600">{o.customer_address}</div>}
         </div>

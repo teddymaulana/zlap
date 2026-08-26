@@ -5,6 +5,12 @@ import type { CheckoutPaymentMethod, CheckoutBank } from "@/app/actions/checkout
 
 export type PaymentSelection = { method: CheckoutPaymentMethod; bank?: CheckoutBank };
 
+// Official brand logos (self-hosted from Wikimedia Commons, since Midtrans's
+// Core API — unlike its hosted Snap widget — doesn't return any logo assets).
+// ShopeePay has no cleanly-licensed logo available, so it keeps its badge.
+const LOGO_BASE =
+  "https://xjucizvelqtinmvvnyxr.supabase.co/storage/v1/object/public/site-assets/payment-logos";
+
 const OPTIONS: {
   method: CheckoutPaymentMethod;
   bank?: CheckoutBank;
@@ -12,6 +18,7 @@ const OPTIONS: {
   subLabel: string;
   badge: string;
   badgeClass: string;
+  logoUrl?: string;
 }[] = [
   {
     method: "bank_transfer",
@@ -20,6 +27,7 @@ const OPTIONS: {
     subLabel: "Bank transfer",
     badge: "BCA",
     badgeClass: "bg-blue-700",
+    logoUrl: `${LOGO_BASE}/bca.svg`,
   },
   {
     method: "bank_transfer",
@@ -28,6 +36,7 @@ const OPTIONS: {
     subLabel: "Bank transfer",
     badge: "BNI",
     badgeClass: "bg-orange-600",
+    logoUrl: `${LOGO_BASE}/bni.svg`,
   },
   {
     method: "bank_transfer",
@@ -36,6 +45,7 @@ const OPTIONS: {
     subLabel: "Bank transfer",
     badge: "BRI",
     badgeClass: "bg-sky-700",
+    logoUrl: `${LOGO_BASE}/bri.svg`,
   },
   {
     method: "bank_transfer",
@@ -44,6 +54,7 @@ const OPTIONS: {
     subLabel: "Bank transfer",
     badge: "PMT",
     badgeClass: "bg-teal-700",
+    logoUrl: `${LOGO_BASE}/permata.svg`,
   },
   {
     method: "qris",
@@ -51,6 +62,7 @@ const OPTIONS: {
     subLabel: "Scan with any e-wallet",
     badge: "QR",
     badgeClass: "bg-gray-900",
+    logoUrl: `${LOGO_BASE}/qris.svg`,
   },
   {
     method: "gopay",
@@ -58,6 +70,7 @@ const OPTIONS: {
     subLabel: "Pay with the Gojek app",
     badge: "G",
     badgeClass: "bg-[#00AA13]",
+    logoUrl: `${LOGO_BASE}/gopay.svg`,
   },
   {
     method: "shopeepay",
@@ -66,14 +79,35 @@ const OPTIONS: {
     badge: "S",
     badgeClass: "bg-[#EE4D2D]",
   },
-  {
-    method: "cstore",
-    label: "Indomaret",
-    subLabel: "Pay in-store with a code",
-    badge: "🏪",
-    badgeClass: "bg-red-600",
-  },
 ];
+
+function OptionIcon({
+  option,
+  size,
+}: {
+  option: (typeof OPTIONS)[number];
+  size: number;
+}) {
+  if (option.logoUrl) {
+    return (
+      <span
+        className="flex shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white p-1.5"
+        style={{ width: size, height: size }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={option.logoUrl} alt={option.label} className="max-h-full max-w-full object-contain" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${option.badgeClass}`}
+      style={{ width: size, height: size }}
+    >
+      {option.badge}
+    </span>
+  );
+}
 
 export default function PaymentMethodPicker({
   value,
@@ -93,15 +127,11 @@ export default function PaymentMethodPicker({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="flex items-center justify-between rounded-lg border-2 border-gray-200 p-3 text-left hover:border-gray-300"
+        className="flex items-center justify-between rounded-lg border-2 border-gray-200 bg-white p-3 text-left hover:border-gray-300"
       >
         {selectedOption ? (
           <span className="flex min-w-0 items-center gap-3">
-            <span
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${selectedOption.badgeClass}`}
-            >
-              {selectedOption.badge}
-            </span>
+            <OptionIcon option={selectedOption} size={32} />
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium">{selectedOption.label}</span>
               <span className="block truncate text-xs text-gray-500">{selectedOption.subLabel}</span>
@@ -152,11 +182,7 @@ export default function PaymentMethodPicker({
                       selected ? "border-black bg-gray-50" : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${opt.badgeClass}`}
-                    >
-                      {opt.badge}
-                    </span>
+                    <OptionIcon option={opt} size={36} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{opt.label}</span>
                       <span className="block truncate text-xs text-gray-500">{opt.subLabel}</span>

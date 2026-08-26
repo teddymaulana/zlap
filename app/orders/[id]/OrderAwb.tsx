@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateOrderAwb } from "@/app/actions/orders";
+import ButtonSpinner from "@/app/ButtonSpinner";
 import type { Order } from "@/lib/types";
 
 export default function OrderAwb({ order }: { order: Order }) {
@@ -30,9 +31,10 @@ export default function OrderAwb({ order }: { order: Order }) {
       <button
         type="submit"
         disabled={isPending}
-        className="rounded border px-2 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
+        className="relative rounded border px-2 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
       >
-        {isPending ? "Saving…" : "Save"}
+        <span className={isPending ? "invisible" : ""}>Save</span>
+        {isPending && <ButtonSpinner className="h-3 w-3" />}
       </button>
     </form>
   );

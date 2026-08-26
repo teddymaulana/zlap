@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createSnapshot, updateMarketplaceBalances } from "@/app/actions/dashboard";
+import ButtonSpinner from "@/app/ButtonSpinner";
 
 export default function MarketplaceBalanceForm({
   shopeeToSettle,
@@ -60,17 +61,19 @@ export default function MarketplaceBalanceForm({
           type="button"
           onClick={save}
           disabled={isSavePending}
-          className="rounded bg-black px-3 py-1 text-xs text-white disabled:opacity-50"
+          className="relative rounded bg-black px-3 py-1 text-xs text-white disabled:opacity-50"
         >
-          {isSavePending ? "Saving…" : "Save"}
+          <span className={isSavePending ? "invisible" : ""}>Save</span>
+          {isSavePending && <ButtonSpinner className="h-3 w-3" />}
         </button>
         <button
           type="button"
           onClick={snapshot}
           disabled={isSnapshotPending}
-          className="rounded border px-3 py-1 text-xs disabled:opacity-50"
+          className="relative rounded border px-3 py-1 text-xs disabled:opacity-50"
         >
-          {isSnapshotPending ? "Saving…" : "Snapshot"}
+          <span className={isSnapshotPending ? "invisible" : ""}>Snapshot</span>
+          {isSnapshotPending && <ButtonSpinner className="h-3 w-3" />}
         </button>
       </div>
     </div>

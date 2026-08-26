@@ -276,6 +276,7 @@ export async function getWishlistProducts(): Promise<StorefrontProduct[]> {
 
 export type StorefrontProductDetail = StorefrontProduct & {
   brand: "pokemon" | "one_piece" | null;
+  offersEnabled: boolean;
 };
 
 export async function getStorefrontProductDetail(
@@ -284,7 +285,7 @@ export async function getStorefrontProductDetail(
   const supabase = await createClient();
   const { data: product, error } = await supabase
     .from("products")
-    .select("id, name, sku, image_url, tags, brand, set_id")
+    .select("id, name, sku, image_url, tags, brand, set_id, offers_enabled")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -303,6 +304,7 @@ export async function getStorefrontProductDetail(
     tags: product.tags ?? [],
     brand: product.brand,
     setName: product.set_id ? (setNames.get(product.set_id) ?? null) : null,
+    offersEnabled: product.offers_enabled,
     ...info,
   };
 }

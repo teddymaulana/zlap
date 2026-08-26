@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateSectionTitle } from "@/app/actions/products";
+import ButtonSpinner from "@/app/ButtonSpinner";
 
 export default function SectionTitleEditor({
   sectionId,
@@ -30,9 +31,10 @@ export default function SectionTitleEditor({
       <button
         type="submit"
         disabled={isPending}
-        className="rounded border px-2 py-1 text-xs hover:bg-gray-50 disabled:opacity-50"
+        className="relative rounded border px-2 py-1 text-xs hover:bg-gray-50 disabled:opacity-50"
       >
-        {isPending ? "Saving…" : "Save"}
+        <span className={isPending ? "invisible" : ""}>Save</span>
+        {isPending && <ButtonSpinner className="h-3 w-3" />}
       </button>
     </form>
   );

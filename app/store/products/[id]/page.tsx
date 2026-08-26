@@ -7,6 +7,7 @@ import {
 } from "@/app/actions/storefront";
 import { PRODUCT_BRANDS } from "@/lib/constants";
 import ProductDetailActions from "./ProductDetailActions";
+import OfferButton from "./OfferButton";
 import SalesChart from "./SalesChart";
 import ProductCard from "../../ProductCard";
 
@@ -86,6 +87,12 @@ export default async function StorefrontProductDetailPage({
           <div className="mt-2">
             <ProductDetailActions product={product} />
           </div>
+
+          {product.offersEnabled && product.price !== null && (
+            <div className="mt-2">
+              <OfferButton productId={product.id} productName={product.name} currentPrice={product.price} />
+            </div>
+          )}
 
           <div className="mt-4">
             <SalesChart data={recentSales} />

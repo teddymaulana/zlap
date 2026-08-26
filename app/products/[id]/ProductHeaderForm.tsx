@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { updateProduct, uploadProductImage } from "@/app/actions/products";
 import TagPicker from "@/app/products/TagPicker";
 import BrandSetPicker from "@/app/products/BrandSetPicker";
+import ButtonSpinner from "@/app/ButtonSpinner";
 import type { CardSet, Product } from "@/lib/types";
 
 export default function ProductHeaderForm({
@@ -38,8 +39,9 @@ export default function ProductHeaderForm({
           className="flex flex-col gap-1"
         >
           <input type="file" name="image" accept="image/*" className="text-xs" />
-          <button type="submit" disabled={isUploadPending} className="text-xs underline">
-            {isUploadPending ? "Uploading…" : "Upload"}
+          <button type="submit" disabled={isUploadPending} className="relative text-xs underline">
+            <span className={isUploadPending ? "invisible" : ""}>Upload</span>
+            {isUploadPending && <ButtonSpinner className="h-3 w-3" />}
           </button>
         </form>
       </div>
@@ -76,12 +78,38 @@ export default function ProductHeaderForm({
           <span className="text-sm font-medium">Tags</span>
           <TagPicker initialTags={product.tags} allTags={allTags} />
         </div>
+        <div className="flex flex-col gap-2 rounded border p-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              name="offers_enabled"
+              defaultChecked={product.offers_enabled}
+              className="h-4 w-4"
+            />
+            Allow &ldquo;Make an offer&rdquo; on the storefront
+          </label>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="offer_min_price" className="text-xs text-gray-500">
+              Minimum acceptable offer (staff-only reference, not shown to customers)
+            </label>
+            <input
+              id="offer_min_price"
+              name="offer_min_price"
+              type="number"
+              min="0"
+              step="1"
+              defaultValue={product.offer_min_price ?? ""}
+              className="rounded border px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
         <button
           type="submit"
           disabled={isSavePending}
-          className="self-start rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="relative self-start rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
         >
-          {isSavePending ? "Saving…" : "Save"}
+          <span className={isSavePending ? "invisible" : ""}>Save</span>
+          {isSavePending && <ButtonSpinner />}
         </button>
       </form>
     </div>
