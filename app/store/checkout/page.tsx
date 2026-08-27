@@ -12,7 +12,7 @@ import {
 } from "@/app/actions/checkout";
 import { getCurrentCustomer } from "@/app/actions/customer";
 import QrPayment from "../QrPayment";
-import AreaAutocomplete from "../AreaAutocomplete";
+import AddressRegionSelect from "../AddressRegionSelect";
 import PaymentMethodPicker, { type PaymentSelection } from "./PaymentMethodPicker";
 
 function formatMoney(amount: number) {
@@ -29,7 +29,7 @@ export default function CheckoutPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [area, setArea] = useState("");
+  const [region, setRegion] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,8 +89,8 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!area) {
-      setError("Please select your area from the suggestions list");
+    if (!region) {
+      setError("Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos");
       return;
     }
     if (!paymentSelection) {
@@ -102,7 +102,7 @@ export default function CheckoutPage() {
     try {
       const res = await createOrderAndCharge(
         items.map((i) => ({ productId: i.id, qty: i.qty })),
-        { name, phone, address: `${address}, ${area}`, email },
+        { name, phone, address: `${address}, ${region}`, email },
         paymentSelection.method,
         paymentSelection.bank
       );
@@ -274,7 +274,7 @@ export default function CheckoutPage() {
             required
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
-          <AreaAutocomplete value={area} onChange={setArea} />
+          <AddressRegionSelect onChange={setRegion} />
           <textarea
             value={address}
             onChange={(e) => setAddress(e.target.value)}

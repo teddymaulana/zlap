@@ -414,6 +414,23 @@ create table if not exists storefront_settings (
 
 insert into storefront_settings (id) values (1) on conflict (id) do nothing;
 
+-- Indonesia's official administrative regions (province -> city/regency ->
+-- kecamatan -> kelurahan/desa), sourced from cahyadsn/wilayah (Kepmendagri
+-- codes) via scripts/import-regions.ts. Powers the cascading address
+-- selects at storefront checkout (app/store/AddressRegionSelect.tsx).
+-- code encodes the hierarchy itself, e.g. "32" (province) -> "32.04" (city)
+-- -> "32.04.05" (kecamatan) -> "32.04.05.2001" (kelurahan) — parent_code is
+-- just that string with its last dot-segment removed, null for provinces.
+-- No postal_code column: the source dataset doesn't carry one at village
+-- level, so checkout collects it as a manual field instead.
+create table if not exists regions (
+  code text primary key,
+  name text not null,
+  parent_code text references regions(code)
+);
+
+create index if not exists regions_parent_code_idx on regions (parent_code);
+
 -- Clickable chips under the storefront search box (set from /storefront in
 -- the ERP).
 create table if not exists popular_keywords (
@@ -481,6 +498,10 @@ alter table marketplace_balances enable row level security;
 alter table storefront_sections enable row level security;
 alter table popular_keywords enable row level security;
 alter table storefront_settings enable row level security;
+-- Read-only reference data, populated only by scripts/import-regions.ts
+-- (service role, bypasses RLS) — no "authenticated full access" policy
+-- needed since nothing in the ERP writes to it.
+alter table regions enable row level security;
 -- Customer accounts: RLS enabled with NO policies at all (see the comment
 -- above the customers table) — default-deny for anon/authenticated, service
 -- role only.
@@ -537,6 +558,10 @@ create policy "authenticated full access" on storefront_settings for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 -- Storefront (public, unauthenticated) needs to read the tagline/announcements.
 create policy "public read access" on storefront_settings for select
+  using (true);
+-- Storefront (public, unauthenticated) needs to read regions for the
+-- cascading address selects at checkout.
+create policy "public read access" on regions for select
   using (true);
 
 -- Storage bucket for product images (create it once here rather than clicking through the UI).
