@@ -59,15 +59,24 @@ export async function updateOrderAwb(orderId: string, awb: string) {
   if (trimmed) {
     const { data: order } = await supabase
       .from("orders")
-      .select("order_id, customer_email")
+      .select("order_id, customer_email, status")
       .eq("id", orderId)
       .maybeSingle();
+
+    // Saving an AWB means the order shipped — mark it fulfilled too, unless
+    // it was cancelled (don't reopen a cancelled order just because staff
+    // recorded a resi number on it after the fact).
+    if (order && order.status === "pending") {
+      await supabase.from("orders").update({ status: "completed" }).eq("id", orderId);
+    }
+
     if (order?.customer_email) {
       await sendShippedEmail({ to: order.customer_email, orderCode: order.order_id, awb: trimmed });
     }
   }
 
   revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/orders");
 }
 
 // Guards against overselling by re-checking the batch's derived availability

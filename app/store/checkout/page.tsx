@@ -12,6 +12,7 @@ import {
 } from "@/app/actions/checkout";
 import { getCurrentCustomer } from "@/app/actions/customer";
 import QrPayment from "../QrPayment";
+import AreaAutocomplete from "../AreaAutocomplete";
 import PaymentMethodPicker, { type PaymentSelection } from "./PaymentMethodPicker";
 
 function formatMoney(amount: number) {
@@ -28,6 +29,7 @@ export default function CheckoutPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [area, setArea] = useState("");
   const [address, setAddress] = useState("");
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,6 +89,10 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!area) {
+      setError("Please select your area from the suggestions list");
+      return;
+    }
     if (!paymentSelection) {
       setError("Please select a payment method");
       return;
@@ -96,7 +102,7 @@ export default function CheckoutPage() {
     try {
       const res = await createOrderAndCharge(
         items.map((i) => ({ productId: i.id, qty: i.qty })),
-        { name, phone, address, email },
+        { name, phone, address: `${address}, ${area}`, email },
         paymentSelection.method,
         paymentSelection.bank
       );
@@ -268,10 +274,11 @@ export default function CheckoutPage() {
             required
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
+          <AreaAutocomplete value={area} onChange={setArea} />
           <textarea
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Shipping address"
+            placeholder="Street name, house/unit number"
             required
             rows={3}
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { StorefrontSettings } from "@/lib/types";
 
 // Batch changes live in a separate table, so they don't trip the products
 // table's set_updated_at trigger on their own — touch the parent row so the
@@ -229,6 +230,37 @@ export async function updateSectionTitle(sectionId: FeaturedSection, title: stri
 
   revalidatePath("/storefront");
   revalidatePath("/store");
+}
+
+export async function getStorefrontSettings(): Promise<StorefrontSettings> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("storefront_settings").select("*").eq("id", 1).single();
+  if (error) throw new Error(error.message);
+  return data as StorefrontSettings;
+}
+
+export async function updateStorefrontSettings(headerTagline: string, announcementText: string) {
+  const trimmedTagline = headerTagline.trim();
+  if (!trimmedTagline) throw new Error("Header tagline is required");
+
+  // One message per line in the admin textarea; blank lines dropped.
+  const messages = announcementText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (messages.length === 0) throw new Error("At least one announcement message is required");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("storefront_settings")
+    .update({ header_tagline: trimmedTagline, announcement_messages: messages })
+    .eq("id", 1);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/storefront");
+  // "layout" since the header/announcement bar render from the shared
+  // /store layout, not just the /store homepage.
+  revalidatePath("/store", "layout");
 }
 
 export async function addPopularKeyword(keyword: string) {

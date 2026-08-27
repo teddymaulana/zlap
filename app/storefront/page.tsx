@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import type { PopularKeyword, Product, StorefrontSection } from "@/lib/types";
+import type { PopularKeyword, Product, StorefrontSection, StorefrontSettings } from "@/lib/types";
 import FeaturedOrderList from "./FeaturedOrderList";
 import AddToSection from "./AddToSection";
 import SectionTitleEditor from "./SectionTitleEditor";
 import KeywordManager from "./KeywordManager";
+import StorefrontSettingsEditor from "./StorefrontSettingsEditor";
 
 export default async function StorefrontSettingsPage() {
   const supabase = await createClient();
@@ -11,14 +12,17 @@ export default async function StorefrontSettingsPage() {
     { data: allProducts, error },
     { data: sections, error: sectionsError },
     { data: keywords, error: keywordsError },
+    { data: settingsRow, error: settingsError },
   ] = await Promise.all([
     supabase.from("products").select("*"),
     supabase.from("storefront_sections").select("*"),
     supabase.from("popular_keywords").select("*").order("created_at", { ascending: true }),
+    supabase.from("storefront_settings").select("*").eq("id", 1).single(),
   ]);
   if (error) throw new Error(error.message);
   if (sectionsError) throw new Error(sectionsError.message);
   if (keywordsError) throw new Error(keywordsError.message);
+  if (settingsError) throw new Error(settingsError.message);
 
   const products = (allProducts ?? []) as Product[];
   const sectionTitles = new Map((sections as StorefrontSection[] | null)?.map((s) => [s.id, s.title]));
@@ -47,6 +51,11 @@ export default async function StorefrontSettingsPage() {
         <p className="mt-1 text-sm text-gray-500">
           Choose which products show in the storefront&apos;s featured carousels.
         </p>
+      </div>
+
+      <div className="mb-10">
+        <h2 className="mb-2 text-sm font-semibold text-gray-700">Header &amp; announcement bar</h2>
+        <StorefrontSettingsEditor settings={settingsRow as StorefrontSettings} />
       </div>
 
       {sectionConfigs.map((section) => {

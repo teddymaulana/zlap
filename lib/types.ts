@@ -44,6 +44,13 @@ export type StorefrontSection = {
   title: string;
 };
 
+export type StorefrontSettings = {
+  id: number;
+  header_tagline: string;
+  announcement_messages: string[];
+  updated_at: string;
+};
+
 export type PopularKeyword = {
   id: string;
   keyword: string;

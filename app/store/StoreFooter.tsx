@@ -5,7 +5,7 @@ export default function StoreFooter() {
         <span className="text-sm font-bold tracking-wide">ZLAP CARD</span>
         <div className="flex items-center gap-4">
           <a
-            href="https://instagram.com/zlapcollectibles"
+            href="https://instagram.com/zlapcard"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Instagram"

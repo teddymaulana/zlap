@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCart } from "./CartContext";
 import { getCurrentCustomer } from "@/app/actions/customer";
 
-export default function StoreHeader() {
+export default function StoreHeader({ tagline }: { tagline: string }) {
   const { openCart, totalCount } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const closeMenu = () => setIsMenuOpen(false);
@@ -53,9 +53,10 @@ export default function StoreHeader() {
               priority
             />
           </Link>
+          <span className="hidden text-xs font-normal text-gray-600 sm:inline">{tagline}</span>
         </div>
-        <span className="col-start-2 hidden justify-self-center text-lg font-bold tracking-wide sm:block">
-          ZLAP CARD
+        <span className="col-start-2 justify-self-start text-left text-xs font-normal text-gray-600 sm:hidden">
+          {tagline}
         </span>
         <div className="col-start-3 flex items-center gap-3 justify-self-end">
           <Link

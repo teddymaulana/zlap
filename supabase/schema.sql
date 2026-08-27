@@ -397,6 +397,23 @@ insert into storefront_sections (id, title) values
   ('featured_section_2', 'Section 2')
 on conflict (id) do nothing;
 
+-- Singleton row (id is always 1) for storefront-wide editable copy: the
+-- tagline shown next to the logo in StoreHeader, and the rotating messages
+-- in AnnouncementBar (one per line in the admin textarea, stored as an
+-- array so the bar can keep rotating through several).
+create table if not exists storefront_settings (
+  id integer primary key default 1,
+  header_tagline text not null default 'Free shipping across Indonesia on every order',
+  announcement_messages text[] not null default array[
+    'We currently ship within Indonesia only',
+    '100% authentic cards, checked before shipping'
+  ],
+  updated_at timestamptz not null default now(),
+  constraint storefront_settings_singleton check (id = 1)
+);
+
+insert into storefront_settings (id) values (1) on conflict (id) do nothing;
+
 -- Clickable chips under the storefront search box (set from /storefront in
 -- the ERP).
 create table if not exists popular_keywords (
@@ -463,6 +480,7 @@ alter table balances enable row level security;
 alter table marketplace_balances enable row level security;
 alter table storefront_sections enable row level security;
 alter table popular_keywords enable row level security;
+alter table storefront_settings enable row level security;
 -- Customer accounts: RLS enabled with NO policies at all (see the comment
 -- above the customers table) — default-deny for anon/authenticated, service
 -- role only.
@@ -514,6 +532,11 @@ create policy "authenticated full access" on popular_keywords for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 -- Storefront (public, unauthenticated) needs to read the keyword chips.
 create policy "public read access" on popular_keywords for select
+  using (true);
+create policy "authenticated full access" on storefront_settings for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Storefront (public, unauthenticated) needs to read the tagline/announcements.
+create policy "public read access" on storefront_settings for select
   using (true);
 
 -- Storage bucket for product images (create it once here rather than clicking through the UI).

@@ -19,7 +19,7 @@ export default function OrderStatus({ order }: { order: Order }) {
       className="rounded border px-2 py-1 text-sm"
     >
       <option value="pending">Pending</option>
-      <option value="completed">Completed</option>
+      <option value="completed">Fulfilled</option>
     </select>
   );
 }

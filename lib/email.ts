@@ -44,7 +44,7 @@ function wrapEmail(heading: string, bodyHtml: string): string {
       <div style="padding: 16px 4px; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
         Zlap Collectibles
         <div style="margin-top: 8px;">
-          <a href="https://instagram.com/zlapcollectibles" style="color: #6b7280; text-decoration: underline; margin-right: 12px;">Instagram</a>
+          <a href="https://instagram.com/zlapcard" style="color: #6b7280; text-decoration: underline; margin-right: 12px;">Instagram</a>
           <a href="https://tiktok.com/@zlap.collectibles" style="color: #6b7280; text-decoration: underline; margin-right: 12px;">TikTok</a>
           <a href="https://wa.me/6285121369155" style="color: #6b7280; text-decoration: underline;">WhatsApp</a>
         </div>
