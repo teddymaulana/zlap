@@ -133,6 +133,9 @@ export async function updateInventoryBatch(
         ? Number(formData.get("preorder_duration_days"))
         : null,
       preorder_arrival_date: String(formData.get("preorder_arrival_date") || "") || null,
+      storefront_qty_limit: formData.get("storefront_qty_limit")
+        ? Number(formData.get("storefront_qty_limit"))
+        : null,
     })
     .eq("id", batchId);
   if (error) throw new Error(error.message);
@@ -278,6 +281,56 @@ export async function addPopularKeyword(keyword: string) {
 export async function removePopularKeyword(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("popular_keywords").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/storefront");
+  revalidatePath("/store");
+}
+
+export async function addStorefrontShortcut(label: string, href: string) {
+  const trimmedLabel = label.trim();
+  const trimmedHref = href.trim();
+  if (!trimmedLabel) throw new Error("Label is required");
+  if (!trimmedHref) throw new Error("Link is required");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("storefront_shortcuts")
+    .insert({ label: trimmedLabel, href: trimmedHref });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/storefront");
+  revalidatePath("/store");
+}
+
+export async function removeStorefrontShortcut(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("storefront_shortcuts").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/storefront");
+  revalidatePath("/store");
+}
+
+export async function uploadStorefrontShortcutImage(shortcutId: string, formData: FormData) {
+  const file = formData.get("image") as File | null;
+  if (!file || file.size === 0) return;
+
+  const supabase = await createClient();
+  const ext = file.name.split(".").pop();
+  const path = `shortcuts/${shortcutId}-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("product-images")
+    .upload(path, file, { upsert: true });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+
+  const { error } = await supabase
+    .from("storefront_shortcuts")
+    .update({ image_url: data.publicUrl })
+    .eq("id", shortcutId);
   if (error) throw new Error(error.message);
 
   revalidatePath("/storefront");

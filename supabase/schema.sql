@@ -188,7 +188,12 @@ create table if not exists inventory_batches (
   -- neither is set, the app falls back to a 30-day default.
   is_preorder boolean not null default false,
   preorder_duration_days integer,
-  preorder_arrival_date date
+  preorder_arrival_date date,
+  -- Caps how many of this batch's units the storefront can sell, separate
+  -- from the physical qty — e.g. qty=5 but only 4 should ever go out via
+  -- the storefront, holding the rest back for marketplace/manual orders.
+  -- Null = no cap (storefront can sell up to the full physical qty).
+  storefront_qty_limit numeric
 );
 
 create unique index if not exists one_storefront_price_per_product
@@ -445,6 +450,32 @@ insert into popular_keywords (keyword)
   ) as v(keyword)
   where not exists (select 1 from popular_keywords);
 
+-- Clickable image tiles under the storefront's search box (set from
+-- /storefront in the ERP). href is the destination when clicked — for
+-- entries built as a category filter or search query this is a /store URL
+-- with query params (brand/setId/category/q) the storefront page already
+-- knows how to apply client-side without a full reload; for a single-product
+-- shortcut it's /store/products/{id}; for anything else it's whatever the
+-- admin typed (e.g. an external link). image_url is uploaded to the
+-- product-images bucket under a shortcuts/ prefix — see uploadStorefrontShortcutImage.
+create table if not exists storefront_shortcuts (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  href text not null,
+  image_url text,
+  created_at timestamptz not null default now()
+);
+
+insert into storefront_shortcuts (label, href)
+  select v.label, v.href from (values
+    ('Pokemon', '/store?brand=pokemon'),
+    ('One Piece', '/store?brand=one_piece'),
+    ('Booster Boxes', '/store?category=booster_boxes'),
+    ('Singles', '/store?category=singles'),
+    ('Slabs', '/store?category=slabs')
+  ) as v(label, href)
+  where not exists (select 1 from storefront_shortcuts);
+
 create table if not exists supplier_pricelist (
   id uuid primary key default gen_random_uuid(),
   category text,
@@ -465,16 +496,40 @@ create table if not exists supplier_pricelist (
 -- so add/remove-line is a plain insert/delete with no read-modify-write race.
 -- Lines on a cancelled order don't count against stock — cancellation frees
 -- it back up instead of leaving it reserved forever.
-create or replace view inventory_batch_availability as
+--
+-- storefront_available additionally enforces storefront_qty_limit: it's
+-- capped by how many units have sold through the storefront specifically
+-- (channel = 'website'), not by total sales, so a unit sold via a
+-- marketplace/manual order still comes out of `available` for everyone but
+-- doesn't eat into the storefront's own allowance.
+--
+-- Dropped and recreated rather than `create or replace` — `b.*` means any
+-- column added to inventory_batches shifts the ordinal position of columns
+-- listed after it, and `create or replace view` can't rename/reorder an
+-- existing view column (only append past the end), so it errors instead.
+drop view if exists inventory_batch_availability;
+create view inventory_batch_availability as
+  with sold as (
+    select
+      ol.inventory_batch_id,
+      count(*) filter (where o.status <> 'cancelled') as total_sold,
+      count(*) filter (where o.status <> 'cancelled' and o.channel = 'website') as storefront_sold
+    from order_lines ol
+    join orders o on o.id = ol.order_id
+    group by ol.inventory_batch_id
+  )
   select
     b.*,
-    b.qty - coalesce(
-      (select count(*) from order_lines ol
-        join orders o on o.id = ol.order_id
-        where ol.inventory_batch_id = b.id and o.status <> 'cancelled'),
-      0
-    ) as available
-  from inventory_batches b;
+    b.qty - coalesce(s.total_sold, 0) as available,
+    case
+      when b.storefront_qty_limit is null then b.qty - coalesce(s.total_sold, 0)
+      else greatest(0, least(
+        b.qty - coalesce(s.total_sold, 0),
+        b.storefront_qty_limit - coalesce(s.storefront_sold, 0)
+      ))
+    end as storefront_available
+  from inventory_batches b
+  left join sold s on s.inventory_batch_id = b.id;
 
 -- Row Level Security: internal tool, any authenticated user has full access.
 -- Cash / snapshots / supplier_pricelist have no app pages and are meant to be
@@ -497,6 +552,7 @@ alter table balances enable row level security;
 alter table marketplace_balances enable row level security;
 alter table storefront_sections enable row level security;
 alter table popular_keywords enable row level security;
+alter table storefront_shortcuts enable row level security;
 alter table storefront_settings enable row level security;
 -- Read-only reference data, populated only by scripts/import-regions.ts
 -- (service role, bypasses RLS) — no "authenticated full access" policy
@@ -553,6 +609,11 @@ create policy "authenticated full access" on popular_keywords for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 -- Storefront (public, unauthenticated) needs to read the keyword chips.
 create policy "public read access" on popular_keywords for select
+  using (true);
+create policy "authenticated full access" on storefront_shortcuts for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Storefront (public, unauthenticated) needs to read the shortcut tiles.
+create policy "public read access" on storefront_shortcuts for select
   using (true);
 create policy "authenticated full access" on storefront_settings for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

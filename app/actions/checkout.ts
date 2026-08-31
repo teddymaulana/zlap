@@ -229,7 +229,7 @@ export async function createOrderAndCharge(
   // never trust price/availability the client sent.
   const { data: batches, error: batchesError } = await service
     .from("inventory_batch_availability")
-    .select("id, product_id, cost, direct_price, available")
+    .select("id, product_id, cost, direct_price, storefront_available")
     .eq("is_storefront_price", true)
     .in(
       "product_id",
@@ -245,7 +245,7 @@ export async function createOrderAndCharge(
   for (const item of items) {
     const batch = batchByProduct.get(item.productId);
     if (!batch) return { error: "One of the items in your cart is no longer available" };
-    if (item.qty > batch.available) {
+    if (item.qty > batch.storefront_available) {
       return { error: "Not enough stock left for one of the items in your cart" };
     }
     const price = batch.direct_price ?? batch.cost * DEFAULT_DIRECT_PRICE_PCT;

@@ -37,9 +37,9 @@ function OrderList({ orders }: { orders: Order[] }) {
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; storefrontPage?: string }>;
+  searchParams: Promise<{ page?: string; storefrontPage?: string; q?: string }>;
 }) {
-  const { page: pageParam, storefrontPage: storefrontPageParam } = await searchParams;
+  const { page: pageParam, storefrontPage: storefrontPageParam, q } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -48,33 +48,68 @@ export default async function OrdersPage({
   const storefrontFrom = (storefrontPage - 1) * PAGE_SIZE;
   const storefrontTo = storefrontFrom + PAGE_SIZE - 1;
 
+  const trimmedQuery = (q ?? "").trim();
+
   const supabase = await createClient();
+
+  // Product-name matches are resolved to order ids up front so they can be
+  // OR'd together with the order-id match in a single filter below — an order
+  // matches the search if either its own id or one of its line items' product
+  // name matches.
+  let productMatchOrderIds: string[] = [];
+  if (trimmedQuery) {
+    const { data: matchingLines, error: linesError } = await supabase
+      .from("order_lines")
+      .select("order_id, products!inner(name)")
+      .ilike("products.name", `%${trimmedQuery}%`);
+    if (linesError) throw new Error(linesError.message);
+    productMatchOrderIds = [...new Set((matchingLines ?? []).map((l) => l.order_id))];
+  }
+
+  // Raw PostgREST or() filters need their own escaping — quote the value and
+  // escape backslashes/quotes so commas or parens in the search text can't
+  // break the filter's mini-syntax.
+  const escapedQuery = trimmedQuery.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const searchFilter = trimmedQuery
+    ? [
+        `order_id.ilike."%${escapedQuery}%"`,
+        productMatchOrderIds.length > 0 ? `id.in.(${productMatchOrderIds.join(",")})` : null,
+      ]
+        .filter(Boolean)
+        .join(",")
+    : null;
+
   const [
     { data: orders, error, count },
     { data: storefrontOrders, error: storefrontError, count: storefrontCount },
   ] = await Promise.all([
     // Everything except storefront-auto-created orders (Tokopedia/Shopee/
     // direct sales entered manually, plus anything with no channel set).
-    supabase
-      .from("orders")
-      .select("*", { count: "exact" })
-      // neq alone would also exclude rows where channel is null (three-valued
-      // SQL logic), so null channels need to be let back in explicitly.
-      .or("channel.neq.website,channel.is.null")
-      .order("date", { ascending: false })
-      .range(from, to),
+    (() => {
+      let query = supabase
+        .from("orders")
+        .select("*", { count: "exact" })
+        // neq alone would also exclude rows where channel is null (three-valued
+        // SQL logic), so null channels need to be let back in explicitly.
+        .or("channel.neq.website,channel.is.null");
+      if (searchFilter) query = query.or(searchFilter);
+      return query.order("date", { ascending: false }).range(from, to);
+    })(),
     // Auto-created by the storefront's own checkout (app/actions/checkout.ts
     // always inserts channel: "website") — kept in a separate table since
     // these need no manual review the way marketplace orders do.
-    supabase
-      .from("orders")
-      .select("*", { count: "exact" })
-      .eq("channel", "website")
-      .order("date", { ascending: false })
-      .range(storefrontFrom, storefrontTo),
+    (() => {
+      let query = supabase.from("orders").select("*", { count: "exact" }).eq("channel", "website");
+      if (searchFilter) query = query.or(searchFilter);
+      return query.order("date", { ascending: false }).range(storefrontFrom, storefrontTo);
+    })(),
   ]);
   if (error) throw new Error(error.message);
   if (storefrontError) throw new Error(storefrontError.message);
+
+  // Search always starts back at page 1 — carrying the other list's page
+  // number forward would just be confusing once the result set has changed.
+  const searchExtraParams: Record<string, string> = trimmedQuery ? { q: trimmedQuery } : {};
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
@@ -84,6 +119,16 @@ export default async function OrdersPage({
           New order
         </Link>
       </div>
+
+      <form method="get" className="mb-6">
+        <input
+          type="search"
+          name="q"
+          defaultValue={trimmedQuery}
+          placeholder="Search order number or product name"
+          className="w-full max-w-sm rounded border px-3 py-2 text-sm"
+        />
+      </form>
 
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
         <div className="order-1 sm:order-2">
@@ -95,7 +140,7 @@ export default async function OrdersPage({
             totalCount={storefrontCount ?? 0}
             basePath="/orders"
             paramName="storefrontPage"
-            extraParams={pageParam ? { page: pageParam } : {}}
+            extraParams={searchExtraParams}
           />
         </div>
 
@@ -108,7 +153,7 @@ export default async function OrdersPage({
             totalCount={count ?? 0}
             basePath="/orders"
             paramName="page"
-            extraParams={storefrontPageParam ? { storefrontPage: storefrontPageParam } : {}}
+            extraParams={searchExtraParams}
           />
         </div>
       </div>

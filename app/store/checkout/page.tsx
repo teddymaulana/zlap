@@ -13,6 +13,8 @@ import {
 import { getCurrentCustomer } from "@/app/actions/customer";
 import QrPayment from "../QrPayment";
 import AddressRegionSelect from "../AddressRegionSelect";
+import FloatingLabelInput from "../FloatingLabelInput";
+import FloatingLabelTextarea from "../FloatingLabelTextarea";
 import PaymentMethodPicker, { type PaymentSelection } from "./PaymentMethodPicker";
 
 function formatMoney(amount: number) {
@@ -249,45 +251,41 @@ export default function CheckoutPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">Shipping Address</h2>
-          <input
+          <h2 className="mb-1 text-lg font-bold text-black">Shipping Address</h2>
+          <FloatingLabelInput
             type="text"
+            label="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Full name"
             required
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
-          <input
+          <FloatingLabelInput
             type="email"
+            label="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
             required
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
-          <input
+          <FloatingLabelInput
             type="tel"
+            label="Phone number"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone number"
             required
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
           <AddressRegionSelect onChange={setRegion} />
-          <textarea
+          <FloatingLabelTextarea
+            label="Street name, house/unit number"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Street name, house/unit number"
             required
             rows={3}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
 
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">Payment Method</h2>
+          <h2 className="mt-2 mb-1 text-lg font-bold text-black">Payment Method</h2>
           <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
 
-          <h2 className="mt-3 mb-2 text-sm font-semibold text-gray-700">Payment Summary</h2>
+          <h2 className="mt-2 mb-1 text-lg font-bold text-black">Payment Summary</h2>
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
             <div className="flex items-center justify-between py-1 text-sm">
               <span className="text-gray-500">Subtotal</span>

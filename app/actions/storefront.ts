@@ -5,6 +5,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getWishlistProductIds } from "@/app/actions/customer";
 import { isSlabProduct } from "@/lib/productCategory";
+import type { StorefrontShortcut } from "@/lib/types";
 
 const DEFAULT_DIRECT_PRICE_PCT = 1.15;
 
@@ -172,7 +173,7 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
     .from("inventory_batch_availability")
     .select("product_id, cost, direct_price, is_preorder, preorder_duration_days, preorder_arrival_date")
     .eq("is_storefront_price", true)
-    .gt("available", 0);
+    .gt("storefront_available", 0);
   if (batchesError) throw new Error(batchesError.message);
   if (!batches || batches.length === 0) return [];
 
@@ -479,12 +480,15 @@ export async function getStorefrontAvailability(
   );
   const { data, error } = await service
     .from("inventory_batch_availability")
-    .select("product_id, available")
+    .select("product_id, storefront_available")
     .in("product_id", productIds)
     .eq("is_storefront_price", true);
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((r) => ({ productId: r.product_id, available: Math.max(0, r.available) }));
+  return (data ?? []).map((r) => ({
+    productId: r.product_id,
+    available: Math.max(0, r.storefront_available),
+  }));
 }
 
 export async function getPopularKeywords(): Promise<string[]> {
@@ -495,6 +499,16 @@ export async function getPopularKeywords(): Promise<string[]> {
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => row.keyword);
+}
+
+export async function getStorefrontShortcuts(): Promise<StorefrontShortcut[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("storefront_shortcuts")
+    .select("id, label, href, image_url")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as StorefrontShortcut[];
 }
 
 // Anonymous view event, feeding a future "People often visit" section (see

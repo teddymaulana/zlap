@@ -56,6 +56,13 @@ export type PopularKeyword = {
   keyword: string;
 };
 
+export type StorefrontShortcut = {
+  id: string;
+  label: string;
+  href: string;
+  image_url: string | null;
+};
+
 export type InventoryBatch = {
   id: string;
   product_id: string;
@@ -72,9 +79,13 @@ export type InventoryBatch = {
   is_preorder: boolean;
   preorder_duration_days: number | null;
   preorder_arrival_date: string | null;
+  storefront_qty_limit: number | null;
 };
 
-export type InventoryBatchAvailability = InventoryBatch & { available: number };
+export type InventoryBatchAvailability = InventoryBatch & {
+  available: number;
+  storefront_available: number;
+};
 
 export type Purchase = {
   id: string;

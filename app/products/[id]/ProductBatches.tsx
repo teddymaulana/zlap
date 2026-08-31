@@ -29,6 +29,7 @@ type Draft = {
   preorder_mode: "duration" | "date";
   preorder_duration_days: number;
   preorder_arrival_date: string;
+  storefront_qty_limit: number | null;
 };
 
 function toDraft(b: InventoryBatchAvailability): Draft {
@@ -44,6 +45,7 @@ function toDraft(b: InventoryBatchAvailability): Draft {
     preorder_mode: b.preorder_arrival_date ? "date" : "duration",
     preorder_duration_days: b.preorder_duration_days ?? DEFAULT_PREORDER_DAYS,
     preorder_arrival_date: b.preorder_arrival_date ?? "",
+    storefront_qty_limit: b.storefront_qty_limit,
   };
 }
 
@@ -83,6 +85,9 @@ function BatchRow({
         fd.set("preorder_arrival_date", draft.preorder_arrival_date);
       }
     }
+    if (draft.storefront_qty_limit !== null) {
+      fd.set("storefront_qty_limit", String(draft.storefront_qty_limit));
+    }
     startTransition(() => updateInventoryBatch(productId, batch.id, fd));
   };
 
@@ -101,6 +106,11 @@ function BatchRow({
           <span className="text-gray-400">{open ? "▾" : "▸"}</span>
           <span>{available} available</span>
           <span>{sold} sold</span>
+          {batch.storefront_qty_limit !== null && (
+            <span className="text-gray-400">
+              ({Math.max(0, batch.storefront_available)} for storefront)
+            </span>
+          )}
           <span>{formatMoney(batch.cost)}</span>
           <span>{batch.acquired_date}</span>
           {batch.is_storefront_price && (
@@ -179,6 +189,40 @@ function BatchRow({
         <div className="flex flex-col gap-1 text-sm">
           Available
           <div className="rounded border bg-gray-50 px-2 py-1">{available}</div>
+        </div>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="flex items-center justify-between">
+            Storefront limit
+            {draft.storefront_qty_limit !== null && (
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, storefront_qty_limit: null })}
+                className="text-xs font-normal text-gray-500 hover:underline"
+              >
+                Reset
+              </button>
+            )}
+          </span>
+          <input
+            type="number"
+            min={0}
+            disabled={draft.locked}
+            value={draft.storefront_qty_limit ?? ""}
+            placeholder="No limit"
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                storefront_qty_limit: e.target.value === "" ? null : Number(e.target.value) || 0,
+              })
+            }
+            className="rounded border px-2 py-1"
+          />
+        </label>
+        <div className="flex flex-col gap-1 text-sm">
+          Storefront available
+          <div className="rounded border bg-gray-50 px-2 py-1">
+            {Math.max(0, batch.storefront_available)}
+          </div>
         </div>
         <div className="flex flex-col gap-1 text-sm">
           Total value

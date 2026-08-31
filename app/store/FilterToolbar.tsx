@@ -34,10 +34,13 @@ export default function FilterToolbar({
   sets,
   value,
   onChange,
+  syncToken,
 }: {
   sets: CardSet[];
   value: StorefrontFilterValue;
   onChange: (next: StorefrontFilterValue) => void;
+  /** Bump this (e.g. a counter) whenever `value` is set from outside this component. */
+  syncToken?: number;
 }) {
   const [brandSearch, setBrandSearch] = useState(
     () => PRODUCT_BRANDS.find((b) => b.value === value.brand)?.label ?? ""
@@ -56,6 +59,19 @@ export default function FilterToolbar({
   );
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const categoryRef = useClickOutside(() => setIsCategoryOpen(false));
+
+  // syncToken bumps only when a filter is set from outside this component
+  // (e.g. a homepage category shortcut) — re-derive the display text then.
+  // It must NOT re-run on every value.brand/setId/category change, since typing
+  // in these boxes also clears the active filter and would otherwise wipe
+  // what the user is mid-typing.
+  useEffect(() => {
+    if (syncToken === undefined) return;
+    setBrandSearch(PRODUCT_BRANDS.find((b) => b.value === value.brand)?.label ?? "");
+    setSetSearch(sets.find((s) => s.id === value.setId)?.name ?? "");
+    setCategorySearch(CATEGORIES.find((c) => c.value === value.category)?.label ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncToken]);
 
   const brandMatches = PRODUCT_BRANDS.filter((b) =>
     b.label.toLowerCase().includes(brandSearch.toLowerCase())
@@ -80,7 +96,13 @@ export default function FilterToolbar({
         <input
           type="text"
           value={brandSearch}
-          onFocus={() => setIsBrandOpen(true)}
+          onFocus={() => {
+            setIsBrandOpen(true);
+            if (value.brand) {
+              setBrandSearch("");
+              onChange({ ...value, brand: "", setId: "" });
+            }
+          }}
           onChange={(e) => {
             setBrandSearch(e.target.value);
             setIsBrandOpen(true);
@@ -118,7 +140,13 @@ export default function FilterToolbar({
         <input
           type="text"
           value={setSearch}
-          onFocus={() => setIsSetOpen(true)}
+          onFocus={() => {
+            setIsSetOpen(true);
+            if (value.setId) {
+              setSetSearch("");
+              onChange({ ...value, setId: "" });
+            }
+          }}
           onChange={(e) => {
             setSetSearch(e.target.value);
             setIsSetOpen(true);
@@ -167,7 +195,13 @@ export default function FilterToolbar({
         <input
           type="text"
           value={categorySearch}
-          onFocus={() => setIsCategoryOpen(true)}
+          onFocus={() => {
+            setIsCategoryOpen(true);
+            if (value.category) {
+              setCategorySearch("");
+              onChange({ ...value, category: "" });
+            }
+          }}
           onChange={(e) => {
             setCategorySearch(e.target.value);
             setIsCategoryOpen(true);

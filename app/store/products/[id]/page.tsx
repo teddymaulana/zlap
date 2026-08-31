@@ -10,6 +10,7 @@ import ProductDetailActions from "./ProductDetailActions";
 import OfferButton from "./OfferButton";
 import SalesChart from "./SalesChart";
 import ProductCard from "../../ProductCard";
+import WhatsAppProductAnnouncer from "../../WhatsAppProductAnnouncer";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -39,6 +40,7 @@ export default async function StorefrontProductDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      <WhatsAppProductAnnouncer name={product.name} path={`/store/products/${product.id}`} />
       <div className="grid gap-8 sm:grid-cols-2">
         {product.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element

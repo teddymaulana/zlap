@@ -1,15 +1,23 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import PasswordGate from "./PasswordGate";
 import { CartProvider } from "./CartContext";
 import { WishlistProvider } from "./WishlistContext";
+import { WhatsAppProvider } from "./WhatsAppContext";
 import StoreHeader from "./StoreHeader";
 import AnnouncementBar from "./AnnouncementBar";
 import StoreFooter from "./StoreFooter";
 import CartDrawer from "./CartDrawer";
+import WhatsAppFloatingButton from "./WhatsAppFloatingButton";
 
 const STOREFRONT_PASSWORD = process.env.STOREFRONT_PASSWORD || "zlapdev";
 const ACCESS_COOKIE = "storefront_access";
+
+export const metadata: Metadata = {
+  title: "ZLAP CARD",
+  description: "Authentic Pokemon and One Piece trading cards, shipped across Indonesia.",
+};
 
 const DEFAULT_TAGLINE = "Free shipping across Indonesia on every order";
 const DEFAULT_ANNOUNCEMENTS = [
@@ -53,11 +61,14 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   return (
     <CartProvider>
       <WishlistProvider>
-        <StoreHeader tagline={tagline} />
-        <AnnouncementBar messages={announcements} />
-        <main className="pb-16">{children}</main>
-        <StoreFooter />
-        <CartDrawer />
+        <WhatsAppProvider>
+          <StoreHeader tagline={tagline} />
+          <AnnouncementBar messages={announcements} />
+          <main className="min-h-screen bg-gray-50 pb-16">{children}</main>
+          <StoreFooter />
+          <CartDrawer />
+          <WhatsAppFloatingButton />
+        </WhatsAppProvider>
       </WishlistProvider>
     </CartProvider>
   );

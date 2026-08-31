@@ -6,13 +6,15 @@ import {
   getFeaturedProducts,
   getStorefrontSectionTitles,
   getPopularKeywords,
+  getStorefrontShortcuts,
   type StorefrontProduct,
 } from "@/app/actions/storefront";
 import { getCardSets } from "@/app/actions/sets";
-import type { CardSet } from "@/lib/types";
+import type { CardSet, StorefrontShortcut } from "@/lib/types";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import ProductCard from "./ProductCard";
 import FeaturedCarousel from "./FeaturedCarousel";
+import CategoryShortcuts from "./CategoryShortcuts";
 import FilterToolbar, { type StorefrontFilterValue } from "./FilterToolbar";
 
 const EMPTY_FILTERS: StorefrontFilterValue = { brand: "", setId: "", category: "" };
@@ -21,6 +23,18 @@ const EMPTY_FILTERS: StorefrontFilterValue = { brand: "", setId: "", category: "
 function initialQuery() {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("q") ?? "";
+}
+
+// Pick up ?brand=/?setId=/?category= from the URL on first load — e.g. a
+// shared/bookmarked link to a category-filter homepage shortcut.
+function initialFilters(): StorefrontFilterValue {
+  if (typeof window === "undefined") return EMPTY_FILTERS;
+  const params = new URLSearchParams(window.location.search);
+  return {
+    brand: params.get("brand") ?? "",
+    setId: params.get("setId") ?? "",
+    category: params.get("category") ?? "",
+  };
 }
 
 export default function StorePage() {
@@ -34,8 +48,10 @@ export default function StorePage() {
     featured_section_2: "Section 2",
   });
   const [popularKeywords, setPopularKeywords] = useState<string[]>([]);
+  const [shortcuts, setShortcuts] = useState<StorefrontShortcut[]>([]);
   const [sets, setSets] = useState<CardSet[]>([]);
-  const [filters, setFilters] = useState<StorefrontFilterValue>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<StorefrontFilterValue>(initialFilters);
+  const [filterSyncToken, setFilterSyncToken] = useState(0);
 
   const runSearch = async (q: string, f: StorefrontFilterValue) => {
     const trimmed = q.trim();
@@ -64,11 +80,12 @@ export default function StorePage() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial search from the URL, runs once
-    if (query) runSearch(query, EMPTY_FILTERS);
+    if (query || filters.brand || filters.setId || filters.category) runSearch(query, filters);
     getFeaturedProducts("featured_section_1").then(setSection1);
     getFeaturedProducts("featured_section_2").then(setSection2);
     getStorefrontSectionTitles().then(setSectionTitles);
     getPopularKeywords().then(setPopularKeywords);
+    getStorefrontShortcuts().then(setShortcuts);
     getCardSets().then(setSets);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,8 +100,10 @@ export default function StorePage() {
 
   const handleKeywordClick = (keyword: string) => {
     setQuery(keyword);
+    setFilters(EMPTY_FILTERS);
+    setFilterSyncToken((t) => t + 1);
     window.history.replaceState(null, "", `/store?q=${encodeURIComponent(keyword)}`);
-    runSearch(keyword, filters);
+    runSearch(keyword, EMPTY_FILTERS);
   };
 
   const handleFiltersChange = (next: StorefrontFilterValue) => {
@@ -92,37 +111,30 @@ export default function StorePage() {
     runSearch(query, next);
   };
 
+  // A homepage shortcut whose href is a /store?... filter/search link — parse
+  // the query string it encodes and apply it in place, no full page reload.
+  const handleShortcutFilter = (params: URLSearchParams) => {
+    const q = params.get("q") ?? "";
+    const next: StorefrontFilterValue = {
+      brand: params.get("brand") ?? "",
+      setId: params.get("setId") ?? "",
+      category: params.get("category") ?? "",
+    };
+    setQuery(q);
+    setFilters(next);
+    setFilterSyncToken((t) => t + 1);
+    window.history.replaceState(null, "", `/store?${params.toString()}`);
+    runSearch(q, next);
+  };
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products…"
-            className="w-full rounded bg-[#efefef] px-4 py-3 pr-10 text-base"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                window.history.replaceState(null, "", "/store");
-                runSearch("", filters);
-              }}
-              aria-label="Clear search"
-              className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              ×
-            </button>
-          )}
-        </div>
+      <form onSubmit={handleSubmit} className="relative">
         <button
           type="submit"
           disabled={isSearching}
           aria-label="Search"
-          className="relative rounded bg-black px-5 py-3 text-sm font-medium text-white disabled:opacity-50"
+          className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-500 hover:text-black disabled:opacity-50"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -139,10 +151,40 @@ export default function StorePage() {
           </svg>
           {isSearching && <ButtonSpinner />}
         </button>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search products…"
+          className="w-full rounded bg-[#efefef] py-3 pr-10 pl-11 text-base"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              window.history.replaceState(null, "", "/store");
+              runSearch("", filters);
+            }}
+            aria-label="Clear search"
+            className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            ×
+          </button>
+        )}
       </form>
 
+      <div className="mt-5">
+        <CategoryShortcuts shortcuts={shortcuts} onFilterShortcut={handleShortcutFilter} />
+      </div>
+
       <div className="mt-3">
-        <FilterToolbar sets={sets} value={filters} onChange={handleFiltersChange} />
+        <FilterToolbar
+          sets={sets}
+          value={filters}
+          onChange={handleFiltersChange}
+          syncToken={filterSyncToken}
+        />
       </div>
 
       <div className="mb-8 flex flex-wrap items-center gap-1.5">

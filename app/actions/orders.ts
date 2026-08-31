@@ -26,7 +26,12 @@ export async function createOrder(formData: FormData) {
     })
     .select("id")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Postgres unique_violation on orders.order_id — friendlier than the raw
+    // constraint-name error message.
+    if (error.code === "23505") throw new Error(`Order ID "${orderId}" already exists`);
+    throw new Error(error.message);
+  }
 
   revalidatePath("/orders");
   redirect(`/orders/${data.id}`);
@@ -44,6 +49,18 @@ export async function deleteOrder(orderId: string) {
 export async function updateOrderStatus(orderId: string, status: "pending" | "completed") {
   const supabase = await createClient();
   const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/orders");
+}
+
+export async function updateOrderDate(orderId: string, date: string) {
+  const supabase = await createClient();
+  // orders.date is timestamptz, but the <input type="date"> gives/clears to
+  // a plain "YYYY-MM-DD" (or "" when cleared) — Postgres parses the former
+  // fine but chokes on an empty string, so that case needs to become null.
+  const { error } = await supabase.from("orders").update({ date: date || null }).eq("id", orderId);
   if (error) throw new Error(error.message);
 
   revalidatePath(`/orders/${orderId}`);

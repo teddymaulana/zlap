@@ -17,10 +17,12 @@ export default async function ProductsPage({
 
   const supabase = await createClient();
 
-  const [{ data: allProducts, error: productsError }, { data: batches }] = await Promise.all([
-    supabase.from("products").select("*"),
-    supabase.from("inventory_batch_availability").select("product_id, available"),
-  ]);
+  const [{ data: allProducts, error: productsError }, { data: batches }, { data: storefrontBatches }] =
+    await Promise.all([
+      supabase.from("products").select("*"),
+      supabase.from("inventory_batch_availability").select("product_id, available"),
+      supabase.from("inventory_batches").select("product_id").eq("is_storefront_price", true),
+    ]);
 
   if (productsError) throw new Error(productsError.message);
 
@@ -31,6 +33,13 @@ export default async function ProductsPage({
       (availableByProduct.get(b.product_id) ?? 0) + Math.max(0, b.available)
     );
   }
+
+  // A product is "on the storefront" once one of its batches is picked as
+  // the storefront price (see is_storefront_price in supabase/schema.sql) —
+  // the same condition app/actions/storefront.ts uses to show it there.
+  const storefrontProductIds = new Set(
+    (storefrontBatches ?? []).map((b) => b.product_id as string)
+  );
 
   const lowerQuery = query.toLowerCase();
   const filteredProducts = ((allProducts ?? []) as Product[]).filter(
@@ -47,18 +56,19 @@ export default async function ProductsPage({
     return b.updated_at.localeCompare(a.updated_at);
   });
   const count = sortedProducts.length;
+  const storefrontCount = sortedProducts.filter((p) => storefrontProductIds.has(p.id)).length;
   const products = sortedProducts.slice(from, to + 1);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Products</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{count} products</span>
-          <Link href="/products/new" className="rounded bg-black px-3 py-2 text-sm text-white">
-            New product
-          </Link>
-        </div>
+        <Link href="/products/new" className="rounded bg-black px-3 py-2 text-sm text-white">
+          New product
+        </Link>
+      </div>
+      <div className="mb-2 text-sm text-gray-500">
+        {count} products &middot; {storefrontCount} in storefront
       </div>
       <form className="mb-4">
         <input
@@ -94,7 +104,12 @@ export default async function ProductsPage({
                 <div className="text-sm text-gray-500">{p.sku}</div>
               </div>
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              {storefrontProductIds.has(p.id) && (
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                  Storefront
+                </span>
+              )}
               {availableByProduct.get(p.id) ?? 0} available
             </div>
           </Link>

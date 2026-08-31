@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { addOrderLine, removeOrderLine, updateOrderLinePrice } from "@/app/actions/orders";
 import type { InventoryBatchAvailability, OrderLine, Product } from "@/lib/types";
 
@@ -129,7 +130,15 @@ export default function OrderLines({
           return (
             <div key={line.id} className="flex items-center justify-between gap-3 px-3 py-2">
               <div className="min-w-0 flex-1">
-                <div className="font-medium">{product?.name ?? line.product_id}</div>
+                <div className="font-medium">
+                  {product ? (
+                    <Link href={`/products/${product.id}`} className="hover:underline">
+                      {product.name}
+                    </Link>
+                  ) : (
+                    line.product_id
+                  )}
+                </div>
                 <div className="text-xs text-gray-500">
                   {batch && `cost ${formatMoney(batch.cost)} · `}
                   net profit {formatMoney((line.price ?? 0) - (batch?.cost ?? 0))}

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { InventoryBatchAvailability, Order, OrderLine, Product } from "@/lib/types";
 import { formatStatus } from "@/lib/format";
 import OrderStatus from "./OrderStatus";
+import OrderDate from "./OrderDate";
 import OrderAwb from "./OrderAwb";
 import OrderLines from "./OrderLines";
 import CancellationPanel from "./CancellationPanel";
@@ -41,8 +42,9 @@ export default async function OrderDetailPage({
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">{o.order_id}</h1>
-          <div className="text-sm text-gray-500">
-            {o.channel} · {o.date}
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>{o.channel}</span>
+            <OrderDate order={o} />
           </div>
         </div>
         <div className="flex items-center gap-2">
