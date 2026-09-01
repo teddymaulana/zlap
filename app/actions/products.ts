@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { StorefrontSettings } from "@/lib/types";
+import type { StorefrontSettings, StorefrontShortcutBadge } from "@/lib/types";
 
 // Batch changes live in a separate table, so they don't trip the products
 // table's set_updated_at trigger on their own — touch the parent row so the
@@ -287,7 +287,11 @@ export async function removePopularKeyword(id: string) {
   revalidatePath("/store");
 }
 
-export async function addStorefrontShortcut(label: string, href: string) {
+export async function addStorefrontShortcut(
+  label: string,
+  href: string,
+  badge: StorefrontShortcutBadge | null = null
+) {
   const trimmedLabel = label.trim();
   const trimmedHref = href.trim();
   if (!trimmedLabel) throw new Error("Label is required");
@@ -296,7 +300,22 @@ export async function addStorefrontShortcut(label: string, href: string) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("storefront_shortcuts")
-    .insert({ label: trimmedLabel, href: trimmedHref });
+    .insert({ label: trimmedLabel, href: trimmedHref, badge });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/storefront");
+  revalidatePath("/store");
+}
+
+export async function updateStorefrontShortcutBadge(
+  shortcutId: string,
+  badge: StorefrontShortcutBadge | null
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("storefront_shortcuts")
+    .update({ badge })
+    .eq("id", shortcutId);
   if (error) throw new Error(error.message);
 
   revalidatePath("/storefront");

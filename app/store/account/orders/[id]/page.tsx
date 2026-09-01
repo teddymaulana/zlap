@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCustomerOrderDetail } from "@/app/actions/customer";
 import CancelOrderButton from "../../CancelOrderButton";
+import BuyAgainButton from "../../BuyAgainButton";
 import QrPayment from "../../../QrPayment";
 import { formatStatus } from "@/lib/format";
 
@@ -113,6 +114,10 @@ export default async function CustomerOrderDetailPage({
           <span>Total</span>
           <span className="tabular-nums">{formatMoney(order.total)}</span>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <BuyAgainButton orderId={order.id} />
       </div>
 
       {order.awb && (

@@ -41,6 +41,9 @@ export default function LoginPage() {
           required
           className="rounded border px-3 py-2 text-sm"
         />
+        <Link href="/store/account/forgot-password" className="self-end text-xs text-gray-500 hover:underline">
+          Forgot password?
+        </Link>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

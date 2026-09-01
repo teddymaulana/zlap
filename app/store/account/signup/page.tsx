@@ -55,12 +55,6 @@ export default function SignupPage() {
           placeholder="Phone number (optional)"
           className="rounded border px-3 py-2 text-sm"
         />
-        <textarea
-          name="address"
-          placeholder="Address (optional)"
-          rows={2}
-          className="rounded border px-3 py-2 text-sm"
-        />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

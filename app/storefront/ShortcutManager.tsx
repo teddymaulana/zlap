@@ -4,10 +4,11 @@ import { useState, useTransition } from "react";
 import {
   addStorefrontShortcut,
   removeStorefrontShortcut,
+  updateStorefrontShortcutBadge,
   uploadStorefrontShortcutImage,
 } from "@/app/actions/products";
 import { PRODUCT_BRANDS } from "@/lib/constants";
-import type { CardSet, StorefrontShortcut } from "@/lib/types";
+import type { CardSet, StorefrontShortcut, StorefrontShortcutBadge } from "@/lib/types";
 import ButtonSpinner from "@/app/ButtonSpinner";
 
 type Candidate = { id: string; name: string; sku: string | null };
@@ -19,11 +20,19 @@ const CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
+const BADGES: { value: StorefrontShortcutBadge | ""; label: string }[] = [
+  { value: "", label: "None" },
+  { value: "fire", label: "🔥 Fire" },
+  { value: "new", label: "New" },
+  { value: "sale", label: "Sale" },
+];
+
 type LinkType = "category" | "product" | "search" | "custom";
 
 function ShortcutRow({ shortcut }: { shortcut: StorefrontShortcut }) {
   const [isUploadPending, startUploadTransition] = useTransition();
   const [isRemovePending, startRemoveTransition] = useTransition();
+  const [isBadgePending, startBadgeTransition] = useTransition();
 
   return (
     <div className="flex items-center gap-3 rounded border px-3 py-2">
@@ -43,6 +52,21 @@ function ShortcutRow({ shortcut }: { shortcut: StorefrontShortcut }) {
         <div className="text-sm font-medium">{shortcut.label}</div>
         <div className="truncate text-xs text-gray-400">{shortcut.href}</div>
       </div>
+      <select
+        value={shortcut.badge ?? ""}
+        disabled={isBadgePending}
+        onChange={(e) => {
+          const value = e.target.value as StorefrontShortcutBadge | "";
+          startBadgeTransition(() => updateStorefrontShortcutBadge(shortcut.id, value || null));
+        }}
+        className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+      >
+        {BADGES.map((b) => (
+          <option key={b.value} value={b.value}>
+            {b.label}
+          </option>
+        ))}
+      </select>
       <form
         action={(fd) => startUploadTransition(() => uploadStorefrontShortcutImage(shortcut.id, fd))}
         className="flex items-center gap-1"
@@ -84,6 +108,7 @@ export default function ShortcutManager({
   const [category, setCategory] = useState("");
   const [keyword, setKeyword] = useState("");
   const [customUrl, setCustomUrl] = useState("");
+  const [badge, setBadge] = useState<StorefrontShortcutBadge | "">("");
   const [isPending, startTransition] = useTransition();
 
   const trimmedProductSearch = productSearch.trim().toLowerCase();
@@ -130,6 +155,7 @@ export default function ShortcutManager({
     setCategory("");
     setKeyword("");
     setCustomUrl("");
+    setBadge("");
   }
 
   return (
@@ -145,7 +171,7 @@ export default function ShortcutManager({
         onSubmit={(e) => {
           e.preventDefault();
           if (!href || !label.trim()) return;
-          startTransition(() => addStorefrontShortcut(label, href));
+          startTransition(() => addStorefrontShortcut(label, href, badge || null));
           resetForm();
         }}
         className="flex flex-col gap-3 rounded border p-3"
@@ -159,6 +185,24 @@ export default function ShortcutManager({
             placeholder="e.g. New Arrivals"
             className="rounded border px-3 py-2 text-sm"
           />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-500">Badge</label>
+          <div className="flex gap-2">
+            {BADGES.map((b) => (
+              <button
+                key={b.value}
+                type="button"
+                onClick={() => setBadge(b.value)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  badge === b.value ? "bg-black text-white" : "hover:bg-gray-50"
+                }`}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex gap-2">

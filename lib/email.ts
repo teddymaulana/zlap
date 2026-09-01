@@ -222,6 +222,22 @@ export async function sendCancellationRejectedEmail(params: { to: string; orderC
   await send(params.to, `About your cancellation request — ${params.orderCode}`, html);
 }
 
+export async function sendPasswordResetEmail(params: { to: string; resetUrl: string; expiresAt: string }) {
+  const expiry = new Date(params.expiresAt).toLocaleString("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const html = wrapEmail(
+    "Reset your password",
+    `<p>We received a request to reset your Zlap Card account password. Click below to choose a new one.</p>
+     <p style="margin-top:16px;">
+       <a href="${params.resetUrl}" style="display:inline-block; background:#111; color:#fff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Reset password</a>
+     </p>
+     <p style="margin-top:16px; font-size:13px; color:#6b7280;">This link expires ${expiry}. If you didn't request this, you can ignore this email — your password won't change.</p>`
+  );
+  await send(params.to, "Reset your Zlap Card password", html);
+}
+
 export async function sendRefundCompletedEmail(params: { to: string; orderCode: string }) {
   const html = wrapEmail(
     "Refund completed",
@@ -249,6 +265,7 @@ export async function sendOfferApprovedEmail(params: {
   productName: string;
   productImageUrl?: string | null;
   offeredPrice: number;
+  originalPrice?: number | null;
   checkoutUrl: string;
   expiresAt: string;
 }) {
@@ -259,12 +276,16 @@ export async function sendOfferApprovedEmail(params: {
   const imageHtml = params.productImageUrl
     ? `<img src="${params.productImageUrl}" width="72" height="72" alt="" style="width:72px; height:72px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; display:block;" />`
     : `<div style="width:72px; height:72px; border-radius:6px; background:#f3f4f6;"></div>`;
+  const priceHtml =
+    params.originalPrice && params.originalPrice > params.offeredPrice
+      ? `<span style="text-decoration:line-through; color:#9ca3af; margin-right:6px;">${formatMoney(params.originalPrice)}</span><strong>${formatMoney(params.offeredPrice)}</strong>`
+      : `<strong>${formatMoney(params.offeredPrice)}</strong>`;
   const html = wrapEmail(
     "Your offer was accepted!",
     `<table role="presentation" style="margin:4px 0 16px;"><tr>
        <td style="padding-right:12px;">${imageHtml}</td>
        <td style="vertical-align:middle;">
-         Good news — your offer of <strong>${formatMoney(params.offeredPrice)}</strong> for <strong>${params.productName}</strong> was accepted.
+         Good news — your offer for <strong>${params.productName}</strong> was accepted at ${priceHtml}.
        </td>
      </tr></table>
      <p style="margin-top:16px;">

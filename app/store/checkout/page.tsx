@@ -85,7 +85,6 @@ export default function CheckoutPage() {
       setName((prev) => prev || customer.name || "");
       setEmail((prev) => prev || customer.email || "");
       setPhone((prev) => prev || customer.phone || "");
-      setAddress((prev) => prev || customer.address || "");
     });
   }, []);
 

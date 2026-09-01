@@ -250,8 +250,7 @@ export async function getStorefrontSectionTitles(): Promise<
   return titles;
 }
 
-export async function getWishlistProducts(): Promise<StorefrontProduct[]> {
-  const ids = await getWishlistProductIds();
+async function productsByIds(ids: string[]): Promise<StorefrontProduct[]> {
   if (ids.length === 0) return [];
 
   const supabase = await createClient();
@@ -273,6 +272,18 @@ export async function getWishlistProducts(): Promise<StorefrontProduct[]> {
     price: infos.get(p.id)?.price ?? null,
     preorder: infos.get(p.id)?.preorder ?? null,
   }));
+}
+
+export async function getWishlistProducts(): Promise<StorefrontProduct[]> {
+  const ids = await getWishlistProductIds();
+  return productsByIds(ids);
+}
+
+// Current name/image/price for a past order's products — price is null (and
+// filtered out by the caller) for anything no longer stocked, so "buy again"
+// never re-adds an item at a stale historical price.
+export async function getProductsForReorder(productIds: string[]): Promise<StorefrontProduct[]> {
+  return productsByIds([...new Set(productIds)]);
 }
 
 export type StorefrontProductDetail = StorefrontProduct & {
@@ -505,7 +516,7 @@ export async function getStorefrontShortcuts(): Promise<StorefrontShortcut[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("storefront_shortcuts")
-    .select("id, label, href, image_url")
+    .select("id, label, href, image_url, badge")
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as StorefrontShortcut[];

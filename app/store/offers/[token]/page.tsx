@@ -48,7 +48,6 @@ export default function OfferCheckoutPage() {
       setName((prev) => prev || customer.name || "");
       setEmail((prev) => prev || customer.email || "");
       setPhone((prev) => prev || customer.phone || "");
-      setAddress((prev) => prev || customer.address || "");
     });
   }, []);
 
@@ -119,7 +118,16 @@ export default function OfferCheckoutPage() {
             <div className="truncate text-sm font-medium">{offer.productName}</div>
             <div className="text-xs text-gray-500">Qty {offer.qty}</div>
           </div>
-          <div className="text-sm font-semibold tabular-nums">{formatMoney(offer.offeredPrice * offer.qty)}</div>
+          <div className="text-right">
+            {offer.originalPrice && offer.originalPrice > offer.offeredPrice && (
+              <div className="text-xs tabular-nums text-gray-400 line-through">
+                {formatMoney(offer.originalPrice * offer.qty)}
+              </div>
+            )}
+            <div className="text-sm font-semibold tabular-nums">
+              {formatMoney(offer.offeredPrice * offer.qty)}
+            </div>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">

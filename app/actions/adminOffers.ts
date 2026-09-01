@@ -71,6 +71,14 @@ export async function approveOffer(offerId: string): Promise<{ error?: string }>
     .eq("id", offer.product_id)
     .maybeSingle();
 
+  const { data: batch } = await supabase
+    .from("inventory_batches")
+    .select("cost, direct_price")
+    .eq("product_id", offer.product_id)
+    .eq("is_storefront_price", true)
+    .maybeSingle();
+  const originalPrice = batch ? (batch.direct_price ?? batch.cost * DEFAULT_DIRECT_PRICE_PCT) : null;
+
   const token = randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + TOKEN_TTL_HOURS * 60 * 60 * 1000).toISOString();
 
@@ -90,6 +98,7 @@ export async function approveOffer(offerId: string): Promise<{ error?: string }>
     productName: product?.name ?? "your item",
     productImageUrl: product?.image_url,
     offeredPrice: offer.offered_price,
+    originalPrice,
     checkoutUrl: `${SITE_URL}/store/offers/${token}`,
     expiresAt,
   });

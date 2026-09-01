@@ -83,6 +83,7 @@ export type OfferCheckoutInfo = {
   productName: string;
   imageUrl: string | null;
   offeredPrice: number;
+  originalPrice: number | null;
   qty: number;
   customerName: string | null;
   customerEmail: string;
@@ -113,11 +114,14 @@ export async function getOfferByToken(token: string): Promise<OfferCheckoutInfo 
     .maybeSingle();
   if (!product) return { error: "This product is no longer available" };
 
+  const batch = await currentStorefrontBatch(service, product.id);
+
   return {
     productId: product.id,
     productName: product.name,
     imageUrl: product.image_url,
     offeredPrice: offer.offered_price,
+    originalPrice: batch?.price ?? null,
     qty: offer.qty,
     customerName: offer.customer_name,
     customerEmail: offer.customer_email,

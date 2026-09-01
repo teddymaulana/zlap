@@ -84,8 +84,23 @@ export default function TrackPage() {
         </div>
       ) : null}
 
+      <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+        Still have questions about your order?{" "}
+        <a
+          href={`https://wa.me/6285121369155?text=${encodeURIComponent(
+            "Halo, saya ingin bertanya tentang status pesanan saya."
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-black underline"
+        >
+          Contact us on WhatsApp
+        </a>{" "}
+        and we&apos;ll help you out.
+      </div>
+
       {recommended.length > 0 && (
-        <div className="mt-10">
+        <div className="mt-8">
           <h2 className="mb-4 text-sm font-semibold text-gray-700">You might also like</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {recommended.map((p) => (

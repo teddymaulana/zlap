@@ -6,6 +6,7 @@ import { formatStatus } from "@/lib/format";
 import ProductCard from "../ProductCard";
 import SignOutButton from "./SignOutButton";
 import CancelOrderButton from "./CancelOrderButton";
+import ProfileEditor from "./ProfileEditor";
 
 export default async function AccountPage() {
   const customer = await getCurrentCustomer();
@@ -65,7 +66,7 @@ export default async function AccountPage() {
         )}
       </section>
 
-      <section>
+      <section className="mb-10">
         <h2 className="mb-3 text-sm font-semibold text-gray-700">Wishlist</h2>
         {wishlist.length === 0 ? (
           <p className="text-sm text-gray-500">No saved products yet.</p>
@@ -76,6 +77,11 @@ export default async function AccountPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-gray-700">Account settings</h2>
+        <ProfileEditor customer={customer} />
       </section>
     </div>
   );

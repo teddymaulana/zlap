@@ -56,11 +56,14 @@ export type PopularKeyword = {
   keyword: string;
 };
 
+export type StorefrontShortcutBadge = "fire" | "new" | "sale";
+
 export type StorefrontShortcut = {
   id: string;
   label: string;
   href: string;
   image_url: string | null;
+  badge: StorefrontShortcutBadge | null;
 };
 
 export type InventoryBatch = {

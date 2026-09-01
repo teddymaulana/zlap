@@ -9,7 +9,7 @@ import {
   getStorefrontShortcuts,
   type StorefrontProduct,
 } from "@/app/actions/storefront";
-import { getCardSets } from "@/app/actions/sets";
+import { getCardSetsInStock } from "@/app/actions/sets";
 import type { CardSet, StorefrontShortcut } from "@/lib/types";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import ProductCard from "./ProductCard";
@@ -86,7 +86,7 @@ export default function StorePage() {
     getStorefrontSectionTitles().then(setSectionTitles);
     getPopularKeywords().then(setPopularKeywords);
     getStorefrontShortcuts().then(setShortcuts);
-    getCardSets().then(setSets);
+    getCardSetsInStock().then(setSets);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -105,6 +105,21 @@ export default function StorePage() {
     window.history.replaceState(null, "", `/store?q=${encodeURIComponent(keyword)}`);
     runSearch(keyword, EMPTY_FILTERS);
   };
+
+  // Canonical query string for the currently applied query/filters, built the
+  // same way ShortcutManager builds a shortcut's href — so it can be compared
+  // directly against a shortcut's own params to tell which one (if any) is
+  // currently active. Includes the live search text even when filters are
+  // also set, so typing a query clears the highlight immediately instead of
+  // leaving a category shortcut looking active while you search within it.
+  const activeSearch = (() => {
+    const params = new URLSearchParams();
+    if (filters.brand) params.set("brand", filters.brand);
+    if (filters.setId) params.set("setId", filters.setId);
+    if (filters.category) params.set("category", filters.category);
+    if (query.trim()) params.set("q", query.trim());
+    return params.toString();
+  })();
 
   const handleFiltersChange = (next: StorefrontFilterValue) => {
     setFilters(next);
@@ -175,7 +190,11 @@ export default function StorePage() {
       </form>
 
       <div className="mt-5">
-        <CategoryShortcuts shortcuts={shortcuts} onFilterShortcut={handleShortcutFilter} />
+        <CategoryShortcuts
+          shortcuts={shortcuts}
+          onFilterShortcut={handleShortcutFilter}
+          activeSearch={activeSearch}
+        />
       </div>
 
       <div className="mt-3">

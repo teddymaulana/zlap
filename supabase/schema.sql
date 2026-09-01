@@ -221,15 +221,28 @@ create table if not exists purchase_lines (
 -- through the service-role client from app/actions/customer.ts and
 -- lib/customerAuth.ts, gated by the app's own session-cookie check instead
 -- of a Supabase session.
+-- Deliberately no address column here — as a small shop we'd rather not hold
+-- onto customers' home addresses beyond what each order itself needs (see
+-- customer_address on the orders table, captured fresh at every checkout).
+-- If your database still has an address column from before this change, the
+-- app no longer reads or writes it; drop it yourself when you're ready:
+--   alter table customers drop column if exists address;
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   password_hash text not null,
   name text,
   phone text,
-  address text,
+  -- "Forgot password" flow (see requestPasswordReset/resetPasswordWithToken
+  -- in app/actions/customer.ts) — same shape as offers.checkout_token.
+  reset_token text unique,
+  reset_token_expires_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+-- Existing databases created before the reset-token columns existed.
+alter table customers add column if not exists reset_token text unique;
+alter table customers add column if not exists reset_token_expires_at timestamptz;
 
 create table if not exists customer_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -463,8 +476,17 @@ create table if not exists storefront_shortcuts (
   label text not null,
   href text not null,
   image_url text,
+  -- Small corner badge shown on the shortcut chip on /store, e.g. to flag a
+  -- promo or a newly-added category. Null means no badge.
+  badge text check (badge in ('fire', 'new', 'sale')),
   created_at timestamptz not null default now()
 );
+
+-- Existing databases created before the badge column existed.
+alter table storefront_shortcuts add column if not exists badge text;
+alter table storefront_shortcuts drop constraint if exists storefront_shortcuts_badge_check;
+alter table storefront_shortcuts add constraint storefront_shortcuts_badge_check
+  check (badge in ('fire', 'new', 'sale'));
 
 insert into storefront_shortcuts (label, href)
   select v.label, v.href from (values
