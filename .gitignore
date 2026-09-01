@@ -45,3 +45,6 @@ next-env.d.ts
 
 # supabase
 /supabase/.temp
+
+# Personal Claude Code account isolation (see .envrc)
+.envrc
