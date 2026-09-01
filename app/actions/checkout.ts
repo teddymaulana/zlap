@@ -128,6 +128,28 @@ export async function chargeAndCreateOrder(params: {
   }
 
   try {
+    // Aggregate the per-unit order lines into per-product quantities for
+    // Midtrans' item_details — without this the transaction shows only the
+    // total amount, with no line-item breakdown in the Midtrans dashboard.
+    const qtyAndPriceByProduct = new Map<string, { price: number; quantity: number }>();
+    for (const line of lines) {
+      const existing = qtyAndPriceByProduct.get(line.product_id);
+      if (existing) existing.quantity += 1;
+      else qtyAndPriceByProduct.set(line.product_id, { price: line.price, quantity: 1 });
+    }
+    const { data: productRows } = await service
+      .from("products")
+      .select("id, name")
+      .in("id", Array.from(qtyAndPriceByProduct.keys()));
+    const productNameById = new Map((productRows ?? []).map((p) => [p.id, p.name]));
+    const itemDetails = Array.from(qtyAndPriceByProduct.entries()).map(([productId, v]) => ({
+      id: productId,
+      price: Math.round(v.price),
+      quantity: v.quantity,
+      // Midtrans caps item name at 50 characters.
+      name: (productNameById.get(productId) ?? "Item").slice(0, 50),
+    }));
+
     let extra: Partial<MidtransChargeRequest> = {};
     if (paymentMethod === "bank_transfer") {
       extra = { bank_transfer: { bank: bankCode } };
@@ -142,9 +164,15 @@ export async function chargeAndCreateOrder(params: {
       extra = { cstore: { store: "indomaret", message: `Zlap order ${orderCode}` } };
     }
 
+    // gross_amount must equal the sum of item_details exactly (Midtrans
+    // rejects the charge otherwise for several payment types) — derive it
+    // from the rounded item prices rather than rounding the raw total.
+    const itemDetailsTotal = itemDetails.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
     const charge = await chargeMidtrans({
       payment_type: paymentMethod,
-      transaction_details: { order_id: orderCode, gross_amount: Math.round(grossAmount) },
+      transaction_details: { order_id: orderCode, gross_amount: itemDetailsTotal },
+      item_details: itemDetails,
       ...extra,
       customer_details: { first_name: name, phone },
     });

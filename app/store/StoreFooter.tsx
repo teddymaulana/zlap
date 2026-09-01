@@ -59,7 +59,7 @@ export default function StoreFooter() {
             </svg>
           </a>
         </div>
-        <p className="text-xs text-gray-400">{new Date().getFullYear()} Zlap Collectibles</p>
+        <p className="text-xs text-gray-400">{new Date().getFullYear()} Zlap Card</p>
       </div>
     </footer>
   );

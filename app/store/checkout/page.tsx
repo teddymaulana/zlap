@@ -89,6 +89,23 @@ export default function CheckoutPage() {
     });
   }, []);
 
+  // These two errors are only ever set from handleSubmit's pre-checks below —
+  // clear each one the moment its own field becomes valid, rather than
+  // leaving it on screen until the next submit attempt re-evaluates it.
+  useEffect(() => {
+    if (region) {
+      setError((prev) =>
+        prev === "Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos" ? null : prev
+      );
+    }
+  }, [region]);
+
+  useEffect(() => {
+    if (paymentSelection) {
+      setError((prev) => (prev === "Please select a payment method" ? null : prev));
+    }
+  }, [paymentSelection]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!region) {
@@ -115,6 +132,9 @@ export default function CheckoutPage() {
       setResult(res);
       window.history.replaceState(null, "", `/store/checkout?order=${encodeURIComponent(res.orderId)}`);
       clearCart();
+      // The form can be long enough that the Pay button sits well below the
+      // fold — jump back up so the payment screen is actually visible.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setIsSubmitting(false);
     }

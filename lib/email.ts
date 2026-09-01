@@ -41,9 +41,22 @@ function wrapEmail(heading: string, bodyHtml: string): string {
       <div style="border-top: 1px solid #e5e7eb; padding: 24px 4px;">
         ${bodyHtml}
       </div>
-      <div style="padding: 16px 4px; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
-        Zlap Collectibles
-        <div style="margin-top: 8px;">
+      <div style="padding: 24px 4px 4px; text-align: center;">
+        <p style="margin: 0 0 16px; font-size: 14px; font-weight: 700; color: #111;">Authentic, Every Card Checked</p>
+        <p style="margin: 0 0 16px; font-size: 12px; line-height: 1.6; color: #6b7280;">
+          <strong style="color:#374151;">Account safety:</strong> watch out for suspicious activity on your account,
+          keep your password up to date, and always double-check the personal details saved to it. Zlap Card
+          will never ask you for your password or OTP.
+        </p>
+        <p style="margin: 0 0 16px; font-size: 12px; color: #6b7280;">
+          Need help? Reach us on
+          <a href="https://wa.me/6285121369155" style="color: #6b7280; text-decoration: underline;">WhatsApp</a>
+          or <a href="mailto:info@zlapcard.com" style="color: #6b7280; text-decoration: underline;">info@zlapcard.com</a>
+        </p>
+      </div>
+      <div style="padding: 16px 4px; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb; text-align: center;">
+        <p style="margin: 0 0 12px;">— This is an automated email, please don't reply directly —</p>
+        <div>
           <a href="https://instagram.com/zlapcard" style="color: #6b7280; text-decoration: underline; margin-right: 12px;">Instagram</a>
           <a href="https://tiktok.com/@zlap.collectibles" style="color: #6b7280; text-decoration: underline; margin-right: 12px;">TikTok</a>
           <a href="https://wa.me/6285121369155" style="color: #6b7280; text-decoration: underline;">WhatsApp</a>
@@ -89,22 +102,39 @@ export async function sendOrderConfirmationEmail(params: {
   paymentCode?: string;
   store?: string;
 }) {
-  const linesHtml = params.lines
+  const itemRowsHtml = params.lines
     .map(
-      (l) => `
+      (l, i) => `
         <tr>
-          <td style="padding:8px 0; width:48px;">
+          <td style="padding:14px 16px; width:48px; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">
             ${
               l.imageUrl
                 ? `<img src="${l.imageUrl}" width="40" height="40" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid #e5e7eb; display:block;" />`
                 : `<div style="width:40px; height:40px; border-radius:4px; background:#f3f4f6;"></div>`
             }
           </td>
-          <td style="padding:8px 0 8px 8px;">${l.name} × ${l.qty}</td>
-          <td style="padding:8px 0; text-align:right;">${formatMoney(l.price * l.qty)}</td>
+          <td style="padding:14px 8px; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">
+            <div style="font-weight:600;">${l.name}</div>
+            <div style="color:#6b7280; font-size:12px; margin-top:2px;">Qty: ${l.qty}</div>
+          </td>
+          <td style="padding:14px 16px; text-align:right; font-weight:700; white-space:nowrap; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">${formatMoney(l.price * l.qty)}</td>
         </tr>`
     )
     .join("");
+
+  // Mirrors the checkout page's own Payment Method labelling so the email
+  // reads the same way the customer saw it at checkout.
+  const paymentMethodLabel = params.vaNumber
+    ? `${(params.bank ?? "").toUpperCase()} Virtual Account`
+    : params.paymentCode
+      ? `${params.store ?? ""} — pay in store`
+      : params.paymentMethod === "gopay"
+        ? "GoPay"
+        : params.paymentMethod === "shopeepay"
+          ? "ShopeePay"
+          : params.paymentMethod === "qris"
+            ? "QRIS"
+            : params.paymentMethod;
 
   let paymentHtml = "";
   if (params.vaNumber) {
@@ -119,9 +149,27 @@ export async function sendOrderConfirmationEmail(params: {
     "Order confirmed",
     `
       <p>Thanks for your order <strong>${params.orderCode}</strong> — we'll process it once payment is confirmed.</p>
-      <table style="width:100%; border-collapse: collapse; margin: 16px 0;">${linesHtml}
-        <tr style="font-weight:700; border-top:1px solid #e5e7eb;"><td colspan="2" style="padding-top:8px;">Total</td><td style="padding-top:8px; text-align:right;">${formatMoney(params.total)}</td></tr>
-      </table>
+
+      <h2 style="font-size:15px; font-weight:700; margin:20px 0 8px;">Order Summary</h2>
+      <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;">
+        <table role="presentation" width="100%" style="border-collapse:collapse; font-size:14px;">${itemRowsHtml}</table>
+      </div>
+
+      <h2 style="font-size:15px; font-weight:700; margin:20px 0 8px;">Payment Summary</h2>
+      <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px 16px; margin-bottom:12px;">
+        <table role="presentation" width="100%" style="font-size:14px;">
+          <tr><td style="font-weight:700;">Payment Method</td><td style="text-align:right;">${paymentMethodLabel}</td></tr>
+        </table>
+      </div>
+      <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px 16px;">
+        <table role="presentation" width="100%" style="font-size:14px;">
+          <tr><td style="padding:4px 0; color:#374151;">Subtotal</td><td style="padding:4px 0; text-align:right;">${formatMoney(params.total)}</td></tr>
+          <tr><td style="padding:4px 0; color:#374151;">Processing Fee</td><td style="padding:4px 0; text-align:right; color:#16a34a; font-weight:600;">FREE</td></tr>
+          <tr><td style="padding:4px 0; color:#374151;">Shipping Fee</td><td style="padding:4px 0; text-align:right; color:#16a34a; font-weight:600;">FREE</td></tr>
+          <tr><td style="padding:8px 0 0; border-top:1px solid #e5e7eb; font-weight:700;">Total</td><td style="padding:8px 0 0; border-top:1px solid #e5e7eb; text-align:right; font-weight:700;">${formatMoney(params.total)}</td></tr>
+        </table>
+      </div>
+
       ${paymentHtml}
       ${orderLookupLink(params.orderCode)}
     `
