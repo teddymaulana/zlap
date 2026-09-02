@@ -39,6 +39,29 @@ export type Offer = {
   created_at: string;
 };
 
+export type CardRequest = {
+  id: string;
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_email: string;
+  customer_phone: string | null;
+  card_name: string;
+  set_name: string | null;
+  grade: string | null;
+  reference_url: string | null;
+  notes: string | null;
+  qty: number;
+  status: "pending" | "quoted" | "rejected" | "expired" | "completed";
+  quoted_price: number | null;
+  snkrdunk_url: string | null;
+  product_id: string | null;
+  checkout_token: string | null;
+  token_expires_at: string | null;
+  responded_at: string | null;
+  order_id: string | null;
+  created_at: string;
+};
+
 export type StorefrontSection = {
   id: "featured_section_1" | "featured_section_2";
   title: string;

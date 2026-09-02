@@ -350,6 +350,41 @@ create table if not exists offers (
   created_at timestamptz not null default now()
 );
 
+-- Customer requests for a specific card that isn't in the catalog yet (e.g.
+-- "PSA 10 Charizard VMAX"). Unlike offers (which need an existing product),
+-- customers describe what they want in free text; staff manually price it —
+-- optionally referencing a SNKRDUNK listing pasted into snkrdunk_url — then
+-- quoting creates a one-off product row (so the normal order_lines/orders
+-- pipeline is reused unchanged) and mints a checkout_token the same way
+-- approveOffer does, letting the customer pay through /store/requests/[token].
+create table if not exists card_requests (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid references customers(id) on delete set null,
+  customer_name text,
+  customer_email text not null,
+  customer_phone text,
+  card_name text not null,
+  set_name text,
+  grade text,
+  -- Customer-supplied link/photo showing which exact card they want.
+  reference_url text,
+  notes text,
+  qty integer not null default 1,
+  status text not null default 'pending'
+    check (status in ('pending','quoted','rejected','expired','completed')),
+  quoted_price numeric,
+  -- SNKRDUNK listing the admin priced this against, pasted in at quote time.
+  snkrdunk_url text,
+  -- One-off product row created at quote time so orders/order_lines work
+  -- unchanged; null until quoted.
+  product_id uuid references products(id) on delete set null,
+  checkout_token text unique,
+  token_expires_at timestamptz,
+  responded_at timestamptz,
+  order_id uuid references orders(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists cash (
   id uuid primary key default gen_random_uuid(),
   date timestamptz,
@@ -567,6 +602,9 @@ alter table order_lines enable row level security;
 -- go through the service-role client, same as orders — staff review/approve
 -- through the authenticated policy below.
 alter table offers enable row level security;
+-- Same pattern as offers: customer submission and checkout-token lookup go
+-- through the service-role client, staff quote/reject through the policy below.
+alter table card_requests enable row level security;
 alter table cash enable row level security;
 alter table snapshots enable row level security;
 alter table supplier_pricelist enable row level security;
@@ -611,6 +649,8 @@ create policy "authenticated full access" on orders for all
 create policy "authenticated full access" on order_lines for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on offers for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated full access" on card_requests for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on cash for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

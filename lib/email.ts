@@ -304,3 +304,43 @@ export async function sendOfferRejectedEmail(params: { to: string; productName: 
   );
   await send(params.to, `About your offer — ${params.productName}`, html);
 }
+
+export async function sendCardRequestReceivedEmail(params: { to: string; cardName: string }) {
+  const html = wrapEmail(
+    "Request received",
+    `<p>We've received your request for <strong>${params.cardName}</strong>.</p>
+     <p>We'll email you a price quote once we've sourced it — usually within a day or two.</p>`
+  );
+  await send(params.to, `Request received — ${params.cardName}`, html);
+}
+
+export async function sendCardRequestQuotedEmail(params: {
+  to: string;
+  cardName: string;
+  quotedPrice: number;
+  checkoutUrl: string;
+  expiresAt: string;
+}) {
+  const expiry = new Date(params.expiresAt).toLocaleString("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const html = wrapEmail(
+    "Your card request has a quote!",
+    `<p>Good news — we found <strong>${params.cardName}</strong> and can offer it at <strong>${formatMoney(params.quotedPrice)}</strong>.</p>
+     <p style="margin-top:16px;">
+       <a href="${params.checkoutUrl}" style="display:inline-block; background:#111; color:#fff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Complete your purchase</a>
+     </p>
+     <p style="margin-top:16px; font-size:13px; color:#6b7280;">This link expires ${expiry}.</p>`
+  );
+  await send(params.to, `Your quote is ready — ${params.cardName}`, html);
+}
+
+export async function sendCardRequestRejectedEmail(params: { to: string; cardName: string }) {
+  const html = wrapEmail(
+    "About your card request",
+    `<p>Thanks for your request for <strong>${params.cardName}</strong> — unfortunately we weren't able to source it this time.</p>
+     <p>Feel free to check back or reach out if you'd like to try another card.</p>`
+  );
+  await send(params.to, `About your request — ${params.cardName}`, html);
+}

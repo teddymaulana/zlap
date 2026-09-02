@@ -10,6 +10,7 @@ export default function Nav() {
         <Link href="/purchases">Purchases</Link>
         <Link href="/orders">Orders</Link>
         <Link href="/offers">Offers</Link>
+        <Link href="/requests">Requests</Link>
         <Link href="/balance">Balance</Link>
         <Link href="/charts">Charts</Link>
         <Link href="/storefront">Storefront</Link>
