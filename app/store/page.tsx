@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   searchStorefrontProducts,
   getFeaturedProducts,
@@ -221,6 +222,14 @@ export default function StorePage() {
 
       {results === null ? (
         <>
+          <Image
+            src="/zlap-card-hero-banner.png"
+            alt="Zlap Card"
+            width={3200}
+            height={360}
+            priority
+            className="mb-8 h-auto w-full rounded"
+          />
           <FeaturedCarousel title={sectionTitles.featured_section_1} products={section1} />
           <FeaturedCarousel title={sectionTitles.featured_section_2} products={section2} />
         </>

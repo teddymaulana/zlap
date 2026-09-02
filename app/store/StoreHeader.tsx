@@ -60,6 +60,12 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
         </span>
         <div className="col-start-3 flex items-center gap-3 justify-self-end">
           <Link
+            href="/store/request"
+            className="hidden text-sm text-gray-600 hover:text-black sm:inline"
+          >
+            Request a card
+          </Link>
+          <Link
             href="/store/track"
             className="hidden text-sm text-gray-600 hover:text-black sm:inline"
           >
@@ -126,6 +132,13 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
           </button>
         </div>
         <nav className="flex flex-col px-4 py-3">
+          <Link
+            href="/store/request"
+            onClick={closeMenu}
+            className="py-3 text-sm text-gray-600 hover:text-black"
+          >
+            Request a card
+          </Link>
           <Link
             href="/store/track"
             onClick={closeMenu}
