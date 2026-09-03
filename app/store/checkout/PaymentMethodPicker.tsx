@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CheckoutPaymentMethod, CheckoutBank } from "@/app/actions/checkout";
+import { copy } from "@/lib/copy";
 
 export type PaymentSelection = { method: CheckoutPaymentMethod; bank?: CheckoutBank };
 
@@ -23,8 +24,8 @@ const OPTIONS: {
   {
     method: "bank_transfer",
     bank: "bca",
-    label: "BCA Virtual Account",
-    subLabel: "Bank transfer",
+    label: copy.payment.options.bcaLabel,
+    subLabel: copy.payment.options.bankTransferSubLabel,
     badge: "BCA",
     badgeClass: "bg-blue-700",
     logoUrl: `${LOGO_BASE}/bca.svg`,
@@ -32,8 +33,8 @@ const OPTIONS: {
   {
     method: "bank_transfer",
     bank: "bni",
-    label: "BNI Virtual Account",
-    subLabel: "Bank transfer",
+    label: copy.payment.options.bniLabel,
+    subLabel: copy.payment.options.bankTransferSubLabel,
     badge: "BNI",
     badgeClass: "bg-orange-600",
     logoUrl: `${LOGO_BASE}/bni.svg`,
@@ -41,8 +42,8 @@ const OPTIONS: {
   {
     method: "bank_transfer",
     bank: "bri",
-    label: "BRI Virtual Account",
-    subLabel: "Bank transfer",
+    label: copy.payment.options.briLabel,
+    subLabel: copy.payment.options.bankTransferSubLabel,
     badge: "BRI",
     badgeClass: "bg-sky-700",
     logoUrl: `${LOGO_BASE}/bri.svg`,
@@ -50,32 +51,32 @@ const OPTIONS: {
   {
     method: "bank_transfer",
     bank: "permata",
-    label: "Permata Virtual Account",
-    subLabel: "Bank transfer",
+    label: copy.payment.options.permataLabel,
+    subLabel: copy.payment.options.bankTransferSubLabel,
     badge: "PMT",
     badgeClass: "bg-teal-700",
     logoUrl: `${LOGO_BASE}/permata.svg`,
   },
   {
     method: "qris",
-    label: "QRIS",
-    subLabel: "Scan with any e-wallet",
+    label: copy.payment.options.qrisLabel,
+    subLabel: copy.payment.options.qrisSubLabel,
     badge: "QR",
     badgeClass: "bg-gray-900",
     logoUrl: `${LOGO_BASE}/qris.svg`,
   },
   {
     method: "gopay",
-    label: "GoPay",
-    subLabel: "Pay with the Gojek app",
+    label: copy.payment.options.gopayLabel,
+    subLabel: copy.payment.options.gopaySubLabel,
     badge: "G",
     badgeClass: "bg-[#00AA13]",
     logoUrl: `${LOGO_BASE}/gopay.svg`,
   },
   {
     method: "shopeepay",
-    label: "ShopeePay",
-    subLabel: "Pay with the Shopee app",
+    label: copy.payment.options.shopeepayLabel,
+    subLabel: copy.payment.options.shopeepaySubLabel,
     badge: "S",
     badgeClass: "bg-[#EE4D2D]",
   },
@@ -138,9 +139,9 @@ export default function PaymentMethodPicker({
             </span>
           </span>
         ) : (
-          <span className="text-sm text-gray-500">Select payment</span>
+          <span className="text-sm text-gray-500">{copy.payment.selectPayment}</span>
         )}
-        <span className="shrink-0 text-xs text-gray-400">Change</span>
+        <span className="shrink-0 text-xs text-gray-400">{copy.payment.change}</span>
       </button>
 
       {isOpen && (
@@ -152,15 +153,15 @@ export default function PaymentMethodPicker({
           />
           <div
             role="dialog"
-            aria-label="Select payment method"
+            aria-label={copy.payment.selectPaymentDialogAria}
             className="fixed inset-x-4 top-1/2 z-50 mx-auto max-h-[80vh] max-w-sm -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-4 shadow-xl"
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Select payment</h2>
+              <h2 className="text-sm font-semibold">{copy.payment.selectPayment}</h2>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                aria-label="Close"
+                aria-label={copy.common.close}
                 className="text-xl text-gray-500 hover:text-black"
               >
                 ×

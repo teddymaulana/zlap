@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   getCardRequestByToken,
   createCardRequestOrderAndCharge,
@@ -9,6 +10,7 @@ import {
 } from "@/app/actions/cardRequests";
 import { getCurrentCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
+import AddressRegionSelect from "../../AddressRegionSelect";
 import PaymentMethodPicker, { type PaymentSelection } from "../../checkout/PaymentMethodPicker";
 
 function formatMoney(amount: number) {
@@ -26,10 +28,12 @@ export default function CardRequestCheckoutPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [region, setRegion] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     getCardRequestByToken(token).then((res) => {
@@ -55,8 +59,20 @@ export default function CardRequestCheckoutPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (region) {
+      setSubmitError((prev) =>
+        prev === "Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos" ? null : prev
+      );
+    }
+  }, [region]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!region) {
+      setSubmitError("Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos");
+      return;
+    }
     if (!paymentSelection) {
       setSubmitError("Please select a payment method");
       return;
@@ -66,7 +82,7 @@ export default function CardRequestCheckoutPage() {
     try {
       const res = await createCardRequestOrderAndCharge(
         token,
-        { name, phone, address, email },
+        { name, phone, address: `${address}, ${region}`, email },
         paymentSelection.method,
         paymentSelection.bank
       );
@@ -74,6 +90,11 @@ export default function CardRequestCheckoutPage() {
         setSubmitError(res.error);
         return;
       }
+      // Shows a manual fallback below in case the redirect below doesn't
+      // land (e.g. a slow or interrupted client-side transition) — the
+      // order is already charged at this point, so the customer needs a
+      // way forward rather than a frozen form.
+      setCreatedOrderId(res.orderId);
       router.replace(`/store/checkout?order=${encodeURIComponent(res.orderId)}`);
     } finally {
       setIsSubmitting(false);
@@ -95,6 +116,27 @@ export default function CardRequestCheckoutPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-md px-4 py-10">
           <p className="text-sm text-red-600">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (createdOrderId) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-md px-4 py-10 text-center">
+          <p className="text-sm text-gray-600">Taking you to your payment details…</p>
+          <p className="mt-4 text-xs text-gray-500">
+            If this page doesn&apos;t update in a few seconds,{" "}
+            <Link
+              href={`/store/checkout?order=${encodeURIComponent(createdOrderId)}`}
+              className="text-black underline"
+            >
+              tap here
+            </Link>{" "}
+            or reload the page. Your order (<span className="font-medium">{createdOrderId}</span>) has already
+            been placed.
+          </p>
         </div>
       </div>
     );
@@ -154,10 +196,11 @@ export default function CardRequestCheckoutPage() {
             required
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
+          <AddressRegionSelect onChange={setRegion} />
           <textarea
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Shipping address"
+            placeholder="Street name, house/unit number"
             required
             rows={3}
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { copy } from "@/lib/copy";
 import PasswordGate from "./PasswordGate";
 import { CartProvider } from "./CartContext";
 import { WishlistProvider } from "./WishlistContext";
@@ -20,11 +21,8 @@ export const metadata: Metadata = {
   description: "Authentic Pokemon and One Piece trading cards, shipped across Indonesia.",
 };
 
-const DEFAULT_TAGLINE = "Free shipping across Indonesia on every order";
-const DEFAULT_ANNOUNCEMENTS = [
-  "We currently ship within Indonesia only",
-  "100% authentic cards, checked before shipping",
-];
+const DEFAULT_TAGLINE = copy.announcementDefaults.tagline;
+const DEFAULT_ANNOUNCEMENTS = copy.announcementDefaults.messages;
 
 // Best-effort: a missing/not-yet-migrated storefront_settings table must
 // never take down the entire storefront (same lesson as recordProductView) —

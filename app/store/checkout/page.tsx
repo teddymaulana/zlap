@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ButtonSpinner from "@/app/ButtonSpinner";
+import PageSpinner from "@/app/PageSpinner";
 import { useCart } from "../CartContext";
 import {
   createOrderAndCharge,
@@ -16,14 +18,10 @@ import AddressRegionSelect from "../AddressRegionSelect";
 import FloatingLabelInput from "../FloatingLabelInput";
 import FloatingLabelTextarea from "../FloatingLabelTextarea";
 import PaymentMethodPicker, { type PaymentSelection } from "./PaymentMethodPicker";
+import { copy, fillCopy } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
-}
-
-function initialOrderCode() {
-  if (typeof window === "undefined") return "";
-  return new URLSearchParams(window.location.search).get("order") ?? "";
 }
 
 export default function CheckoutPage() {
@@ -38,20 +36,36 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutSuccess | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
-  const [orderCodeFromUrl] = useState(initialOrderCode);
-  const [checkingOrder, setCheckingOrder] = useState(() => !!initialOrderCode());
+  // Read reactively (not a one-time useState initializer): this route can be
+  // reached via router.replace() from the card-request quote checkout, and
+  // with Activity preserving previously-visited routes, a `/store/checkout`
+  // instance from earlier in the session can be reused instead of remounted
+  // — a snapshot taken once at mount would keep showing the old (or empty)
+  // order code.
+  const orderCodeFromUrl = useSearchParams().get("order") ?? "";
+  // Tracks which order code the fetch below has actually resolved for, so
+  // `checkingOrder` can be derived instead of toggled by hand — that way it
+  // naturally flips back to true if `orderCodeFromUrl` changes again (e.g.
+  // this preserved instance gets reused for a different order) rather than
+  // needing a synchronous setState at the top of the effect.
+  const [resolvedOrderCode, setResolvedOrderCode] = useState<string | null>(null);
+  const checkingOrder = !!orderCodeFromUrl && resolvedOrderCode !== orderCodeFromUrl;
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
-  // A page reload clears the cart-derived local `result` state (the cart
-  // itself is already empty by then) — reconstruct the payment screen from
-  // the order code left in the URL instead.
+  // A page reload (or a route swap into this preserved instance) clears the
+  // cart-derived local `result` state — reconstruct the payment screen from
+  // the order code in the URL instead.
   useEffect(() => {
     if (!orderCodeFromUrl) return;
-    getOrderPaymentDetails(orderCodeFromUrl)
-      .then((details) => {
-        if (details) setResult(details);
-      })
-      .finally(() => setCheckingOrder(false));
+    let cancelled = false;
+    getOrderPaymentDetails(orderCodeFromUrl).then((details) => {
+      if (cancelled) return;
+      if (details) setResult(details);
+      setResolvedOrderCode(orderCodeFromUrl);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [orderCodeFromUrl]);
 
   const isTerminalStatus = (status: string | null) =>
@@ -110,26 +124,24 @@ export default function CheckoutPage() {
   // leaving it on screen until the next submit attempt re-evaluates it.
   useEffect(() => {
     if (region) {
-      setError((prev) =>
-        prev === "Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos" ? null : prev
-      );
+      setError((prev) => (prev === copy.checkout.missingRegion ? null : prev));
     }
   }, [region]);
 
   useEffect(() => {
     if (paymentSelection) {
-      setError((prev) => (prev === "Please select a payment method" ? null : prev));
+      setError((prev) => (prev === copy.checkout.missingPaymentMethod ? null : prev));
     }
   }, [paymentSelection]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!region) {
-      setError("Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos");
+      setError(copy.checkout.missingRegion);
       return;
     }
     if (!paymentSelection) {
-      setError("Please select a payment method");
+      setError(copy.checkout.missingPaymentMethod);
       return;
     }
     setError(null);
@@ -160,30 +172,30 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-md px-4 py-10">
-          <h1 className="mb-4 text-lg font-semibold">Complete your payment</h1>
+          <h1 className="mb-4 text-lg font-semibold">{copy.checkout.completeTitle}</h1>
           <p className="mb-4 text-sm text-gray-600">
-            Order <span className="font-medium">{result.orderId}</span> — we&apos;ll process it once
-            payment is confirmed.
+            {copy.checkout.orderPrefix} <span className="font-medium">{result.orderId}</span>{" "}
+            {copy.checkout.orderSuffix}
           </p>
           {paymentStatus === "paid" ? (
             <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-              <div className="font-medium">Payment received</div>
-              <p className="mt-1 text-green-800">
-                Thanks! We&apos;re preparing your order and will email you when it ships.
-              </p>
+              <div className="font-medium">{copy.checkout.paymentReceived}</div>
+              <p className="mt-1 text-green-800">{copy.checkout.paymentReceivedBody}</p>
             </div>
           ) : paymentStatus === "failed" || paymentStatus === "expired" ? (
             <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
               <div className="font-medium">
-                {paymentStatus === "expired" ? "Payment window expired" : "Payment failed"}
+                {paymentStatus === "expired" ? copy.checkout.paymentWindowExpired : copy.checkout.paymentFailed}
               </div>
-              <p className="mt-1 text-red-800">Please place the order again to try another payment.</p>
+              <p className="mt-1 text-red-800">{copy.checkout.tryAgainBody}</p>
             </div>
           ) : (
             <>
               {result.paymentMethod === "bank_transfer" && (
                 <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <div className="text-xs text-gray-500 uppercase">{result.bank} Virtual Account</div>
+                  <div className="text-xs text-gray-500 uppercase">
+                    {result.bank} {copy.payment.virtualAccount}
+                  </div>
                   <div className="mt-1 text-xl font-semibold tracking-wide">{result.vaNumber}</div>
                 </div>
               )}
@@ -192,9 +204,7 @@ export default function CheckoutPage() {
                   qrUrl={result.qrUrl}
                   expiry={result.qrExpiry}
                   caption={
-                    result.paymentMethod === "gopay"
-                      ? "Scan with the Gojek app"
-                      : "Scan with any QRIS-supported app"
+                    result.paymentMethod === "gopay" ? copy.payment.scanGopay : copy.payment.scanQris
                   }
                 />
               )}
@@ -205,22 +215,24 @@ export default function CheckoutPage() {
                   rel="noopener noreferrer"
                   className="block rounded-lg bg-[#EE4D2D] px-4 py-3 text-center text-sm font-medium text-white hover:opacity-90"
                 >
-                  Open ShopeePay to pay
+                  {copy.payment.openShopeepay}
                 </a>
               )}
               {result.paymentMethod === "cstore" && result.paymentCode && (
                 <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <div className="text-xs text-gray-500 uppercase">{result.store} payment code</div>
+                  <div className="text-xs text-gray-500 uppercase">
+                    {fillCopy(copy.payment.paymentCode, { store: result.store ?? "" })}
+                  </div>
                   <div className="mt-1 text-xl font-semibold tracking-wide">{result.paymentCode}</div>
                   <p className="mt-2 text-xs text-gray-500">
-                    Show this code to the cashier at any {result.store} store to complete payment.
+                    {fillCopy(copy.payment.cashierNote, { store: result.store ?? "" })}
                   </p>
                 </div>
               )}
               <div className="mt-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400" />
-                  Waiting for payment — this page will update automatically.
+                  {copy.checkout.waitingForPayment}
                 </div>
                 <button
                   type="button"
@@ -228,20 +240,20 @@ export default function CheckoutPage() {
                   disabled={isCheckingStatus}
                   className="shrink-0 text-xs font-medium text-black underline disabled:opacity-50"
                 >
-                  {isCheckingStatus ? "Checking…" : "Check status now"}
+                  {isCheckingStatus ? copy.checkout.checking : copy.checkout.checkStatusNow}
                 </button>
               </div>
             </>
           )}
           <p className="mt-6 text-xs text-gray-500">
-            Bookmark this page, or use{" "}
+            {copy.checkout.bookmarkNotice}{" "}
             <Link
               href={`/store/orders/lookup?order=${encodeURIComponent(result.orderId)}`}
               className="text-black underline"
             >
-              Check your order
+              {copy.common.checkYourOrder}
             </Link>{" "}
-            anytime with your order code and email to see its status.
+            {copy.checkout.orLookupSuffix}
           </p>
         </div>
       </div>
@@ -251,8 +263,8 @@ export default function CheckoutPage() {
   if (checkingOrder) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto w-full max-w-md px-4 py-10">
-          <p className="text-sm text-gray-500">Loading your order…</p>
+        <div className="mx-auto flex w-full max-w-md flex-col items-center justify-center px-4 py-24">
+          <PageSpinner label={copy.checkout.loadingOrder} />
         </div>
       </div>
     );
@@ -262,7 +274,7 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-md px-4 py-10">
-          <p className="text-sm text-gray-500">Your cart is empty.</p>
+          <p className="text-sm text-gray-500">{copy.checkout.emptyCart}</p>
         </div>
       </div>
     );
@@ -271,7 +283,7 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto w-full max-w-md px-4 py-10">
-        <h1 className="mb-6 text-lg font-semibold">Checkout</h1>
+        <h1 className="mb-6 text-lg font-semibold">{copy.checkout.title}</h1>
 
         <div className="mb-6 divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
           {items.map((item) => (
@@ -297,56 +309,56 @@ export default function CheckoutPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <h2 className="mb-1 text-lg font-bold text-black">Shipping Address</h2>
+          <h2 className="mb-1 text-lg font-bold text-black">{copy.checkout.shippingAddress}</h2>
           <FloatingLabelInput
             type="text"
-            label="Full name"
+            label={copy.common.fullName}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
           <FloatingLabelInput
             type="email"
-            label="Email"
+            label={copy.common.email}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
           <FloatingLabelInput
             type="tel"
-            label="Phone number"
+            label={copy.common.phoneNumber}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             required
           />
           <AddressRegionSelect onChange={setRegion} />
           <FloatingLabelTextarea
-            label="Street name, house/unit number"
+            label={copy.checkout.streetLabel}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             required
             rows={3}
           />
 
-          <h2 className="mt-2 mb-1 text-lg font-bold text-black">Payment Method</h2>
+          <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentMethodHeading}</h2>
           <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
 
-          <h2 className="mt-2 mb-1 text-lg font-bold text-black">Payment Summary</h2>
+          <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentSummary}</h2>
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
             <div className="flex items-center justify-between py-1 text-sm">
-              <span className="text-gray-500">Subtotal</span>
+              <span className="text-gray-500">{copy.checkout.subtotal}</span>
               <span className="tabular-nums">{formatMoney(totalPrice)}</span>
             </div>
             <div className="flex items-center justify-between py-1 text-sm">
-              <span className="text-gray-500">Processing Fee</span>
-              <span className="font-medium text-green-600">FREE</span>
+              <span className="text-gray-500">{copy.checkout.processingFee}</span>
+              <span className="font-medium text-green-600">{copy.checkout.free}</span>
             </div>
             <div className="flex items-center justify-between py-1 text-sm">
-              <span className="text-gray-500">Shipping Fee</span>
-              <span className="font-medium text-green-600">FREE</span>
+              <span className="text-gray-500">{copy.checkout.shippingFee}</span>
+              <span className="font-medium text-green-600">{copy.checkout.free}</span>
             </div>
             <div className="flex items-center justify-between py-1 text-sm font-semibold">
-              <span>Total</span>
+              <span>{copy.common.total}</span>
               <span className="tabular-nums">{formatMoney(totalPrice)}</span>
             </div>
           </div>
@@ -358,7 +370,9 @@ export default function CheckoutPage() {
             disabled={isSubmitting}
             className="relative rounded-lg bg-black px-4 py-3 text-sm font-medium tabular-nums text-white hover:bg-gray-800 disabled:opacity-50"
           >
-            <span className={isSubmitting ? "invisible" : ""}>{`Pay ${formatMoney(totalPrice)}`}</span>
+            <span className={isSubmitting ? "invisible" : ""}>
+              {copy.checkout.payLabel} {formatMoney(totalPrice)}
+            </span>
             {isSubmitting && <ButtonSpinner />}
           </button>
         </form>

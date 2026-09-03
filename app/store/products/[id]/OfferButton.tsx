@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { submitOffer } from "@/app/actions/offers";
 import { getCurrentCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
+import { copy, fillCopy } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -41,11 +42,11 @@ export default function OfferButton({
     setError(null);
     const offeredPrice = Number(price);
     if (!offeredPrice || offeredPrice <= 0) {
-      setError("Enter a valid offer price");
+      setError(copy.product.invalidOfferPrice);
       return;
     }
     if (offeredPrice >= currentPrice) {
-      setError("Your offer should be lower than the current price");
+      setError(copy.product.offerTooHigh);
       return;
     }
     setIsSubmitting(true);
@@ -68,7 +69,7 @@ export default function OfferButton({
         onClick={() => setIsOpen(true)}
         className="w-full rounded border border-black px-4 py-3 text-sm font-medium hover:bg-gray-50"
       >
-        Make an offer
+        {copy.product.makeOffer}
       </button>
 
       {isOpen && (
@@ -82,33 +83,37 @@ export default function OfferButton({
           >
             {submitted ? (
               <div className="text-center">
-                <div className="mb-2 text-lg font-semibold">Offer sent</div>
+                <div className="mb-2 text-lg font-semibold">{copy.product.offerSent}</div>
                 <p className="mb-4 text-sm text-gray-600">
-                  We&apos;ll email you at <span className="font-medium">{email}</span> if it&apos;s accepted.
+                  {copy.product.offerEmailPrefix} <span className="font-medium">{email}</span>{" "}
+                  {copy.product.offerEmailSuffix}
                 </p>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
                   className="rounded bg-black px-4 py-2 text-sm text-white"
                 >
-                  Close
+                  {copy.common.close}
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 <div className="mb-1 flex items-center justify-between">
-                  <h2 className="text-base font-semibold">Make an offer</h2>
+                  <h2 className="text-base font-semibold">{copy.product.makeOffer}</h2>
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    aria-label="Close"
+                    aria-label={copy.common.close}
                     className="text-gray-400 hover:text-black"
                   >
                     ✕
                   </button>
                 </div>
                 <p className="text-sm text-gray-600">
-                  {productName} — current price {formatMoney(currentPrice)}
+                  {fillCopy(copy.product.currentPriceLine, {
+                    name: productName,
+                    price: formatMoney(currentPrice),
+                  })}
                 </p>
                 <input
                   type="number"
@@ -116,13 +121,13 @@ export default function OfferButton({
                   step="1"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  placeholder="Your offer (IDR)"
+                  placeholder={copy.product.yourOfferPlaceholder}
                   required
                   className="rounded border px-3 py-2 text-sm"
                 />
                 <div className="flex items-center gap-2">
                   <label htmlFor="offer-qty" className="text-sm text-gray-600">
-                    Qty
+                    {copy.common.qty}
                   </label>
                   <input
                     id="offer-qty"
@@ -138,7 +143,7 @@ export default function OfferButton({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
+                  placeholder={copy.product.yourNamePlaceholder}
                   required
                   className="rounded border px-3 py-2 text-sm"
                 />
@@ -146,7 +151,7 @@ export default function OfferButton({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
+                  placeholder={copy.common.email}
                   required
                   className="rounded border px-3 py-2 text-sm"
                 />
@@ -156,7 +161,7 @@ export default function OfferButton({
                   disabled={isSubmitting}
                   className="relative rounded bg-black px-4 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
                 >
-                  <span className={isSubmitting ? "invisible" : ""}>Send offer</span>
+                  <span className={isSubmitting ? "invisible" : ""}>{copy.product.sendOffer}</span>
                   {isSubmitting && <ButtonSpinner />}
                 </button>
               </form>

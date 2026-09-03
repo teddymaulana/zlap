@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { submitCardRequest } from "@/app/actions/cardRequests";
 import { getCurrentCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
@@ -65,6 +66,12 @@ export default function RequestCardPage() {
           We&apos;ll email you at <span className="font-medium">{email}</span> with a price quote once we&apos;ve
           sourced it — usually within a day or two.
         </p>
+        <Link
+          href="/store"
+          className="mt-6 inline-block rounded-lg bg-black px-4 py-3 text-sm font-medium text-white hover:bg-gray-800"
+        >
+          Keep browsing the catalog
+        </Link>
       </div>
     );
   }

@@ -1,0 +1,277 @@
+{
+  "common": {
+    "noImage": "No image",
+    "priceUnavailable": "Price unavailable",
+    "addToCart": "Add to cart",
+    "addToWishlist": "Add to wishlist",
+    "removeFromWishlist": "Remove from wishlist",
+    "email": "Email",
+    "fullName": "Full name",
+    "phoneNumber": "Phone number",
+    "total": "Total",
+    "checkYourOrder": "Cek pesanan Anda",
+    "brandName": "ZLAP CARD",
+    "qty": "Qty",
+    "close": "Close"
+  },
+  "header": {
+    "signIn": "Sign In",
+    "account": "Account",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "menuAria": "Menu",
+    "requestCard": "Request a card",
+    "trackOrder": "Track order",
+    "openCart": "Open cart"
+  },
+  "footer": {
+    "instagramAria": "Instagram",
+    "tiktokAria": "TikTok",
+    "whatsappAria": "WhatsApp",
+    "copyrightBrand": "Zlap Card",
+    "aboutDescription": "Authentic Pokemon and other trading cards, shipped across Indonesia.",
+    "shopHeading": "Shop",
+    "requestACard": "Request a Card",
+    "supportHeading": "Support",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "refund": "Refund",
+    "faq": "FAQ",
+    "contactHeading": "Contact Us",
+    "emailLabel": "Email",
+    "waLabel": "WA",
+    "instagramLabel": "Instagram",
+    "comingSoonBody": "This page is being written up — check back soon, or reach out to us on WhatsApp in the meantime."
+  },
+  "privacy": {
+    "pageTitle": "Kebijakan Privasi",
+    "intro": "Kebijakan ini menjelaskan informasi apa saja yang kami kumpulkan dari Anda dan bagaimana kami menggunakannya.",
+    "collectHeading": "Informasi yang Kami Kumpulkan",
+    "collectIntro": "Kami dapat mengumpulkan informasi berikut saat Anda berbelanja atau menghubungi kami:",
+    "collectItems": [
+      "Nama, alamat pengiriman, alamat email, dan nomor telepon",
+      "Informasi lain yang relevan untuk penawaran/rekomendasi produk, serta informasi login akun Anda"
+    ],
+    "useHeading": "Bagaimana Kami Menggunakan Data Anda",
+    "useIntro": "Informasi yang Anda berikan kami gunakan untuk:",
+    "useItems": [
+      "Memproses pesanan dan pertanyaan (inquiry) Anda",
+      "Berkomunikasi dengan Anda melalui WhatsApp atau email",
+      "Pencatatan (record keeping) internal kami",
+      "Mengirimkan materi promosi yang relevan, seperti penawaran baru atau informasi lain yang menurut kami mungkin menarik bagi Anda, melalui alamat email terdaftar atau notifikasi push",
+      "Menyesuaikan tampilan dan konten website sesuai dengan minat Anda"
+    ],
+    "noShareNote": "Kami tidak menggunakan informasi Anda di luar keperluan di atas, dan tidak menjual atau membagikannya kepada pihak ketiga.",
+    "preferencesNote": "Jika sebelumnya Anda telah menyetujui penggunaan informasi pribadi Anda, Anda dapat mengubah preferensi tersebut kapan saja dengan mengirim email kepada kami di"
+  },
+  "terms": {
+    "pageTitle": "Syarat & Ketentuan",
+    "lastUpdated": "Terakhir diperbarui: 3 September 2026",
+    "sections": [
+      {
+        "heading": "1. Tentang Zlap Card",
+        "body": "Zlap Card adalah toko online yang menjual kartu Pokemon dan One Piece — termasuk booster box, kartu single, dan Graded cards (slab) — langsung kepada konsumen di Indonesia. Kami bukan platform marketplace pihak ketiga; seluruh produk yang tercantum di situs ini dijual langsung oleh Zlap Card."
+      },
+      {
+        "heading": "2. Penggunaan Situs",
+        "body": "Anda bebas menjelajahi katalog kami tanpa perlu mendaftar. Dengan melakukan pemesanan, mengajukan permintaan kartu (card request), atau menghubungi kami melalui WhatsApp/email, Anda dianggap menyetujui Syarat & Ketentuan ini. Anda harus berusia minimal 18 tahun, atau berada dalam pengawasan orang tua/wali jika berusia di bawah itu, untuk melakukan transaksi. Kami melarang penggunaan bot atau scraping otomatis terhadap situs ini, serta penyalahgunaan formulir pemesanan atau permintaan kartu, termasuk pesanan spam atau tidak sah."
+      },
+      {
+        "heading": "3. Harga & Ketersediaan Stok",
+        "body": "Seluruh harga yang tercantum dalam mata uang Rupiah (IDR) dan merupakan harga akhir produk. Stok yang ditampilkan mengikuti ketersediaan inventaris kami, namun pada kasus yang jarang terjadi di mana produk yang Anda pesan ternyata tidak tersedia, kami akan menghubungi Anda dan memproses pengembalian dana penuh."
+      },
+      {
+        "heading": "4. Proses Pesanan",
+        "body": "Pesanan dilakukan dengan menambahkan produk ke keranjang, mengisi data pengiriman, lalu menyelesaikan pembayaran melalui metode yang tersedia di halaman checkout. Pesanan akan kami proses dan kirimkan setelah pembayaran diterima dan dikonfirmasi, disertai nomor resi untuk pelacakan pengiriman. Untuk permintaan kartu khusus (card request), kami akan mencarikan dan memberikan penawaran harga melalui email; pesanan baru diproses setelah Anda menyelesaikan pembayaran melalui tautan checkout yang kami kirimkan."
+      },
+      {
+        "heading": "5. Pembayaran",
+        "body": "Pembayaran diproses melalui Midtrans, payment gateway berizin di Indonesia. Metode pembayaran yang tersedia meliputi transfer virtual account bank, QRIS, GoPay, ShopeePay, dan kode pembayaran di gerai ritel, sesuai yang ditampilkan di halaman checkout. Kami tidak menerima transfer manual di luar metode yang tercantum tersebut."
+      },
+      {
+        "heading": "6. Pengembalian Dana & Pembatalan",
+        "body": "Ketentuan lengkap mengenai pengembalian dana dan pembatalan pesanan dapat dilihat pada halaman Kebijakan Refund kami."
+      },
+      {
+        "heading": "7. Kondisi Produk",
+        "body": "Booster box dan produk tersegel kami kirim dalam kondisi segel pabrik asli; kami tidak pernah membuka atau menyegel ulang produk. Graded cards (slab, misalnya PSA) dikirim dalam holder aslinya. Foto produk pada katalog bersifat representatif."
+      },
+      {
+        "heading": "8. Kekayaan Intelektual",
+        "body": "Seluruh merek dagang (Pokemon, One Piece, dan lainnya) adalah milik pemegang hak masing-masing. Zlap Card bukan distributor resmi dan tidak berafiliasi dengan The Pokemon Company, Bandai, atau entitas terkait lainnya."
+      },
+      {
+        "heading": "9. Batasan Tanggung Jawab",
+        "items": [
+          {
+            "title": "Penggunaan Platform",
+            "body": "Zlap Card tidak bertanggung jawab atas kerugian yang timbul akibat penggunaan platform tanpa izin, termasuk namun tidak terbatas pada peretasan akun atau penipuan yang dilakukan pihak ketiga."
+          },
+          {
+            "title": "Ganti Rugi",
+            "body": "Pengguna setuju untuk membebaskan Zlap Card dari segala klaim, kerugian, tanggung jawab, atau biaya yang timbul akibat penggunaan platform atau pelanggaran terhadap Syarat & Ketentuan ini."
+          }
+        ]
+      },
+      {
+        "heading": "10. Hukum yang Berlaku",
+        "body": "Syarat & Ketentuan ini tunduk pada hukum Republik Indonesia. Apabila terjadi perselisihan, kami akan mengutamakan penyelesaian secara musyawarah; jika tidak tercapai kesepakatan, penyelesaian akan dilakukan melalui Pengadilan Negeri yang berwenang."
+      },
+      {
+        "heading": "11. Perubahan Ketentuan",
+        "body": "Kami dapat memperbarui Syarat & Ketentuan ini dari waktu ke waktu, dengan tanggal pembaruan tercantum di bagian atas halaman ini. Perubahan yang bersifat material akan kami informasikan kepada Anda. Untuk pertanyaan seputar Syarat & Ketentuan ini, silakan hubungi kami di info@zlapcard.com atau WhatsApp di +62 851-2136-9155."
+      }
+    ]
+  },
+  "refund": {
+    "pageTitle": "Kebijakan Refund",
+    "intro": "Kebijakan ini menjelaskan kapan Anda dapat membatalkan pesanan dan bagaimana pengembalian dana diproses.",
+    "cancellationHeading": "Pembatalan Pesanan",
+    "cancellationBody": "Permohonan refund hanya bisa dilakukan sebelum kami menyerahkan pesanan ke pihak kurir pengiriman. Ajukan permohonan pembatalan dengan menghubungi kami melalui WhatsApp atau email — permohonan tidak dapat diajukan melalui cara lain. Setelah pesanan diserahkan ke kurir, pembatalan tidak lagi dapat diajukan.",
+    "processHeading": "Proses Pengembalian Dana",
+    "processIntro": "Setelah permintaan pembatalan Anda disetujui, kami memproses pengembalian dana melalui Midtrans sesuai metode pembayaran yang Anda gunakan:",
+    "processItems": [
+      "QRIS, GoPay, ShopeePay, dan kode pembayaran gerai ritel dikembalikan secara otomatis melalui Midtrans.",
+      "Pembayaran transfer bank (virtual account) memerlukan pengembalian dana secara manual oleh tim kami, karena Midtrans tidak mendukung refund otomatis untuk metode ini."
+    ],
+    "stockHeading": "Stok Tidak Tersedia",
+    "stockBody": "Dalam kasus yang jarang terjadi di mana produk yang Anda pesan ternyata tidak tersedia setelah pesanan dibuat, kami akan menghubungi Anda dan memproses pengembalian dana penuh.",
+    "contactNote": "Untuk pertanyaan seputar pesanan atau pengembalian dana Anda, silakan hubungi kami di info@zlapcard.com atau WhatsApp di +62 851-2136-9155."
+  },
+  "marketplace": {
+    "alsoShopOn": "Also shop with us on",
+    "findUsOn": "Find us on",
+    "shopee": "Shopee",
+    "tokopedia": "Tokopedia"
+  },
+  "announcementDefaults": {
+    "tagline": "Free shipping across Indonesia on every order",
+    "messages": [
+      "We currently ship within Indonesia only",
+      "100% authentic cards, checked before shipping"
+    ]
+  },
+  "home": {
+    "searchAria": "Search",
+    "searchPlaceholder": "Search products…",
+    "clearSearchAria": "Clear search",
+    "searching": "Searching…",
+    "loadingProducts": "Loading products…",
+    "noProducts": "No products found."
+  },
+  "carousel": {
+    "scrollLeftAria": "Scroll left",
+    "scrollRightAria": "Scroll right"
+  },
+  "filters": {
+    "categories": {
+      "boosterBoxes": "Booster Boxes",
+      "singles": "Singles",
+      "slabs": "Slabs",
+      "other": "Other"
+    },
+    "allBrandsPlaceholder": "All Brands",
+    "allSetsPlaceholder": "All Sets",
+    "allCategoriesPlaceholder": "All Categories",
+    "noBrandsFound": "No brands found",
+    "noSetsFound": "No sets found",
+    "noCategoriesFound": "No categories found",
+    "clearFilters": "Clear filters",
+    "badgeNew": "NEW",
+    "badgeSale": "SALE"
+  },
+  "cart": {
+    "title": "Cart",
+    "closeAria": "Close cart",
+    "dialogAria": "Shopping cart",
+    "empty": "Your cart is empty.",
+    "removeAria": "Remove from cart",
+    "item": "item",
+    "onlyNInStock": "Only {n} in stock",
+    "checkout": "Checkout"
+  },
+  "product": {
+    "preorder": "Pre-order",
+    "arrivesOn": "Arrives {date}",
+    "shipsInDays": "Ships in ~{days} days",
+    "freeShipping": "Free shipping across Indonesia",
+    "relatedItems": "Related items",
+    "makeOffer": "Make an offer",
+    "offerSent": "Offer sent",
+    "offerEmailPrefix": "We'll email you at",
+    "offerEmailSuffix": "if it's accepted.",
+    "invalidOfferPrice": "Enter a valid offer price",
+    "offerTooHigh": "Your offer should be lower than the current price",
+    "currentPriceLine": "{name} — current price {price}",
+    "yourOfferPlaceholder": "Your offer (IDR)",
+    "yourNamePlaceholder": "Your name",
+    "sendOffer": "Send offer"
+  },
+  "payment": {
+    "virtualAccount": "Virtual Account",
+    "scanQris": "Scan with any QRIS-supported app",
+    "scanGopay": "Scan with the Gojek app",
+    "qrExpired": "This QR code has expired.",
+    "qrExpiredNotice": "Please place a new order to get a fresh payment code.",
+    "qrAlt": "Payment QR code",
+    "openShopeepay": "Open ShopeePay to pay",
+    "paymentCode": "{store} payment code",
+    "cashierNote": "Show this code to the cashier at any {store} store to complete payment.",
+    "selectPayment": "Select payment",
+    "selectPaymentDialogAria": "Select payment method",
+    "change": "Change",
+    "options": {
+      "bcaLabel": "BCA Virtual Account",
+      "bniLabel": "BNI Virtual Account",
+      "briLabel": "BRI Virtual Account",
+      "permataLabel": "Permata Virtual Account",
+      "bankTransferSubLabel": "Bank transfer",
+      "qrisLabel": "QRIS",
+      "qrisSubLabel": "Scan with any e-wallet",
+      "gopayLabel": "GoPay",
+      "gopaySubLabel": "Pay with the Gojek app",
+      "shopeepayLabel": "ShopeePay",
+      "shopeepaySubLabel": "Pay with the Shopee app"
+    }
+  },
+  "checkout": {
+    "title": "Checkout",
+    "shippingAddress": "Shipping Address",
+    "streetLabel": "Street name, house/unit number",
+    "paymentMethodHeading": "Payment Method",
+    "paymentSummary": "Payment Summary",
+    "subtotal": "Subtotal",
+    "processingFee": "Processing Fee",
+    "shippingFee": "Shipping Fee",
+    "free": "FREE",
+    "payLabel": "Pay",
+    "completeTitle": "Complete your payment",
+    "orderPrefix": "Pesanan",
+    "orderSuffix": "— akan kami proses setelah pembayaran dikonfirmasi.",
+    "paymentReceived": "Payment received",
+    "paymentReceivedBody": "Terima kasih! Pesanan Anda sedang kami siapkan dan kami akan mengirimkan email saat pesanan dikirim.",
+    "paymentWindowExpired": "Payment window expired",
+    "paymentFailed": "Payment failed",
+    "tryAgainBody": "Please place the order again to try another payment.",
+    "waitingForPayment": "Menunggu pembayaran — halaman ini akan diperbarui secara otomatis.",
+    "checkStatusNow": "Check status now",
+    "checking": "Checking…",
+    "bookmarkNotice": "Bookmark halaman ini, atau gunakan",
+    "orLookupSuffix": "kapan saja dengan kode pesanan dan email Anda untuk melihat statusnya.",
+    "missingRegion": "Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos",
+    "missingPaymentMethod": "Please select a payment method",
+    "loadingOrder": "Loading your order…",
+    "emptyCart": "Your cart is empty."
+  },
+  "whatsapp": {
+    "chatAria": "Chat with us on WhatsApp",
+    "defaultMessage": "Halo, saya ingin bertanya tentang produk kalian.",
+    "productInquiryTemplate": "Halo, saya tertarik dengan produk \"{name}\" ({link}). Apakah masih tersedia?"
+  },
+  "passwordGate": {
+    "title": "Zlap Store",
+    "notice": "This storefront is still in development.",
+    "passwordPlaceholder": "Password",
+    "submit": "Enter"
+  }
+}

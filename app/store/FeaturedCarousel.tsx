@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ProductCard from "./ProductCard";
 import type { StorefrontProduct } from "@/app/actions/storefront";
+import { copy } from "@/lib/copy";
 
 export default function FeaturedCarousel({
   title,
@@ -48,7 +49,7 @@ export default function FeaturedCarousel({
             type="button"
             onClick={() => scrollByAmount(-1)}
             disabled={!canScrollLeft}
-            aria-label="Scroll left"
+            aria-label={copy.carousel.scrollLeftAria}
             className="rounded-full border p-1.5 hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-transparent"
           >
             ‹
@@ -57,7 +58,7 @@ export default function FeaturedCarousel({
             type="button"
             onClick={() => scrollByAmount(1)}
             disabled={!canScrollRight}
-            aria-label="Scroll right"
+            aria-label={copy.carousel.scrollRightAria}
             className="rounded-full border p-1.5 hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-transparent"
           >
             ›

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { unlockStorefront } from "@/app/actions/storefront";
 import ButtonSpinner from "@/app/ButtonSpinner";
+import { copy } from "@/lib/copy";
 
 export default function PasswordGate() {
   const [error, setError] = useState<string | null>(null);
@@ -24,13 +25,13 @@ export default function PasswordGate() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-4">
-      <h1 className="text-xl font-semibold">Zlap Store</h1>
-      <p className="text-sm text-gray-500">This storefront is still in development.</p>
+      <h1 className="text-xl font-semibold">{copy.passwordGate.title}</h1>
+      <p className="text-sm text-gray-500">{copy.passwordGate.notice}</p>
       <form action={submit} className="flex flex-col gap-4">
         <input
           type="password"
           name="password"
-          placeholder="Password"
+          placeholder={copy.passwordGate.passwordPlaceholder}
           required
           className="rounded border border-gray-300 px-3 py-2"
         />
@@ -40,7 +41,7 @@ export default function PasswordGate() {
           disabled={isPending}
           className="relative rounded bg-black px-3 py-2 text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          <span className={isPending ? "invisible" : ""}>Enter</span>
+          <span className={isPending ? "invisible" : ""}>{copy.passwordGate.submit}</span>
           {isPending && <ButtonSpinner />}
         </button>
       </form>

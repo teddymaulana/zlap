@@ -269,12 +269,30 @@ export default async function DashboardPage({
     inventoryByProduct.set(b.product_id, entry);
   }
 
-  const valueByTag = { booster_box: 0, graded: 0, special_box: 0 };
+  const valueByTag = {
+    booster_box: { value: 0, pieces: 0 },
+    graded: { value: 0, pieces: 0 },
+    special_box: { value: 0, pieces: 0 },
+    single: { value: 0, pieces: 0 },
+  };
   for (const [productId, v] of inventoryByProduct.entries()) {
     const tags = productTagsById.get(productId) ?? [];
-    if (tags.includes("booster_box")) valueByTag.booster_box += v.totalValue;
-    if (tags.includes("graded")) valueByTag.graded += v.totalValue;
-    if (tags.includes("special_box")) valueByTag.special_box += v.totalValue;
+    if (tags.includes("booster_box")) {
+      valueByTag.booster_box.value += v.totalValue;
+      valueByTag.booster_box.pieces += v.available;
+    }
+    if (tags.includes("graded")) {
+      valueByTag.graded.value += v.totalValue;
+      valueByTag.graded.pieces += v.available;
+    }
+    if (tags.includes("special_box")) {
+      valueByTag.special_box.value += v.totalValue;
+      valueByTag.special_box.pieces += v.available;
+    }
+    if (tags.includes("single") || tags.includes("singles")) {
+      valueByTag.single.value += v.totalValue;
+      valueByTag.single.pieces += v.available;
+    }
   }
 
   const inventory: ProductInventory[] = [...inventoryByProduct.entries()]
@@ -335,15 +353,31 @@ export default async function DashboardPage({
             <div className="mt-3 flex flex-col gap-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Booster Box</span>
-                <span>{formatMoney(valueByTag.booster_box)}</span>
+                <span>
+                  {formatMoney(valueByTag.booster_box.value)}
+                  <span className="ml-2 text-gray-400">({valueByTag.booster_box.pieces})</span>
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Graded Cards</span>
-                <span>{formatMoney(valueByTag.graded)}</span>
+                <span>
+                  {formatMoney(valueByTag.graded.value)}
+                  <span className="ml-2 text-gray-400">({valueByTag.graded.pieces})</span>
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">Special Boxes</span>
-                <span>{formatMoney(valueByTag.special_box)}</span>
+                <span>
+                  {formatMoney(valueByTag.special_box.value)}
+                  <span className="ml-2 text-gray-400">({valueByTag.special_box.pieces})</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Single</span>
+                <span>
+                  {formatMoney(valueByTag.single.value)}
+                  <span className="ml-2 text-gray-400">({valueByTag.single.pieces})</span>
+                </span>
               </div>
             </div>
           </div>

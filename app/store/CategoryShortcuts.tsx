@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { StorefrontShortcut } from "@/lib/types";
+import { copy } from "@/lib/copy";
 
 export default function CategoryShortcuts({
   shortcuts,
@@ -42,7 +43,7 @@ export default function CategoryShortcuts({
                 s.badge === "new" ? "bg-blue-600" : "bg-red-600"
               }`}
             >
-              {s.badge === "new" ? "NEW" : "SALE"}
+              {s.badge === "new" ? copy.filters.badgeNew : copy.filters.badgeSale}
             </span>
           ) : null;
 
@@ -58,7 +59,7 @@ export default function CategoryShortcuts({
               />
             ) : (
               <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-100 text-[9px] text-gray-400">
-                No image
+                {copy.common.noImage}
               </div>
             )}
             <span

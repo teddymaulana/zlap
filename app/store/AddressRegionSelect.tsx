@@ -43,10 +43,16 @@ function RegionCombobox({
   const ref = useClickOutside(() => setIsOpen(false));
 
   const trimmed = query.trim().toLowerCase();
-  const results =
-    isOpen && trimmed && trimmed !== selectedName.toLowerCase()
-      ? options.filter((o) => o.name.toLowerCase().includes(trimmed)).slice(0, 8)
-      : [];
+  // Focusing an empty field shows the full list (nothing typed yet to
+  // filter by); once the customer types, narrow to matches and cap the
+  // count so the dropdown stays scannable.
+  const results = !isOpen
+    ? []
+    : !trimmed
+      ? options
+      : trimmed === selectedName.toLowerCase()
+        ? []
+        : options.filter((o) => o.name.toLowerCase().includes(trimmed)).slice(0, 8);
 
   function select(option: Region) {
     setQuery(option.name);

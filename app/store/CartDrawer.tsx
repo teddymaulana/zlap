@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "./CartContext";
 import { getStorefrontAvailability } from "@/app/actions/storefront";
+import { copy, fillCopy } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -32,17 +33,19 @@ export default function CartDrawer() {
       />
       <div
         role="dialog"
-        aria-label="Shopping cart"
+        aria-label={copy.cart.dialogAria}
         className={`fixed top-0 right-0 z-50 flex h-full w-full max-w-sm flex-col bg-white shadow-xl transition-transform ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-lg font-semibold">Cart ({totalCount})</h2>
+          <h2 className="text-lg font-semibold">
+            {copy.cart.title} ({totalCount})
+          </h2>
           <button
             type="button"
             onClick={closeCart}
-            aria-label="Close cart"
+            aria-label={copy.cart.closeAria}
             className="text-xl text-gray-500 hover:text-black"
           >
             ×
@@ -50,7 +53,7 @@ export default function CartDrawer() {
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {items.length === 0 ? (
-            <p className="text-sm text-gray-500">Your cart is empty.</p>
+            <p className="text-sm text-gray-500">{copy.cart.empty}</p>
           ) : (
             <div className="flex flex-col gap-4">
               {items.map((item) => (
@@ -64,13 +67,13 @@ export default function CartDrawer() {
                     />
                   ) : (
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border bg-gray-50 text-[9px] text-gray-400">
-                      No image
+                      {copy.common.noImage}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{item.name}</div>
                     <div className="mt-0.5 text-xs text-gray-500 tabular-nums">
-                      {item.price !== null ? formatMoney(item.price) : "Price unavailable"}
+                      {item.price !== null ? formatMoney(item.price) : copy.common.priceUnavailable}
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <button
@@ -96,7 +99,7 @@ export default function CartDrawer() {
                     {typeof availability[item.id] === "number" &&
                       item.qty >= availability[item.id] && (
                         <div className="mt-0.5 text-xs text-red-600">
-                          Only {availability[item.id]} in stock
+                          {fillCopy(copy.cart.onlyNInStock, { n: availability[item.id] })}
                         </div>
                       )}
                   </div>
@@ -107,7 +110,7 @@ export default function CartDrawer() {
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}
-                      aria-label="Remove from cart"
+                      aria-label={copy.cart.removeAria}
                       className="text-red-600 hover:text-red-700"
                     >
                       <svg
@@ -136,10 +139,11 @@ export default function CartDrawer() {
         {items.length > 0 && (
           <div className="border-t px-4 py-3">
             <div className="text-xs text-gray-500">
-              {totalCount} item{totalCount === 1 ? "" : "s"}
+              {totalCount} {copy.cart.item}
+              {totalCount === 1 ? "" : "s"}
             </div>
             <div className="mt-1 flex items-center justify-between text-base font-semibold">
-              <span>Total</span>
+              <span>{copy.common.total}</span>
               <span className="tabular-nums">{formatMoney(totalPrice)}</span>
             </div>
             <Link
@@ -147,7 +151,7 @@ export default function CartDrawer() {
               onClick={closeCart}
               className="mt-3 block w-full rounded bg-black px-4 py-3 text-center text-sm font-medium text-white hover:bg-gray-800"
             >
-              Checkout
+              {copy.cart.checkout}
             </Link>
           </div>
         )}

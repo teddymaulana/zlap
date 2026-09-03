@@ -11,6 +11,24 @@ function formatOrderStatus(status: string) {
   return status === "completed" ? "Fulfilled" : formatStatus(status);
 }
 
+function PaymentBadge({ status }: { status: Order["payment_status"] }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs ${
+        status === "paid"
+          ? "bg-green-100 text-green-800"
+          : status === "pending"
+            ? "bg-yellow-100 text-yellow-800"
+            : status === "refund_pending" || status === "refunded"
+              ? "bg-red-100 text-red-800"
+              : "bg-gray-100 text-gray-600"
+      }`}
+    >
+      {formatStatus(status)}
+    </span>
+  );
+}
+
 function OrderList({ orders }: { orders: Order[] }) {
   return (
     <div className="divide-y rounded border">
@@ -26,7 +44,10 @@ function OrderList({ orders }: { orders: Order[] }) {
               {o.channel} · {o.date}
             </div>
           </div>
-          <div className="text-sm text-gray-600">{formatOrderStatus(o.status)}</div>
+          <div className="flex items-center gap-2">
+            <PaymentBadge status={o.payment_status} />
+            <div className="text-sm text-gray-600">{formatOrderStatus(o.status)}</div>
+          </div>
         </Link>
       ))}
       {orders.length === 0 && <div className="px-4 py-6 text-sm text-gray-500">No orders yet.</div>}

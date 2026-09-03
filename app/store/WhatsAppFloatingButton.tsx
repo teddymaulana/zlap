@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useWhatsAppContext } from "./WhatsAppContext";
+import { copy, fillCopy } from "@/lib/copy";
 
 const WHATSAPP_NUMBER = "6285121369155";
-const DEFAULT_MESSAGE = "Halo, saya ingin bertanya tentang produk kalian.";
 
 function buildMessage(product: { name: string; path: string } | null, origin: string) {
-  if (!product) return DEFAULT_MESSAGE;
+  if (!product) return copy.whatsapp.defaultMessage;
   const link = origin ? `${origin}${product.path}` : product.path;
-  return `Halo, saya tertarik dengan produk "${product.name}" (${link}). Apakah masih tersedia?`;
+  return fillCopy(copy.whatsapp.productInquiryTemplate, { name: product.name, link });
 }
 
 export default function WhatsAppFloatingButton() {
@@ -27,7 +27,7 @@ export default function WhatsAppFloatingButton() {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label="Chat with us on WhatsApp"
+      aria-label={copy.whatsapp.chatAria}
       className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 hover:shadow-xl"
     >
       <svg

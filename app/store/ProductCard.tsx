@@ -5,6 +5,7 @@ import type { StorefrontProduct } from "@/app/actions/storefront";
 import { isSlabProduct } from "@/lib/productCategory";
 import { useCart } from "./CartContext";
 import { useWishlist } from "./WishlistContext";
+import { copy, fillCopy } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -13,9 +14,10 @@ function formatMoney(amount: number) {
 function preorderText(preorder: StorefrontProduct["preorder"]) {
   if (!preorder) return null;
   if (preorder.date) {
-    return `Arrives ${new Date(preorder.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}`;
+    const date = new Date(preorder.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+    return fillCopy(copy.product.arrivesOn, { date });
   }
-  return `Ships in ~${preorder.days ?? 30} days`;
+  return fillCopy(copy.product.shipsInDays, { days: preorder.days ?? 30 });
 }
 
 export default function ProductCard({ product }: { product: StorefrontProduct }) {
@@ -37,19 +39,19 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
             />
           ) : (
             <div className="flex aspect-square w-full items-center justify-center rounded bg-gray-50 text-xs text-gray-400">
-              No image
+              {copy.common.noImage}
             </div>
           )}
         </Link>
         {product.preorder && (
           <span className="absolute right-1.5 bottom-1.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
-            Pre-order
+            {copy.product.preorder}
           </span>
         )}
         <button
           type="button"
           onClick={() => toggle(product.id)}
-          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          aria-label={isWishlisted ? copy.common.removeFromWishlist : copy.common.addToWishlist}
           className={`absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow transition-opacity hover:bg-white ${
             isWishlisted ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           }`}
@@ -66,7 +68,10 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
           </svg>
         </button>
       </div>
-      <Link href={`/store/products/${product.id}`} className="text-sm font-medium hover:underline">
+      <Link
+        href={`/store/products/${product.id}`}
+        className="text-sm font-medium text-[#151515] hover:underline"
+      >
         {product.name}
       </Link>
       {showSetName && <div className="text-xs text-gray-500">{product.setName}</div>}
@@ -74,15 +79,15 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
         <div className="text-xs text-blue-700">{preorderText(product.preorder)}</div>
       )}
       <div className="mt-auto pt-2">
-        <div className="text-sm font-semibold tabular-nums">
-          {product.price !== null ? formatMoney(product.price) : "Price unavailable"}
+        <div className="text-sm font-semibold text-[#151515] tabular-nums">
+          {product.price !== null ? formatMoney(product.price) : copy.common.priceUnavailable}
         </div>
         <button
           type="button"
           onClick={() => addItem(product)}
           className="mt-2 flex w-full items-center justify-between border-t border-gray-200 py-2 text-xs font-medium text-gray-900 transition-colors group-hover:border-gray-400 hover:bg-gray-50"
         >
-          Add to cart
+          {copy.common.addToCart}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"

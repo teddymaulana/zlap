@@ -3,6 +3,7 @@
 import type { StorefrontProductDetail } from "@/app/actions/storefront";
 import { useCart } from "../../CartContext";
 import { useWishlist } from "../../WishlistContext";
+import { copy } from "@/lib/copy";
 
 export default function ProductDetailActions({ product }: { product: StorefrontProductDetail }) {
   const { addItem } = useCart();
@@ -16,12 +17,12 @@ export default function ProductDetailActions({ product }: { product: StorefrontP
         onClick={() => addItem(product)}
         className="flex-1 rounded bg-black px-4 py-3 text-sm font-medium text-white hover:bg-gray-800"
       >
-        Add to cart
+        {copy.common.addToCart}
       </button>
       <button
         type="button"
         onClick={() => toggle(product.id)}
-        aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+        aria-label={isWishlisted ? copy.common.removeFromWishlist : copy.common.addToWishlist}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded border hover:bg-gray-50"
       >
         <svg

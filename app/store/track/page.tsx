@@ -43,7 +43,7 @@ export default function TrackPage() {
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
       <h1 className="mb-1 text-lg font-semibold">Track your order</h1>
       <p className="mb-4 text-sm text-gray-500">
-        Looking for your order&apos;s payment status instead of shipment tracking?{" "}
+        Mencari status pembayaran pesanan Anda, bukan pelacakan pengiriman?{" "}
         <Link href="/store/orders/lookup" className="text-black underline">
           Check your order
         </Link>
@@ -85,7 +85,7 @@ export default function TrackPage() {
       ) : null}
 
       <div className="mt-10 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-        Still have questions about your order?{" "}
+        Masih ada pertanyaan seputar pesanan Anda?{" "}
         <a
           href={`https://wa.me/6285121369155?text=${encodeURIComponent(
             "Halo, saya ingin bertanya tentang status pesanan saya."
@@ -94,9 +94,9 @@ export default function TrackPage() {
           rel="noopener noreferrer"
           className="font-medium text-black underline"
         >
-          Contact us on WhatsApp
+          Hubungi kami via WhatsApp
         </a>{" "}
-        and we&apos;ll help you out.
+        dan kami akan bantu Anda.
       </div>
 
       {recommended.length > 0 && (

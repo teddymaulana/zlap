@@ -11,6 +11,7 @@ import OfferButton from "./OfferButton";
 import SalesChart from "./SalesChart";
 import ProductCard from "../../ProductCard";
 import WhatsAppProductAnnouncer from "../../WhatsAppProductAnnouncer";
+import { copy, fillCopy } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -19,9 +20,10 @@ function formatMoney(amount: number) {
 function preorderText(preorder: { days?: number; date?: string } | null) {
   if (!preorder) return null;
   if (preorder.date) {
-    return `Arrives ${new Date(preorder.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}`;
+    const date = new Date(preorder.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+    return fillCopy(copy.product.arrivesOn, { date });
   }
-  return `Ships in ~${preorder.days ?? 30} days`;
+  return fillCopy(copy.product.shipsInDays, { days: preorder.days ?? 30 });
 }
 
 export default async function StorefrontProductDetailPage({
@@ -51,7 +53,7 @@ export default async function StorefrontProductDetailPage({
           />
         ) : (
           <div className="flex aspect-square w-full items-center justify-center rounded border bg-gray-50 text-sm text-gray-400">
-            No image
+            {copy.common.noImage}
           </div>
         )}
 
@@ -83,7 +85,7 @@ export default async function StorefrontProductDetailPage({
           )}
 
           <div className="mt-2 text-2xl font-semibold tabular-nums">
-            {product.price !== null ? formatMoney(product.price) : "Price unavailable"}
+            {product.price !== null ? formatMoney(product.price) : copy.common.priceUnavailable}
           </div>
 
           <div className="mt-2">
@@ -118,14 +120,12 @@ export default async function StorefrontProductDetailPage({
           <circle cx="6.5" cy="18.5" r="1.5" />
           <circle cx="16.5" cy="18.5" r="1.5" />
         </svg>
-        <span className="text-sm font-semibold text-orange-800">
-          Free shipping across Indonesia
-        </span>
+        <span className="text-sm font-semibold text-orange-800">{copy.product.freeShipping}</span>
       </div>
 
       {relatedProducts.length > 0 && (
         <div className="mt-12">
-          <h2 className="mb-3 text-sm font-semibold text-gray-700">Related items</h2>
+          <h2 className="mb-3 text-sm font-semibold text-gray-700">{copy.product.relatedItems}</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {relatedProducts.map((p) => (
               <ProductCard key={p.id} product={p} />

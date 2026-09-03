@@ -52,7 +52,7 @@ export default function GuestOrderLookupPage() {
       <div className="mx-auto w-full max-w-2xl px-4 py-8">
         <h1 className="mb-2 text-lg font-semibold">Check your order</h1>
         <p className="mb-6 text-sm text-gray-500">
-          Enter your order code and the email you used at checkout.
+          Masukkan kode pesanan dan email yang Anda gunakan saat checkout.
         </p>
 
         <form onSubmit={handleSubmit} className="mb-8 flex flex-col gap-2 sm:flex-row">

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "./CartContext";
 import { getCurrentCustomer } from "@/app/actions/customer";
+import { copy } from "@/lib/copy";
 
 export default function StoreHeader({ tagline }: { tagline: string }) {
   const { openCart, totalCount } = useCart();
@@ -12,11 +13,11 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
   const closeMenu = () => setIsMenuOpen(false);
   // Defaults to "Sign In" (the common case for a first-time visitor) until
   // the session check resolves, rather than flashing "Account" for guests.
-  const [accountLabel, setAccountLabel] = useState("Sign In");
+  const [accountLabel, setAccountLabel] = useState(copy.header.signIn);
 
   useEffect(() => {
     getCurrentCustomer().then((customer) => {
-      if (customer) setAccountLabel("Account");
+      if (customer) setAccountLabel(copy.header.account);
     });
   }, []);
 
@@ -27,7 +28,7 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
           <button
             type="button"
             onClick={() => setIsMenuOpen(true)}
-            aria-label="Open menu"
+            aria-label={copy.header.openMenu}
             className="rounded-full p-2 hover:bg-gray-100 sm:hidden"
           >
             <svg
@@ -63,13 +64,13 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
             href="/store/request"
             className="hidden text-sm text-gray-600 hover:text-black sm:inline"
           >
-            Request a card
+            {copy.header.requestCard}
           </Link>
           <Link
             href="/store/track"
             className="hidden text-sm text-gray-600 hover:text-black sm:inline"
           >
-            Track order
+            {copy.header.trackOrder}
           </Link>
           <Link
             href="/store/account"
@@ -80,7 +81,7 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
           <button
             type="button"
             onClick={openCart}
-            aria-label="Open cart"
+            aria-label={copy.header.openCart}
             className="relative rounded-full p-2 hover:bg-gray-100"
           >
             <svg
@@ -115,17 +116,17 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
       />
       <div
         role="dialog"
-        aria-label="Menu"
+        aria-label={copy.header.menuAria}
         className={`fixed top-0 left-0 z-50 flex h-full w-full max-w-xs flex-col bg-white shadow-xl transition-transform sm:hidden ${
           isMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <span className="text-lg font-bold tracking-wide">ZLAP CARD</span>
+          <span className="text-lg font-bold tracking-wide">{copy.common.brandName}</span>
           <button
             type="button"
             onClick={closeMenu}
-            aria-label="Close menu"
+            aria-label={copy.header.closeMenu}
             className="text-xl text-gray-500 hover:text-black"
           >
             ×
@@ -137,14 +138,14 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
             onClick={closeMenu}
             className="py-3 text-sm text-gray-600 hover:text-black"
           >
-            Request a card
+            {copy.header.requestCard}
           </Link>
           <Link
             href="/store/track"
             onClick={closeMenu}
             className="py-3 text-sm text-gray-600 hover:text-black"
           >
-            Track order
+            {copy.header.trackOrder}
           </Link>
           <Link
             href="/store/account"

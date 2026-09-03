@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { copy } from "@/lib/copy";
 
 export default function QrPayment({
   qrUrl,
   expiry,
-  caption = "Scan with any QRIS-supported app",
+  caption = copy.payment.scanQris,
 }: {
   qrUrl: string;
   expiry?: string;
@@ -23,8 +24,8 @@ export default function QrPayment({
   if (isExpired) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-4 text-center">
-        <p className="text-sm text-red-600">This QR code has expired.</p>
-        <p className="mt-1 text-xs text-gray-500">Please place a new order to get a fresh payment code.</p>
+        <p className="text-sm text-red-600">{copy.payment.qrExpired}</p>
+        <p className="mt-1 text-xs text-gray-500">{copy.payment.qrExpiredNotice}</p>
       </div>
     );
   }
@@ -32,7 +33,7 @@ export default function QrPayment({
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 text-center">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={qrUrl} alt="Payment QR code" className="mx-auto h-56 w-56" />
+      <img src={qrUrl} alt={copy.payment.qrAlt} className="mx-auto h-56 w-56" />
       <p className="mt-2 text-xs text-gray-500">{caption}</p>
     </div>
   );

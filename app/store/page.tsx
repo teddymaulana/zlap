@@ -12,7 +12,9 @@ import {
 } from "@/app/actions/storefront";
 import { getCardSetsInStock } from "@/app/actions/sets";
 import type { CardSet, StorefrontShortcut } from "@/lib/types";
+import { copy } from "@/lib/copy";
 import ButtonSpinner from "@/app/ButtonSpinner";
+import PageSpinner from "@/app/PageSpinner";
 import ProductCard from "./ProductCard";
 import FeaturedCarousel from "./FeaturedCarousel";
 import CategoryShortcuts from "./CategoryShortcuts";
@@ -44,6 +46,7 @@ export default function StorePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [section1, setSection1] = useState<StorefrontProduct[]>([]);
   const [section2, setSection2] = useState<StorefrontProduct[]>([]);
+  const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
   const [sectionTitles, setSectionTitles] = useState({
     featured_section_1: "Section 1",
     featured_section_2: "Section 2",
@@ -82,8 +85,10 @@ export default function StorePage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial search from the URL, runs once
     if (query || filters.brand || filters.setId || filters.category) runSearch(query, filters);
-    getFeaturedProducts("featured_section_1").then(setSection1);
-    getFeaturedProducts("featured_section_2").then(setSection2);
+    Promise.all([
+      getFeaturedProducts("featured_section_1").then(setSection1),
+      getFeaturedProducts("featured_section_2").then(setSection2),
+    ]).finally(() => setIsLoadingFeatured(false));
     getStorefrontSectionTitles().then(setSectionTitles);
     getPopularKeywords().then(setPopularKeywords);
     getStorefrontShortcuts().then(setShortcuts);
@@ -149,7 +154,7 @@ export default function StorePage() {
         <button
           type="submit"
           disabled={isSearching}
-          aria-label="Search"
+          aria-label={copy.home.searchAria}
           className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-500 hover:text-black disabled:opacity-50"
         >
           <svg
@@ -171,7 +176,7 @@ export default function StorePage() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search products…"
+          placeholder={copy.home.searchPlaceholder}
           className="w-full rounded bg-[#efefef] py-3 pr-10 pl-11 text-base"
         />
         {query && (
@@ -182,7 +187,7 @@ export default function StorePage() {
               window.history.replaceState(null, "", "/store");
               runSearch("", filters);
             }}
-            aria-label="Clear search"
+            aria-label={copy.home.clearSearchAria}
             className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
             ×
@@ -230,13 +235,19 @@ export default function StorePage() {
             priority
             className="mb-8 h-auto w-full rounded"
           />
-          <FeaturedCarousel title={sectionTitles.featured_section_1} products={section1} />
-          <FeaturedCarousel title={sectionTitles.featured_section_2} products={section2} />
+          {isLoadingFeatured ? (
+            <PageSpinner label={copy.home.loadingProducts} />
+          ) : (
+            <>
+              <FeaturedCarousel title={sectionTitles.featured_section_1} products={section1} />
+              <FeaturedCarousel title={sectionTitles.featured_section_2} products={section2} />
+            </>
+          )}
         </>
       ) : isSearching ? (
-        <p className="text-sm text-gray-500">Searching…</p>
+        <PageSpinner label={copy.home.searching} />
       ) : results.length === 0 ? (
-        <p className="text-sm text-gray-500">No products found.</p>
+        <p className="text-sm text-gray-500">{copy.home.noProducts}</p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {results.map((p) => (

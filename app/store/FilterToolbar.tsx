@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { PRODUCT_BRANDS, CARD_SET_LANGUAGES } from "@/lib/constants";
 import type { CardSet } from "@/lib/types";
 import type { StorefrontCategory } from "@/app/actions/storefront";
+import { copy } from "@/lib/copy";
 
 const CATEGORIES: { value: StorefrontCategory; label: string }[] = [
-  { value: "booster_boxes", label: "Booster Boxes" },
-  { value: "singles", label: "Singles" },
-  { value: "slabs", label: "Slabs" },
-  { value: "other", label: "Other" },
+  { value: "booster_boxes", label: copy.filters.categories.boosterBoxes },
+  { value: "singles", label: copy.filters.categories.singles },
+  { value: "slabs", label: copy.filters.categories.slabs },
+  { value: "other", label: copy.filters.categories.other },
 ];
 
 export type StorefrontFilterValue = {
@@ -108,7 +109,7 @@ export default function FilterToolbar({
             setIsBrandOpen(true);
             if (value.brand) onChange({ ...value, brand: "", setId: "" });
           }}
-          placeholder="All Brands"
+          placeholder={copy.filters.allBrandsPlaceholder}
           autoComplete="off"
           className={inputClass}
         />
@@ -130,7 +131,7 @@ export default function FilterToolbar({
               </button>
             ))}
             {brandMatches.length === 0 && (
-              <div className="px-3 py-1.5 text-sm text-gray-400">No brands found</div>
+              <div className="px-3 py-1.5 text-sm text-gray-400">{copy.filters.noBrandsFound}</div>
             )}
           </div>
         )}
@@ -152,7 +153,7 @@ export default function FilterToolbar({
             setIsSetOpen(true);
             if (value.setId) onChange({ ...value, setId: "" });
           }}
-          placeholder="All Sets"
+          placeholder={copy.filters.allSetsPlaceholder}
           autoComplete="off"
           className={inputClass}
         />
@@ -185,7 +186,7 @@ export default function FilterToolbar({
               );
             })}
             {setMatches.length === 0 && (
-              <div className="px-3 py-1.5 text-sm text-gray-400">No sets found</div>
+              <div className="px-3 py-1.5 text-sm text-gray-400">{copy.filters.noSetsFound}</div>
             )}
           </div>
         )}
@@ -207,7 +208,7 @@ export default function FilterToolbar({
             setIsCategoryOpen(true);
             if (value.category) onChange({ ...value, category: "" });
           }}
-          placeholder="All Categories"
+          placeholder={copy.filters.allCategoriesPlaceholder}
           autoComplete="off"
           className={inputClass}
         />
@@ -228,7 +229,7 @@ export default function FilterToolbar({
               </button>
             ))}
             {categoryMatches.length === 0 && (
-              <div className="px-3 py-1.5 text-sm text-gray-400">No categories found</div>
+              <div className="px-3 py-1.5 text-sm text-gray-400">{copy.filters.noCategoriesFound}</div>
             )}
           </div>
         )}
@@ -245,7 +246,7 @@ export default function FilterToolbar({
           }}
           className="text-sm text-gray-500 hover:underline"
         >
-          Clear filters
+          {copy.filters.clearFilters}
         </button>
       )}
     </div>
