@@ -3,7 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // "/store" is the public storefront — it has its own dev password gate
 // (see app/store/layout.tsx), not the admin app's Supabase auth.
-const PUBLIC_PATHS = ["/login", "/", "/store"];
+// "/api/midtrans" is Midtrans's server-to-server webhook — it has no
+// Supabase session and verifies itself via signature_key instead (see
+// app/api/midtrans/notification/route.ts).
+const PUBLIC_PATHS = ["/login", "/", "/store", "/api/midtrans"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

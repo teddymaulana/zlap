@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import { useCart } from "../CartContext";
@@ -40,6 +40,7 @@ export default function CheckoutPage() {
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   const [orderCodeFromUrl] = useState(initialOrderCode);
   const [checkingOrder, setCheckingOrder] = useState(() => !!initialOrderCode());
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   // A page reload clears the cart-derived local `result` state (the cart
   // itself is already empty by then) — reconstruct the payment screen from
@@ -53,6 +54,9 @@ export default function CheckoutPage() {
       .finally(() => setCheckingOrder(false));
   }, [orderCodeFromUrl]);
 
+  const isTerminalStatus = (status: string | null) =>
+    status === "paid" || status === "failed" || status === "expired";
+
   // Poll the order's payment status while the VA/QR/etc. is on screen, so
   // the page reflects payment without the customer needing to refresh.
   // Stops once the status reaches a terminal state.
@@ -60,13 +64,12 @@ export default function CheckoutPage() {
     if (!result) return;
 
     let cancelled = false;
-    const terminal = new Set(["paid", "failed", "expired"]);
 
     const check = async () => {
       const status = await getOrderPaymentStatus(result.orderId);
       if (cancelled) return;
       setPaymentStatus(status);
-      if (status && terminal.has(status)) {
+      if (isTerminalStatus(status)) {
         clearInterval(interval);
       }
     };
@@ -78,6 +81,20 @@ export default function CheckoutPage() {
       clearInterval(interval);
     };
   }, [result]);
+
+  // Manual fallback for "Check status now" — the notification webhook
+  // usually updates payment_status within a few seconds, but this lets the
+  // customer force a re-check if it's ever delayed or dropped.
+  const checkStatusNow = useCallback(async () => {
+    if (!result || isTerminalStatus(paymentStatus)) return;
+    setIsCheckingStatus(true);
+    try {
+      const status = await getOrderPaymentStatus(result.orderId);
+      setPaymentStatus(status);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  }, [result, paymentStatus]);
 
   useEffect(() => {
     getCurrentCustomer().then((customer) => {
@@ -200,9 +217,19 @@ export default function CheckoutPage() {
                   </p>
                 </div>
               )}
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400" />
-                Waiting for payment — this page will update automatically.
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400" />
+                  Waiting for payment — this page will update automatically.
+                </div>
+                <button
+                  type="button"
+                  onClick={checkStatusNow}
+                  disabled={isCheckingStatus}
+                  className="shrink-0 text-xs font-medium text-black underline disabled:opacity-50"
+                >
+                  {isCheckingStatus ? "Checking…" : "Check status now"}
+                </button>
               </div>
             </>
           )}
