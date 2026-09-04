@@ -64,7 +64,7 @@ export async function addCardSet(
   const { error } = await supabase.from("card_sets").insert({ name: trimmed, brand, language });
   if (error) throw new Error(error.message);
 
-  revalidatePath("/sets");
+  revalidatePath("/zlap-adm/sets");
 }
 
 export async function removeCardSet(id: string) {
@@ -72,5 +72,5 @@ export async function removeCardSet(id: string) {
   const { error } = await supabase.from("card_sets").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
-  revalidatePath("/sets");
+  revalidatePath("/zlap-adm/sets");
 }

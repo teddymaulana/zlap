@@ -27,7 +27,7 @@ export async function updateMarketplaceBalances(formData: FormData) {
     if (error) throw new Error(error.message);
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/zlap-adm/dashboard");
 }
 
 export async function createSnapshot(formData: FormData) {
@@ -44,6 +44,6 @@ export async function createSnapshot(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
-  revalidatePath("/charts");
-  revalidatePath("/dashboard");
+  revalidatePath("/zlap-adm/charts");
+  revalidatePath("/zlap-adm/dashboard");
 }

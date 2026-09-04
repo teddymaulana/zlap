@@ -106,7 +106,7 @@ export async function requestPasswordReset(email: string): Promise<{ error?: str
 
     await sendPasswordResetEmail({
       to: normalizedEmail,
-      resetUrl: `${SITE_URL}/store/account/reset-password?token=${token}`,
+      resetUrl: `${SITE_URL}/account/reset-password?token=${token}`,
       expiresAt,
     });
   }
@@ -197,7 +197,7 @@ export async function updateCustomerProfile(params: {
     .eq("id", customerId);
   if (error) return { error: error.message };
 
-  revalidatePath("/store/account");
+  revalidatePath("/account");
   return { error: null };
 }
 
@@ -394,8 +394,8 @@ export async function requestOrderCancellation(
     .eq("id", orderId);
   if (error) return { error: error.message };
 
-  revalidatePath("/store/account");
-  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/account");
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
   return {};
 }
 
@@ -415,12 +415,12 @@ export async function toggleWishlist(
 
   if (existing) {
     await service.from("wishlist_items").delete().eq("id", existing.id);
-    revalidatePath("/store/account");
+    revalidatePath("/account");
     return { wishlisted: false };
   }
 
   await service.from("wishlist_items").insert({ customer_id: customerId, product_id: productId });
-  revalidatePath("/store/account");
+  revalidatePath("/account");
   return { wishlisted: true };
 }
 

@@ -29,8 +29,8 @@ export async function createBalanceEntry(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
-  revalidatePath("/balance");
-  revalidatePath("/dashboard");
+  revalidatePath("/zlap-adm/balance");
+  revalidatePath("/zlap-adm/dashboard");
 }
 
 export async function deleteBalanceEntry(id: string) {
@@ -38,6 +38,6 @@ export async function deleteBalanceEntry(id: string) {
   const { error } = await supabase.from("balances").delete().eq("id", id);
   if (error) throw new Error(error.message);
 
-  revalidatePath("/balance");
-  revalidatePath("/dashboard");
+  revalidatePath("/zlap-adm/balance");
+  revalidatePath("/zlap-adm/dashboard");
 }

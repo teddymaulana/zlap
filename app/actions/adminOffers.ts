@@ -99,11 +99,11 @@ export async function approveOffer(offerId: string): Promise<{ error?: string }>
     productImageUrl: product?.image_url,
     offeredPrice: offer.offered_price,
     originalPrice,
-    checkoutUrl: `${SITE_URL}/store/offers/${token}`,
+    checkoutUrl: `${SITE_URL}/offers/${token}`,
     expiresAt,
   });
 
-  revalidatePath("/offers");
+  revalidatePath("/zlap-adm/offers");
   return {};
 }
 
@@ -132,6 +132,6 @@ export async function rejectOffer(offerId: string): Promise<{ error?: string }> 
 
   await sendOfferRejectedEmail({ to: offer.customer_email, productName: product?.name ?? "your item" });
 
-  revalidatePath("/offers");
+  revalidatePath("/zlap-adm/offers");
   return {};
 }

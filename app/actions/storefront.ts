@@ -25,7 +25,7 @@ export async function unlockStorefront(formData: FormData) {
     httpOnly: true,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 30,
-    path: "/store",
+    path: "/",
   });
   return { error: null };
 }
@@ -41,6 +41,11 @@ export type StorefrontProduct = {
   preorder: StorefrontPreorder | null;
   tags: string[];
   setName: string | null;
+  // Only populated by searchStorefrontProducts (the one listing that's
+  // stock-aware) — undefined everywhere else (featured carousels, related
+  // products, etc.), where it's treated as "in stock" since those don't
+  // filter by quantity.
+  inStock?: boolean;
 };
 
 // Batch-resolves set_id -> set name for a list of products in one query,
@@ -128,9 +133,23 @@ export async function searchStorefrontProducts(
   if (!trimmed && !hasFilters) return [];
 
   const supabase = await createClient();
-  let builder = supabase.from("products").select("id, name, sku, image_url, tags, set_id");
+
+  // A search term can also name a set (e.g. "evolving skies") rather than
+  // appearing in the product name/tags directly — resolve matching set ids
+  // up front so they can be OR'd into the same products query below.
+  let matchingSetIds: string[] = [];
   if (trimmed) {
-    builder = builder.or(`name.ilike.%${trimmed}%,sku.ilike.%${trimmed}%`);
+    const { data: matchingSets } = await supabase.from("card_sets").select("id").ilike("name", `%${trimmed}%`);
+    matchingSetIds = (matchingSets ?? []).map((s) => s.id);
+  }
+
+  const PRODUCT_COLUMNS = "id, name, sku, image_url, tags, set_id, show_when_oos";
+
+  let builder = supabase.from("products").select(PRODUCT_COLUMNS);
+  if (trimmed) {
+    const orParts = [`name.ilike.%${trimmed}%`, `sku.ilike.%${trimmed}%`];
+    if (matchingSetIds.length > 0) orParts.push(`set_id.in.(${matchingSetIds.join(",")})`);
+    builder = builder.or(orParts.join(","));
   }
   if (filters.brand) builder = builder.eq("brand", filters.brand);
   if (filters.setId) builder = builder.eq("set_id", filters.setId);
@@ -139,15 +158,79 @@ export async function searchStorefrontProducts(
   if (error) throw new Error(error.message);
   let products = data ?? [];
 
+  // Short queries (e.g. "etb", "psa") are almost always a whole-word acronym,
+  // not a fragment — but SQL ILIKE matches them as a raw substring anywhere,
+  // including inside an unrelated longer word (e.g. "etb" inside "Basketbal").
+  // For those, require a real word-boundary match instead of trusting the
+  // ILIKE hit, so search results aren't polluted by such coincidental hits.
+  // Longer queries keep plain substring matching, which real partial-name
+  // searches (e.g. "traine" for "Trainer") rely on.
+  const isShortToken = trimmed.length > 0 && trimmed.length <= 4 && !/\s/.test(trimmed);
+  if (isShortToken) {
+    const escaped = trimmed.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const wordBoundary = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+    const matchingSetIdSet = new Set(matchingSetIds);
+    products = products.filter(
+      (p) =>
+        (p.set_id && matchingSetIdSet.has(p.set_id)) ||
+        wordBoundary.test(p.name) ||
+        (p.sku && wordBoundary.test(p.sku))
+    );
+  }
+
+  // PostgREST can't ilike-match substrings inside a text[] column, so tag
+  // search is a separate query (same brand/set filters, no text predicate)
+  // merged in here — same two-query-then-merge approach getRelatedProducts
+  // already uses for its tag-overlap search below.
+  if (trimmed) {
+    const q = trimmed.toLowerCase();
+    let tagBuilder = supabase.from("products").select(PRODUCT_COLUMNS);
+    if (filters.brand) tagBuilder = tagBuilder.eq("brand", filters.brand);
+    if (filters.setId) tagBuilder = tagBuilder.eq("set_id", filters.setId);
+    const { data: tagCandidates } = await tagBuilder.limit(1000);
+
+    const seenIds = new Set(products.map((p) => p.id));
+    for (const p of tagCandidates ?? []) {
+      if (seenIds.has(p.id)) continue;
+      // Tags are a curated vocabulary of short single tokens (see the
+      // storefront_shortcuts/products tag list) — for a short query, an
+      // exact tag match is what's meant; substring would reintroduce the
+      // same false-positive risk as the name/sku check above.
+      const tagMatches = isShortToken
+        ? (p.tags ?? []).some((t: string) => t.toLowerCase() === q)
+        : (p.tags ?? []).some((t: string) => t.toLowerCase().includes(q));
+      if (tagMatches) {
+        products.push(p);
+        seenIds.add(p.id);
+      }
+    }
+  }
+
   if (filters.category) {
     products = products.filter((p) => matchesCategory(p, filters.category!));
   }
 
+  // Name matches are the primary signal — rank them ahead of products that
+  // only matched via tag/set/SKU. Array.prototype.sort is stable, so within
+  // each group products stay in the alphabetical order the query already
+  // returned them in.
+  if (trimmed) {
+    const q = trimmed.toLowerCase();
+    products = [...products].sort((a, b) => {
+      const aMatch = a.name.toLowerCase().includes(q) ? 0 : 1;
+      const bMatch = b.name.toLowerCase().includes(q) ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  }
+
   const infos = await priceByProductId(products.map((p) => p.id));
   const setNames = await resolveSetNames(products.map((p) => p.set_id));
+  const availability = await getStorefrontAvailability(products.map((p) => p.id));
+  const availableByProduct = new Map(availability.map((a) => [a.productId, a.available]));
+  const showWhenOosByProduct = new Map(products.map((p) => [p.id, p.show_when_oos]));
 
   // Only show products that have a batch selected for storefront pricing.
-  return products
+  const withStock: StorefrontProduct[] = products
     .filter((p) => infos.has(p.id))
     .map((p) => {
       const info = infos.get(p.id)!;
@@ -159,9 +242,17 @@ export async function searchStorefrontProducts(
         tags: p.tags ?? [],
         setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
         ...info,
+        inStock: (availableByProduct.get(p.id) ?? 0) > 0,
       };
-    })
-    .slice(0, 24);
+    });
+
+  // Out-of-stock products are hidden by default; show_when_oos opts a
+  // specific product back in, sorted after every in-stock result (both
+  // groups keep the name-ascending order from the query above).
+  const inStock = withStock.filter((p) => p.inStock);
+  const oosShown = withStock.filter((p) => !p.inStock && showWhenOosByProduct.get(p.id));
+
+  return [...inStock, ...oosShown].slice(0, 24);
 }
 
 export async function getRecommendedProducts(limit = 8): Promise<StorefrontProduct[]> {
@@ -502,6 +593,31 @@ export async function getStorefrontAvailability(
   }));
 }
 
+// "Notify me" signup from the OOS card CTA (app/(storefront)/ProductCard.tsx) — a
+// customer isn't necessarily signed in, so this writes via the service role
+// like offers/card_requests submissions do. Staff review at
+// /stock-notifications (app/actions/adminStockNotifications.ts).
+export async function submitStockNotification(
+  productId: string,
+  params: { email: string; phone: string }
+): Promise<{ error?: string }> {
+  const email = params.email.trim().toLowerCase();
+  const phone = params.phone.trim();
+  if (!email && !phone) return { error: "Enter an email or phone number" };
+
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { error } = await service.from("stock_notifications").insert({
+    product_id: productId,
+    email: email || null,
+    phone: phone || null,
+  });
+  if (error) return { error: error.message };
+  return {};
+}
+
 export async function getPopularKeywords(): Promise<string[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -516,8 +632,8 @@ export async function getStorefrontShortcuts(): Promise<StorefrontShortcut[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("storefront_shortcuts")
-    .select("id, label, href, image_url, badge")
-    .order("created_at", { ascending: true });
+    .select("id, label, href, image_url, badge, position")
+    .order("position", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as StorefrontShortcut[];
 }

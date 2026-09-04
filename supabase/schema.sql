@@ -121,7 +121,7 @@ create table if not exists products (
   image_url text,
   brand text check (brand in ('pokemon', 'one_piece')),
   set_id uuid references card_sets(id) on delete set null,
-  -- Shown in the storefront's featured carousels (set from /storefront in the ERP).
+  -- Shown in the storefront's featured carousels (set from /zlap-adm/storefront in the ERP).
   -- Sections are generic slots (see storefront_sections for their display
   -- titles) rather than fixed categories, since what goes in them may change.
   -- The _order columns control carousel display order within each section —
@@ -136,9 +136,18 @@ create table if not exists products (
   -- an incoming offer in the admin Offers page (never shown to customers).
   offers_enabled boolean not null default false,
   offer_min_price numeric,
+  -- Normally an out-of-stock product is hidden from storefront search
+  -- entirely (see searchStorefrontProducts in app/actions/storefront.ts);
+  -- this lets staff keep a specific one visible anyway — shown at the end of
+  -- results, styled as OOS, with "Add to cart" replaced by "Notify me"
+  -- (app/(storefront)/ProductCard.tsx).
+  show_when_oos boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Existing databases created before this column existed.
+alter table products add column if not exists show_when_oos boolean not null default false;
 
 create or replace function set_updated_at() returns trigger as $$
 begin
@@ -151,6 +160,20 @@ drop trigger if exists set_products_updated_at on products;
 create trigger set_products_updated_at
   before update on products
   for each row execute function set_updated_at();
+
+-- Storefront "Notify me" signups from the OOS CTA
+-- (app/(storefront)/ProductCard.tsx -> submitStockNotification). Public writes go
+-- through the service-role client (same pattern as offers/card_requests
+-- submissions) — no public RLS policy. Staff review at /stock-notifications.
+create table if not exists stock_notifications (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references products(id) on delete cascade,
+  email text,
+  phone text,
+  notified boolean not null default false,
+  created_at timestamptz not null default now(),
+  constraint stock_notifications_contact_required check (email is not null or phone is not null)
+);
 
 create table if not exists purchases (
   id uuid primary key default gen_random_uuid(),
@@ -280,7 +303,7 @@ create table if not exists orders (
   order_url text,
   status text not null default 'pending' check (status in ('pending','completed','cancelled')),
   -- J&T Express AWB/resi number, entered manually once a package ships.
-  -- Looked up via Biteship on the public /store/track page to show live
+  -- Looked up via Biteship on the public /track page to show live
   -- courier status.
   awb text,
   -- Set on storefront checkout (app/actions/checkout.ts) — orders created
@@ -316,6 +339,15 @@ create table if not exists orders (
   created_at timestamptz not null default now()
 );
 
+-- Lets an ERP-built order (app/orders/new + OrderLines, no customer/payment
+-- captured yet) be turned into a shareable link so the customer supplies
+-- their own shipping address and pays via Midtrans. Mirrors
+-- offers.checkout_token / card_requests.checkout_token, but reuses this SAME
+-- orders row (already holding the real order_lines) instead of minting a new
+-- order at payment time.
+alter table orders add column if not exists checkout_token text unique;
+alter table orders add column if not exists token_expires_at timestamptz;
+
 create table if not exists order_lines (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references orders(id) on delete cascade,
@@ -328,7 +360,7 @@ create table if not exists order_lines (
 -- Customer "make an offer" submissions on products with offers_enabled.
 -- Staff approve/reject from the admin Offers page; approving mints a
 -- one-time checkout_token that lets the customer pay at the offered price
--- through /store/offers/[token] (app/actions/offers.ts), independent of the
+-- through /offers/[token] (app/actions/offers.ts), independent of the
 -- product's normal storefront price and normal cart checkout.
 create table if not exists offers (
   id uuid primary key default gen_random_uuid(),
@@ -356,7 +388,7 @@ create table if not exists offers (
 -- optionally referencing a SNKRDUNK listing pasted into snkrdunk_url — then
 -- quoting creates a one-off product row (so the normal order_lines/orders
 -- pipeline is reused unchanged) and mints a checkout_token the same way
--- approveOffer does, letting the customer pay through /store/requests/[token].
+-- approveOffer does, letting the customer pay through /requests/[token].
 create table if not exists card_requests (
   id uuid primary key default gen_random_uuid(),
   customer_id uuid references customers(id) on delete set null,
@@ -438,7 +470,7 @@ insert into marketplace_balances (shopee_to_settle, tokopedia_to_settle)
   select 0, 0 where not exists (select 1 from marketplace_balances);
 
 -- Display titles for the storefront's featured carousel slots (set from
--- /storefront in the ERP). id matches the products.featured_* column it
+-- /zlap-adm/storefront in the ERP). id matches the products.featured_* column it
 -- controls, so lookups need no extra mapping.
 create table if not exists storefront_sections (
   id text primary key,
@@ -470,7 +502,7 @@ insert into storefront_settings (id) values (1) on conflict (id) do nothing;
 -- Indonesia's official administrative regions (province -> city/regency ->
 -- kecamatan -> kelurahan/desa), sourced from cahyadsn/wilayah (Kepmendagri
 -- codes) via scripts/import-regions.ts. Powers the cascading address
--- selects at storefront checkout (app/store/AddressRegionSelect.tsx).
+-- selects at storefront checkout (app/(storefront)/AddressRegionSelect.tsx).
 -- code encodes the hierarchy itself, e.g. "32" (province) -> "32.04" (city)
 -- -> "32.04.05" (kecamatan) -> "32.04.05.2001" (kelurahan) — parent_code is
 -- just that string with its last dot-segment removed, null for provinces.
@@ -484,7 +516,7 @@ create table if not exists regions (
 
 create index if not exists regions_parent_code_idx on regions (parent_code);
 
--- Clickable chips under the storefront search box (set from /storefront in
+-- Clickable chips under the storefront search box (set from /zlap-adm/storefront in
 -- the ERP).
 create table if not exists popular_keywords (
   id uuid primary key default gen_random_uuid(),
@@ -499,11 +531,11 @@ insert into popular_keywords (keyword)
   where not exists (select 1 from popular_keywords);
 
 -- Clickable image tiles under the storefront's search box (set from
--- /storefront in the ERP). href is the destination when clicked — for
--- entries built as a category filter or search query this is a /store URL
+-- /zlap-adm/storefront in the ERP). href is the destination when clicked — for
+-- entries built as a category filter or search query this is a root-relative URL
 -- with query params (brand/setId/category/q) the storefront page already
 -- knows how to apply client-side without a full reload; for a single-product
--- shortcut it's /store/products/{id}; for anything else it's whatever the
+-- shortcut it's /products/{id}; for anything else it's whatever the
 -- admin typed (e.g. an external link). image_url is uploaded to the
 -- product-images bucket under a shortcuts/ prefix — see uploadStorefrontShortcutImage.
 create table if not exists storefront_shortcuts (
@@ -511,9 +543,13 @@ create table if not exists storefront_shortcuts (
   label text not null,
   href text not null,
   image_url text,
-  -- Small corner badge shown on the shortcut chip on /store, e.g. to flag a
+  -- Small corner badge shown on the shortcut chip on the homepage, e.g. to flag a
   -- promo or a newly-added category. Null means no badge.
   badge text check (badge in ('fire', 'new', 'sale')),
+  -- Display order on the homepage, admin-editable via reorderStorefrontShortcut
+  -- (app/actions/products.ts). Nullable only for rows inserted before this
+  -- column existed — see the backfill below; everything after sets it.
+  position integer,
   created_at timestamptz not null default now()
 );
 
@@ -523,14 +559,25 @@ alter table storefront_shortcuts drop constraint if exists storefront_shortcuts_
 alter table storefront_shortcuts add constraint storefront_shortcuts_badge_check
   check (badge in ('fire', 'new', 'sale'));
 
-insert into storefront_shortcuts (label, href)
-  select v.label, v.href from (values
-    ('Pokemon', '/store?brand=pokemon'),
-    ('One Piece', '/store?brand=one_piece'),
-    ('Booster Boxes', '/store?category=booster_boxes'),
-    ('Singles', '/store?category=singles'),
-    ('Slabs', '/store?category=slabs')
-  ) as v(label, href)
+-- Existing databases created before the position column existed — backfill
+-- it from the previous implicit order (created_at) so nothing reshuffles.
+alter table storefront_shortcuts add column if not exists position integer;
+update storefront_shortcuts s set position = ordered.rn
+  from (
+    select id, row_number() over (order by created_at asc) - 1 as rn
+    from storefront_shortcuts
+    where position is null
+  ) as ordered
+  where ordered.id = s.id;
+
+insert into storefront_shortcuts (label, href, position)
+  select v.label, v.href, v.position from (values
+    ('Pokemon', '/?brand=pokemon', 0),
+    ('One Piece', '/?brand=one_piece', 1),
+    ('Booster Boxes', '/?category=booster_boxes', 2),
+    ('Singles', '/?category=singles', 3),
+    ('Slabs', '/?category=slabs', 4)
+  ) as v(label, href, position)
   where not exists (select 1 from storefront_shortcuts);
 
 create table if not exists supplier_pricelist (
@@ -593,6 +640,7 @@ create view inventory_batch_availability as
 -- edited directly in Supabase Studio (which uses the service role and bypasses RLS).
 alter table card_sets enable row level security;
 alter table products enable row level security;
+alter table stock_notifications enable row level security;
 alter table purchases enable row level security;
 alter table purchase_lines enable row level security;
 alter table inventory_batches enable row level security;
@@ -638,6 +686,10 @@ create policy "authenticated full access" on products for all
 -- Storefront (public, unauthenticated) needs read access to the catalog.
 create policy "public read access" on products for select
   using (true);
+-- Submission (insert) goes through the service-role client, same as
+-- offers/card_requests — staff review through the policy below.
+create policy "authenticated full access" on stock_notifications for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on purchases for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on purchase_lines for all

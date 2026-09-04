@@ -17,7 +17,7 @@ function serviceClient() {
   );
 }
 
-// Mirrors the PSA_GRADES dropdown in app/store/request/page.tsx — we're only
+// Mirrors the PSA_GRADES dropdown in app/(storefront)/request/page.tsx — we're only
 // taking PSA 9/10 requests for now, so reject anything else server-side too
 // (the dropdown alone doesn't stop a direct call to this action).
 const ALLOWED_GRADES = new Set(["PSA 10", "PSA 9"]);

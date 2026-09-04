@@ -81,73 +81,58 @@ export async function getOrderPaymentDetails(orderCode: string): Promise<Checkou
   };
 }
 
-// Shared by the normal cart checkout and the offer checkout (app/actions/offers.ts)
-// — everything after "prices/lines are resolved" is identical: create the
-// order + lines, charge Midtrans, persist payment details, email the
-// confirmation, and roll back the order if the charge fails. Callers resolve
-// `lines`/`grossAmount` themselves since that step differs (cart batch
-// pricing vs. a fixed offer price), and `buildEmailLines` is only invoked
-// after a successful charge, so a doomed charge doesn't pay for it.
-export async function chargeAndCreateOrder(params: {
+// Shared by every "charge Midtrans for an order that already has its rows
+// inserted" path: charge Midtrans, persist payment details, email the
+// confirmation. Callers resolve `lines`/`grossAmount` themselves since that
+// step differs (cart batch pricing vs. a fixed offer price vs. admin-set
+// prices), and `buildEmailLines` is only invoked after a successful charge,
+// so a doomed charge doesn't pay for it.
+//
+// Does NOT roll back the order/lines on a failed charge — callers that just
+// inserted an ephemeral order (see chargeAndCreateOrder below) do their own
+// rollback around this call; an order that already existed before the charge
+// (an ERP-built order the admin reserved stock against) is left as-is so
+// staff/customer can retry rather than silently losing the reservation.
+export async function chargeExistingOrder(params: {
   service: ReturnType<typeof serviceClient>;
+  orderInternalId: string;
+  orderCode: string;
   lines: { product_id: string; inventory_batch_id: string | null; price: number }[];
   grossAmount: number;
   customer: { name: string; phone: string; address: string; email: string };
   paymentMethod: CheckoutPaymentMethod;
   bankCode: CheckoutBank;
-  customerId: string | null;
   buildEmailLines: () => Promise<OrderConfirmationLine[]>;
-}): Promise<{ result: CheckoutResult; internalOrderId: string | null }> {
-  const { service, lines, grossAmount, customer, paymentMethod, bankCode, customerId, buildEmailLines } = params;
-  const { name, phone, address, email } = customer;
-
-  const orderCode = `ZLAP-${Date.now()}`;
-  const { data: order, error: orderError } = await service
-    .from("orders")
-    .insert({
-      order_id: orderCode,
-      channel: "website",
-      date: new Date().toISOString(),
-      customer_name: name,
-      customer_phone: phone,
-      customer_address: address,
-      customer_email: email,
-      payment_method: paymentMethod,
-      customer_id: customerId,
-    })
-    .select("id")
-    .single();
-  if (orderError) return { result: { error: orderError.message }, internalOrderId: null };
-
-  const { error: linesError } = await service
-    .from("order_lines")
-    .insert(lines.map((l) => ({ ...l, order_id: order.id })));
-  if (linesError) {
-    await service.from("orders").delete().eq("id", order.id);
-    return { result: { error: linesError.message }, internalOrderId: null };
-  }
+}): Promise<CheckoutResult> {
+  const { service, orderInternalId, orderCode, lines, grossAmount, customer, paymentMethod, bankCode, buildEmailLines } =
+    params;
+  const { name, phone, email } = customer;
 
   try {
-    // Aggregate the per-unit order lines into per-product quantities for
+    // Group per-unit order lines into per-(product, price) quantities for
     // Midtrans' item_details — without this the transaction shows only the
     // total amount, with no line-item breakdown in the Midtrans dashboard.
-    const qtyAndPriceByProduct = new Map<string, { price: number; quantity: number }>();
+    // Keyed by product+price (not product alone) since an ERP-built order
+    // can have two lines on the same product at two different admin-set
+    // prices — grouping by product alone would silently drop one price.
+    const qtyAndPriceByKey = new Map<string, { productId: string; price: number; quantity: number }>();
     for (const line of lines) {
-      const existing = qtyAndPriceByProduct.get(line.product_id);
+      const key = `${line.product_id}:${line.price}`;
+      const existing = qtyAndPriceByKey.get(key);
       if (existing) existing.quantity += 1;
-      else qtyAndPriceByProduct.set(line.product_id, { price: line.price, quantity: 1 });
+      else qtyAndPriceByKey.set(key, { productId: line.product_id, price: line.price, quantity: 1 });
     }
     const { data: productRows } = await service
       .from("products")
       .select("id, name")
-      .in("id", Array.from(qtyAndPriceByProduct.keys()));
+      .in("id", Array.from(new Set(lines.map((l) => l.product_id))));
     const productNameById = new Map((productRows ?? []).map((p) => [p.id, p.name]));
-    const itemDetails = Array.from(qtyAndPriceByProduct.entries()).map(([productId, v]) => ({
-      id: productId,
+    const itemDetails = Array.from(qtyAndPriceByKey.entries()).map(([key, v]) => ({
+      id: key,
       price: Math.round(v.price),
       quantity: v.quantity,
       // Midtrans caps item name at 50 characters.
-      name: (productNameById.get(productId) ?? "Item").slice(0, 50),
+      name: (productNameById.get(v.productId) ?? "Item").slice(0, 50),
     }));
 
     let extra: Partial<MidtransChargeRequest> = {};
@@ -159,7 +144,7 @@ export async function chargeAndCreateOrder(params: {
       const headersList = await headers();
       const host = headersList.get("host") ?? "localhost:3000";
       const protocol = host.startsWith("localhost") ? "http" : "https";
-      extra = { shopeepay: { callback_url: `${protocol}://${host}/store/account` } };
+      extra = { shopeepay: { callback_url: `${protocol}://${host}/account` } };
     } else if (paymentMethod === "cstore") {
       extra = { cstore: { store: "indomaret", message: `Zlap order ${orderCode}` } };
     }
@@ -194,6 +179,7 @@ export async function chargeAndCreateOrder(params: {
     await service
       .from("orders")
       .update({
+        payment_method: paymentMethod,
         payment_status: "pending",
         payment_details: {
           transaction_id: charge.transaction_id,
@@ -206,7 +192,7 @@ export async function chargeAndCreateOrder(params: {
           store,
         },
       })
-      .eq("id", order.id);
+      .eq("id", orderInternalId);
 
     await sendOrderConfirmationEmail({
       to: email,
@@ -220,20 +206,75 @@ export async function chargeAndCreateOrder(params: {
       store,
     });
 
-    return {
-      result: { orderId: orderCode, paymentMethod, bank, vaNumber, qrUrl, qrExpiry, deeplinkUrl, paymentCode, store },
-      internalOrderId: order.id,
-    };
+    return { orderId: orderCode, paymentMethod, bank, vaNumber, qrUrl, qrExpiry, deeplinkUrl, paymentCode, store };
   } catch (err) {
+    return { error: err instanceof Error ? err.message : "Payment could not be started" };
+  }
+}
+
+// Shared by the normal cart checkout and the offer/card-request checkouts —
+// inserts a brand-new order + lines, then charges it via chargeExistingOrder.
+// Rolls the insert back if the charge fails, since this order never existed
+// before the checkout attempt.
+export async function chargeAndCreateOrder(params: {
+  service: ReturnType<typeof serviceClient>;
+  lines: { product_id: string; inventory_batch_id: string | null; price: number }[];
+  grossAmount: number;
+  customer: { name: string; phone: string; address: string; email: string };
+  paymentMethod: CheckoutPaymentMethod;
+  bankCode: CheckoutBank;
+  customerId: string | null;
+  buildEmailLines: () => Promise<OrderConfirmationLine[]>;
+}): Promise<{ result: CheckoutResult; internalOrderId: string | null }> {
+  const { service, lines, grossAmount, customer, paymentMethod, bankCode, customerId, buildEmailLines } = params;
+  const { name, phone, address, email } = customer;
+
+  const orderCode = `ZLAP-${Date.now()}`;
+  const { data: order, error: orderError } = await service
+    .from("orders")
+    .insert({
+      order_id: orderCode,
+      channel: "website",
+      date: new Date().toISOString(),
+      customer_name: name,
+      customer_phone: phone,
+      customer_address: address,
+      customer_email: email,
+      customer_id: customerId,
+    })
+    .select("id")
+    .single();
+  if (orderError) return { result: { error: orderError.message }, internalOrderId: null };
+
+  const { error: linesError } = await service
+    .from("order_lines")
+    .insert(lines.map((l) => ({ ...l, order_id: order.id })));
+  if (linesError) {
+    await service.from("orders").delete().eq("id", order.id);
+    return { result: { error: linesError.message }, internalOrderId: null };
+  }
+
+  const result = await chargeExistingOrder({
+    service,
+    orderInternalId: order.id,
+    orderCode,
+    lines,
+    grossAmount,
+    customer,
+    paymentMethod,
+    bankCode,
+    buildEmailLines,
+  });
+
+  if ("error" in result) {
     // Payment couldn't be started — release the reserved stock rather than
     // leaving a dangling unpaid order behind.
     await service.from("order_lines").delete().eq("order_id", order.id);
     await service.from("orders").delete().eq("id", order.id);
-    return {
-      result: { error: err instanceof Error ? err.message : "Payment could not be started" },
-      internalOrderId: null,
-    };
+    return { result, internalOrderId: null };
   }
+
+  return { result, internalOrderId: order.id };
 }
 
 export async function createOrderAndCharge(

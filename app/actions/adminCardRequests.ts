@@ -68,11 +68,11 @@ export async function quoteCardRequest(
     to: request.customer_email,
     cardName: productName,
     quotedPrice,
-    checkoutUrl: `${SITE_URL}/store/requests/${token}`,
+    checkoutUrl: `${SITE_URL}/requests/${token}`,
     expiresAt,
   });
 
-  revalidatePath("/requests");
+  revalidatePath("/zlap-adm/requests");
   return {};
 }
 
@@ -95,6 +95,6 @@ export async function rejectCardRequest(requestId: string): Promise<{ error?: st
 
   await sendCardRequestRejectedEmail({ to: request.customer_email, cardName: request.card_name });
 
-  revalidatePath("/requests");
+  revalidatePath("/zlap-adm/requests");
   return {};
 }

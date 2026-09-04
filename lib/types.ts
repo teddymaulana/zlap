@@ -19,8 +19,18 @@ export type Product = {
   featured_section_2_order: number | null;
   offers_enabled: boolean;
   offer_min_price: number | null;
+  show_when_oos: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type StockNotification = {
+  id: string;
+  product_id: string;
+  email: string | null;
+  phone: string | null;
+  notified: boolean;
+  created_at: string;
 };
 
 export type Offer = {
@@ -87,6 +97,9 @@ export type StorefrontShortcut = {
   href: string;
   image_url: string | null;
   badge: StorefrontShortcutBadge | null;
+  // Null only for rows inserted before display ordering existed — treat as
+  // sorting last, same convention as the featured-section order columns.
+  position: number | null;
 };
 
 export type InventoryBatch = {
@@ -166,6 +179,8 @@ export type Order = {
   } | null;
   cancellation_requested_at: string | null;
   cancellation_reason: string | null;
+  checkout_token: string | null;
+  token_expires_at: string | null;
   created_at: string;
 };
 

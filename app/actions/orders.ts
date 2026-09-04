@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -9,7 +10,11 @@ import {
   sendCancellationApprovedEmail,
   sendCancellationRejectedEmail,
   sendRefundCompletedEmail,
+  sendOrderCheckoutLinkEmail,
 } from "@/lib/email";
+
+const CHECKOUT_LINK_TTL_DAYS = 7;
+const SITE_URL = "https://zlapcard.com";
 
 export async function createOrder(formData: FormData) {
   const orderId = String(formData.get("order_id") ?? "").trim();
@@ -33,8 +38,8 @@ export async function createOrder(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath("/orders");
-  redirect(`/orders/${data.id}`);
+  revalidatePath("/zlap-adm/orders");
+  redirect(`/zlap-adm/orders/${data.id}`);
 }
 
 export async function deleteOrder(orderId: string) {
@@ -42,8 +47,8 @@ export async function deleteOrder(orderId: string) {
   const { error } = await supabase.from("orders").delete().eq("id", orderId);
   if (error) throw new Error(error.message);
 
-  revalidatePath("/orders");
-  redirect("/orders");
+  revalidatePath("/zlap-adm/orders");
+  redirect("/zlap-adm/orders");
 }
 
 export async function updateOrderStatus(orderId: string, status: "pending" | "completed") {
@@ -51,8 +56,8 @@ export async function updateOrderStatus(orderId: string, status: "pending" | "co
   const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  revalidatePath("/zlap-adm/orders");
 }
 
 export async function updateOrderDate(orderId: string, date: string) {
@@ -63,8 +68,8 @@ export async function updateOrderDate(orderId: string, date: string) {
   const { error } = await supabase.from("orders").update({ date: date || null }).eq("id", orderId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  revalidatePath("/zlap-adm/orders");
 }
 
 export async function updateOrderAwb(orderId: string, awb: string) {
@@ -92,8 +97,8 @@ export async function updateOrderAwb(orderId: string, awb: string) {
     }
   }
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  revalidatePath("/zlap-adm/orders");
 }
 
 // Guards against overselling by re-checking the batch's derived availability
@@ -124,7 +129,7 @@ export async function addOrderLine(
   });
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/orders/${orderId}`);
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
 }
 
 export async function updateOrderLinePrice(orderId: string, lineId: string, price: number) {
@@ -132,7 +137,7 @@ export async function updateOrderLinePrice(orderId: string, lineId: string, pric
   const { error } = await supabase.from("order_lines").update({ price }).eq("id", lineId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/orders/${orderId}`);
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
 }
 
 export async function removeOrderLine(orderId: string, lineId: string) {
@@ -140,7 +145,7 @@ export async function removeOrderLine(orderId: string, lineId: string) {
   const { error } = await supabase.from("order_lines").delete().eq("id", lineId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/orders/${orderId}`);
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
 }
 
 // Approving a cancellation attempts a Midtrans refund when the order was
@@ -192,9 +197,9 @@ export async function approveCancellation(orderId: string) {
     });
   }
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
-  revalidatePath("/store/account");
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  revalidatePath("/zlap-adm/orders");
+  revalidatePath("/account");
 }
 
 export async function rejectCancellation(orderId: string) {
@@ -215,8 +220,8 @@ export async function rejectCancellation(orderId: string) {
     await sendCancellationRejectedEmail({ to: order.customer_email, orderCode: order.order_id });
   }
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/store/account");
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  revalidatePath("/account");
 }
 
 // Confirms a manual (outside-Midtrans) refund is done — see the
@@ -239,6 +244,69 @@ export async function markRefundComplete(orderId: string) {
     await sendRefundCompletedEmail({ to: order.customer_email, orderCode: order.order_id });
   }
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/store/account");
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  revalidatePath("/account");
+}
+
+// Turns an ERP-built order (created via createOrder + priced up via
+// addOrderLine) into a shareable link so the customer can supply their own
+// shipping address and pay via Midtrans — same checkout_token/token_expires_at
+// pattern as offers/card_requests, but reusing this order's own row instead
+// of minting a new one at payment time (see chargeExistingOrder).
+export async function generateOrderCheckoutLink(
+  orderId: string,
+  contact: { name: string; email: string; phone: string }
+): Promise<{ url: string }> {
+  const email = contact.email.trim();
+  if (!email) throw new Error("Customer email is required");
+
+  const supabase = await createClient();
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("id, order_id, payment_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (orderError) throw new Error(orderError.message);
+  if (!order) throw new Error("Order not found");
+  if (order.payment_status === "paid" || order.payment_status === "pending") {
+    throw new Error("This order is already paid or has a payment in progress");
+  }
+
+  const { data: lines, error: linesError } = await supabase
+    .from("order_lines")
+    .select("price")
+    .eq("order_id", orderId);
+  if (linesError) throw new Error(linesError.message);
+  if (!lines || lines.length === 0) throw new Error("Add at least one line item before generating a checkout link");
+
+  const total = lines.reduce((sum, l) => sum + (l.price ?? 0), 0);
+
+  const token = randomBytes(24).toString("hex");
+  const expiresAt = new Date(Date.now() + CHECKOUT_LINK_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      customer_name: contact.name.trim() || null,
+      customer_email: email,
+      customer_phone: contact.phone.trim() || null,
+      checkout_token: token,
+      token_expires_at: expiresAt,
+    })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+
+  const url = `${SITE_URL}/pay/${token}`;
+
+  await sendOrderCheckoutLinkEmail({
+    to: email,
+    orderCode: order.order_id,
+    total,
+    checkoutUrl: url,
+    expiresAt,
+  });
+
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  return { url };
 }

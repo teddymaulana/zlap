@@ -45,7 +45,7 @@ export async function createCustomerSession(customerId: string) {
     httpOnly: true,
     sameSite: "lax",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
-    path: "/store",
+    path: "/",
   });
 }
 

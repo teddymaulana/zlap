@@ -85,7 +85,7 @@ function formatMoney(amount: number) {
 }
 
 function orderLookupLink(orderCode: string): string {
-  const url = `${SITE_URL}/store/orders/lookup?order=${encodeURIComponent(orderCode)}`;
+  const url = `${SITE_URL}/orders/lookup?order=${encodeURIComponent(orderCode)}`;
   return `<p style="margin-top:16px;"><a href="${url}" style="color:#111; text-decoration:underline;">Check your order status</a></p>`;
 }
 
@@ -334,6 +334,29 @@ export async function sendCardRequestQuotedEmail(params: {
      <p style="margin-top:16px; font-size:13px; color:#6b7280;">This link expires ${expiry}.</p>`
   );
   await send(params.to, `Your quote is ready — ${params.cardName}`, html);
+}
+
+export async function sendOrderCheckoutLinkEmail(params: {
+  to: string;
+  orderCode: string;
+  total: number;
+  checkoutUrl: string;
+  expiresAt: string;
+}) {
+  const expiry = new Date(params.expiresAt).toLocaleString("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  const html = wrapEmail(
+    "Complete your order",
+    `<p>Your order <strong>${params.orderCode}</strong> is ready — total <strong>${formatMoney(params.total)}</strong>.</p>
+     <p>Click below to confirm your shipping details and pay.</p>
+     <p style="margin-top:16px;">
+       <a href="${params.checkoutUrl}" style="display:inline-block; background:#111; color:#fff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Complete your order</a>
+     </p>
+     <p style="margin-top:16px; font-size:13px; color:#6b7280;">This link expires ${expiry}.</p>`
+  );
+  await send(params.to, `Complete your order — ${params.orderCode}`, html);
 }
 
 export async function sendCardRequestRejectedEmail(params: { to: string; cardName: string }) {

@@ -261,7 +261,9 @@
     "missingRegion": "Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos",
     "missingPaymentMethod": "Please select a payment method",
     "loadingOrder": "Loading your order…",
-    "emptyCart": "Your cart is empty."
+    "emptyCart": "Your cart is empty.",
+    "orderNotFound": "Kami tidak dapat menemukan pesanan tersebut. Tautan mungkin salah atau pesanan sudah tidak ada.",
+    "backToStore": "Back to store"
   },
   "whatsapp": {
     "chatAria": "Chat with us on WhatsApp",

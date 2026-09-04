@@ -16,8 +16,8 @@ export async function createPurchase(formData: FormData) {
     .single();
   if (error) throw new Error(error.message);
 
-  revalidatePath("/purchases");
-  redirect(`/purchases/${data.id}`);
+  revalidatePath("/zlap-adm/purchases");
+  redirect(`/zlap-adm/purchases/${data.id}`);
 }
 
 export async function updatePurchaseHeader(purchaseId: string, formData: FormData) {
@@ -37,7 +37,7 @@ export async function updatePurchaseHeader(purchaseId: string, formData: FormDat
     .eq("id", purchaseId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/purchases/${purchaseId}`);
+  revalidatePath(`/zlap-adm/purchases/${purchaseId}`);
 }
 
 export async function addPurchaseLine(purchaseId: string, formData: FormData) {
@@ -58,7 +58,7 @@ export async function addPurchaseLine(purchaseId: string, formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/purchases/${purchaseId}`);
+  revalidatePath(`/zlap-adm/purchases/${purchaseId}`);
 }
 
 export async function updatePurchaseLine(
@@ -82,7 +82,7 @@ export async function updatePurchaseLine(
     .eq("pushed", false);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/purchases/${purchaseId}`);
+  revalidatePath(`/zlap-adm/purchases/${purchaseId}`);
 }
 
 export async function deletePurchaseLine(purchaseId: string, lineId: string) {
@@ -94,7 +94,7 @@ export async function deletePurchaseLine(purchaseId: string, lineId: string) {
     .eq("pushed", false);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/purchases/${purchaseId}`);
+  revalidatePath(`/zlap-adm/purchases/${purchaseId}`);
 }
 
 // Allocates the purchase's total shipping/handling fees across lines
@@ -159,6 +159,6 @@ export async function pushToInventory(purchaseId: string) {
     if (lineUpdateError) throw new Error(lineUpdateError.message);
   }
 
-  revalidatePath(`/purchases/${purchaseId}`);
-  revalidatePath("/products");
+  revalidatePath(`/zlap-adm/purchases/${purchaseId}`);
+  revalidatePath("/zlap-adm/products");
 }
