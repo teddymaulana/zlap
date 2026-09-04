@@ -37,11 +37,29 @@ export default async function ProductDetailPage({
   if (orderLinesError) throw new Error(orderLinesError.message);
   if (!product) notFound();
 
-  const allTimeRevenue = (orderLines ?? []).reduce((sum, l) => sum + (l.price ?? 0), 0);
-  const allTimeCost = (orderLines ?? []).reduce(
-    (sum, l) => sum + ((l.inventory_batches as unknown as { cost: number } | null)?.cost ?? 0),
-    0
-  );
+  // Older order lines (from before the Strapi migration — see
+  // scripts/migrate.ts) can have no linked inventory batch, so their cost
+  // is unknown. Treating that as zero cost would understate cost and
+  // inflate net for any product with such lines, so instead estimate their
+  // cost using this same product's own known cost ratio (from lines that do
+  // have a linked batch), rather than silently pretending it was free.
+  let knownRevenue = 0;
+  let knownCost = 0;
+  let unknownRevenue = 0;
+  for (const l of orderLines ?? []) {
+    const cost = (l.inventory_batches as unknown as { cost: number } | null)?.cost;
+    if (cost === null || cost === undefined) {
+      unknownRevenue += l.price ?? 0;
+    } else {
+      knownRevenue += l.price ?? 0;
+      knownCost += cost;
+    }
+  }
+  const hasUnknownCostLines = unknownRevenue > 0;
+  const estimatedUnknownCost =
+    hasUnknownCostLines && knownRevenue > 0 ? unknownRevenue * (knownCost / knownRevenue) : unknownRevenue;
+  const allTimeRevenue = knownRevenue + unknownRevenue;
+  const allTimeCost = knownCost + estimatedUnknownCost;
   const allTimeNet = allTimeRevenue - allTimeCost;
 
   const batchList = ((batches ?? []) as InventoryBatchAvailability[]).sort((a, b) => {
@@ -61,6 +79,7 @@ export default async function ProductDetailPage({
         <div className="flex gap-4 text-sm text-gray-600">
           <span>{totalAvailable} available</span>
           <span>{formatMoney(totalValue)}</span>
+          <span>All time cost: {formatMoney(allTimeCost)}</span>
           <span>All time net: {formatMoney(allTimeNet)}</span>
         </div>
       </div>

@@ -182,12 +182,54 @@ export default async function DashboardPage({
     batchCostById.set(b.id, b.cost);
   }
 
+  function isKnownCostLine(line: { inventory_batch_id: string | null }): boolean {
+    return Boolean(line.inventory_batch_id) && batchCostById.get(line.inventory_batch_id!) !== undefined;
+  }
+
+  // Older order lines (from before the Strapi migration — see
+  // scripts/migrate.ts) can have no linked inventory batch, so their cost
+  // is unknown. Treating that as zero cost would understate cost and
+  // inflate net/margin for any product with such lines (all-time revenue
+  // stays exact since price is always known, but cost silently drops to 0
+  // for the unlinked portion). Instead, estimate each unlinked line's cost
+  // from that same product's own known cost ratio, computed across ALL of
+  // its order lines regardless of the current month/category/channel
+  // filters — a filtered window can easily contain zero known-cost lines to
+  // base a ratio on (e.g. if only legacy unlinked sales fall in that month).
+  const knownRevenueByProduct = new Map<string, number>();
+  const knownCostByProduct = new Map<string, number>();
+  for (const line of orderLines) {
+    if (!isKnownCostLine(line)) continue;
+    const cost = batchCostById.get(line.inventory_batch_id!)!;
+    knownRevenueByProduct.set(
+      line.product_id,
+      (knownRevenueByProduct.get(line.product_id) ?? 0) + (line.price ?? 0)
+    );
+    knownCostByProduct.set(line.product_id, (knownCostByProduct.get(line.product_id) ?? 0) + cost);
+  }
+
+  function lineCost(line: OrderLineRow): number {
+    if (isKnownCostLine(line)) return batchCostById.get(line.inventory_batch_id!)!;
+    const knownRevenue = knownRevenueByProduct.get(line.product_id) ?? 0;
+    const knownCost = knownCostByProduct.get(line.product_id) ?? 0;
+    // No known-cost line at all for this product to base a ratio on —
+    // assume 0% margin (cost = price) rather than pretending it was free.
+    const ratio = knownRevenue > 0 ? knownCost / knownRevenue : 1;
+    return (line.price ?? 0) * ratio;
+  }
+
   const typedProducts = (products ?? []) as { id: string; name: string; tags: string[] }[];
 
   const salesByProduct = new Map<string, ProductSales>();
   const productTagsById = new Map<string, string[]>();
   for (const p of typedProducts) {
-    salesByProduct.set(p.id, { productId: p.id, name: p.name, soldQty: 0, revenue: 0, cost: 0 });
+    salesByProduct.set(p.id, {
+      productId: p.id,
+      name: p.name,
+      soldQty: 0,
+      revenue: 0,
+      cost: 0,
+    });
     productTagsById.set(p.id, p.tags ?? []);
   }
 
@@ -232,10 +274,7 @@ export default async function DashboardPage({
     : monthChannelFilteredLines;
 
   const filteredRevenue = catFilteredLines.reduce((sum, l) => sum + (l.price ?? 0), 0);
-  const filteredCost = catFilteredLines.reduce(
-    (sum, l) => sum + (l.inventory_batch_id ? batchCostById.get(l.inventory_batch_id) ?? 0 : 0),
-    0
-  );
+  const filteredCost = catFilteredLines.reduce((sum, l) => sum + lineCost(l), 0);
 
   const filteredExpenses = typedBalances
     .filter((b) => b.category === "expenses" && (!monthFilter || b.date.slice(0, 7) === monthFilter))
@@ -250,9 +289,7 @@ export default async function DashboardPage({
     if (!entry) continue;
     entry.soldQty += 1;
     entry.revenue += line.price ?? 0;
-    entry.cost += line.inventory_batch_id
-      ? batchCostById.get(line.inventory_batch_id) ?? 0
-      : 0;
+    entry.cost += lineCost(line);
   }
 
   const sales = [...salesByProduct.values()]
