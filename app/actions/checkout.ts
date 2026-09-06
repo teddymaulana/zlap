@@ -5,6 +5,9 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { chargeMidtrans, type MidtransChargeRequest } from "@/lib/midtrans";
 import { getCurrentCustomerId } from "@/lib/customerAuth";
 import { sendOrderConfirmationEmail, type OrderConfirmationLine } from "@/lib/email";
+import { ALL_GIFT_TAGS, computeEarnedGifts, giftRoleForTags, isGiftProduct, type GiftRole } from "@/lib/gwp";
+import { getActiveDiscounts } from "@/app/actions/discounts";
+import { priceWithDiscounts, computeEarnedBogoFreebies, applyCodeToCart, findDiscountByCode } from "@/lib/discounts";
 
 const DEFAULT_DIRECT_PRICE_PCT = 1.15;
 
@@ -281,7 +284,8 @@ export async function createOrderAndCharge(
   items: CheckoutItem[],
   customer: { name: string; phone: string; address: string; email: string },
   paymentMethod: CheckoutPaymentMethod,
-  bankCode: CheckoutBank = "bca"
+  bankCode: CheckoutBank = "bca",
+  discountCode?: string
 ): Promise<CheckoutResult> {
   const name = customer.name.trim();
   const phone = customer.phone.trim();
@@ -294,6 +298,93 @@ export async function createOrderAndCharge(
 
   const service = serviceClient();
 
+  // Tags for everything the client asked for (to spot/ignore any gift-tagged
+  // entries it sent) plus the canonical gift-role catalog (so an earned gift
+  // resolves to a product even if the client never added it itself) — never
+  // trust the client's own idea of what's a gift or how many it's owed.
+  const requestedIds = [...new Set(items.map((i) => i.productId))];
+  const [
+    { data: requestedProducts, error: requestedError },
+    { data: giftProducts, error: giftProductsError },
+    discounts,
+    customerId,
+  ] = await Promise.all([
+    service.from("products").select("id, name, image_url, tags").in("id", requestedIds),
+    service.from("products").select("id, name, image_url, tags").overlaps("tags", ALL_GIFT_TAGS),
+    getActiveDiscounts(),
+    getCurrentCustomerId(),
+  ]);
+  if (requestedError) return { error: requestedError.message };
+  if (giftProductsError) return { error: giftProductsError.message };
+
+  // Re-validated from scratch here — never trust that the client's cart
+  // preview correctly matched the code to an active discount or the
+  // customer's login state.
+  let redeemedCode: ReturnType<typeof findDiscountByCode> = null;
+  if (discountCode) {
+    redeemedCode = findDiscountByCode(discountCode, discounts);
+    if (!redeemedCode) return { error: "Invalid or expired discount code" };
+    if ((redeemedCode.requiresLogin || redeemedCode.oncePerCustomer) && !customerId) {
+      return { error: "Sign in to use this discount code" };
+    }
+    if (redeemedCode.oncePerCustomer && customerId) {
+      const { data: existingRedemption, error: redemptionCheckError } = await service
+        .from("discount_redemptions")
+        .select("id")
+        .eq("discount_id", redeemedCode.id)
+        .eq("customer_id", customerId)
+        .maybeSingle();
+      if (redemptionCheckError) return { error: redemptionCheckError.message };
+      if (existingRedemption) return { error: "You've already used this discount code" };
+    }
+  }
+
+  const productById = new Map([...(requestedProducts ?? []), ...(giftProducts ?? [])].map((p) => [p.id, p]));
+  const giftProductByRole = new Map<GiftRole, { id: string }>();
+  for (const p of giftProducts ?? []) {
+    const role = giftRoleForTags(p.tags);
+    if (role) giftProductByRole.set(role, p);
+  }
+
+  // Gift-tagged products are never directly purchasable — any qty the client
+  // sent for them is dropped here; the real quantities are recomputed from
+  // scratch below so a tampered request can't claim extra (or unearned) free
+  // gifts.
+  const regularItems = items.filter((i) => !isGiftProduct(productById.get(i.productId)?.tags));
+  if (regularItems.length === 0) return { error: "Your cart is empty" };
+
+  const earnedGifts = computeEarnedGifts(
+    regularItems.map((i) => ({ tags: productById.get(i.productId)?.tags, qty: i.qty }))
+  );
+  const giftItems: { productId: string; qty: number }[] = (Object.keys(earnedGifts) as GiftRole[])
+    .map((role) => ({ qty: earnedGifts[role], product: giftProductByRole.get(role) }))
+    .filter((g): g is { qty: number; product: { id: string } } => g.qty > 0 && !!g.product)
+    .map((g) => ({ productId: g.product.id, qty: g.qty }));
+
+  // Same idea as gift-with-purchase, but the trigger/free products are
+  // whatever admin picked in /zlap-adm/discounts instead of a fixed tag —
+  // recomputed from scratch here for the same reason (never trust the
+  // client's claimed gift qty).
+  const earnedBogo = computeEarnedBogoFreebies(
+    regularItems.map((i) => ({ productId: i.productId, qty: i.qty })),
+    discounts
+  );
+  const bogoFreeProductIds = [...earnedBogo.keys()].filter((id) => !productById.has(id));
+  if (bogoFreeProductIds.length > 0) {
+    const { data: bogoProducts, error: bogoProductsError } = await service
+      .from("products")
+      .select("id, name, image_url, tags")
+      .in("id", bogoFreeProductIds);
+    if (bogoProductsError) return { error: bogoProductsError.message };
+    for (const p of bogoProducts ?? []) productById.set(p.id, p);
+  }
+
+  // Free items earned from either system, merged into one map so a product
+  // that happens to be earned by both isn't fulfilled/priced twice.
+  const freeQtyByProduct = new Map<string, number>();
+  for (const g of giftItems) freeQtyByProduct.set(g.productId, (freeQtyByProduct.get(g.productId) ?? 0) + g.qty);
+  for (const [productId, qty] of earnedBogo) freeQtyByProduct.set(productId, (freeQtyByProduct.get(productId) ?? 0) + qty);
+
   // Re-derive everything server-side from the storefront-priced batches —
   // never trust price/availability the client sent.
   const { data: batches, error: batchesError } = await service
@@ -302,32 +393,79 @@ export async function createOrderAndCharge(
     .eq("is_storefront_price", true)
     .in(
       "product_id",
-      items.map((i) => i.productId)
+      regularItems.map((i) => i.productId)
     );
   if (batchesError) return { error: batchesError.message };
 
   const batchByProduct = new Map((batches ?? []).map((b) => [b.product_id, b]));
+  const basePriceByProduct = new Map(
+    regularItems.map((item) => {
+      const batch = batchByProduct.get(item.productId);
+      return [item.productId, batch ? (batch.direct_price ?? batch.cost * DEFAULT_DIRECT_PRICE_PCT) : 0];
+    })
+  );
+  const discountedPriceByProduct = priceWithDiscounts(basePriceByProduct, discounts);
+  const { priceByProduct: codePriceByProduct, cartDiscountAmount } = applyCodeToCart(
+    regularItems.map((item) => ({
+      productId: item.productId,
+      qty: item.qty,
+      basePrice: basePriceByProduct.get(item.productId) ?? 0,
+      autoPrice: discountedPriceByProduct.get(item.productId)?.price ?? 0,
+    })),
+    redeemedCode
+  );
 
   const lines: { product_id: string; inventory_batch_id: string; price: number }[] = [];
-  const priceByProduct = new Map<string, number>();
+  const finalItems: { productId: string; qty: number; price: number }[] = [];
   let grossAmount = 0;
-  for (const item of items) {
+  for (const item of regularItems) {
     const batch = batchByProduct.get(item.productId);
     if (!batch) return { error: "One of the items in your cart is no longer available" };
     if (item.qty > batch.storefront_available) {
       return { error: "Not enough stock left for one of the items in your cart" };
     }
-    const price = batch.direct_price ?? batch.cost * DEFAULT_DIRECT_PRICE_PCT;
-    priceByProduct.set(item.productId, price);
+    const price = codePriceByProduct.get(item.productId)!;
     grossAmount += price * item.qty;
+    finalItems.push({ productId: item.productId, qty: item.qty, price });
     for (let i = 0; i < item.qty; i++) {
       lines.push({ product_id: item.productId, inventory_batch_id: batch.id, price });
     }
   }
+  // A whole-cart code's own cut isn't reflected in any line price — see
+  // applyCodeToCart — so it comes off the total here instead.
+  grossAmount = Math.max(0, grossAmount - cartDiscountAmount);
 
-  const customerId = await getCurrentCustomerId();
+  // Free items are priced at 0 regardless of the product's own cost, and
+  // fulfilled from whichever of its batches currently has the most stock —
+  // these products are typically never storefront-priced, so the lookup
+  // above never sees them. If stock has run out, the free item is silently
+  // dropped rather than blocking the sale of what the customer is paying for.
+  if (freeQtyByProduct.size > 0) {
+    const { data: giftBatches, error: giftBatchesError } = await service
+      .from("inventory_batch_availability")
+      .select("id, product_id, available")
+      .in("product_id", [...freeQtyByProduct.keys()]);
+    if (giftBatchesError) return { error: giftBatchesError.message };
 
-  const { result } = await chargeAndCreateOrder({
+    const bestBatchByProduct = new Map<string, { id: string; available: number }>();
+    for (const b of giftBatches ?? []) {
+      const current = bestBatchByProduct.get(b.product_id);
+      if (!current || b.available > current.available) {
+        bestBatchByProduct.set(b.product_id, { id: b.id, available: b.available });
+      }
+    }
+
+    for (const [productId, qty] of freeQtyByProduct) {
+      const batch = bestBatchByProduct.get(productId);
+      if (!batch || qty > batch.available) continue;
+      finalItems.push({ productId, qty, price: 0 });
+      for (let i = 0; i < qty; i++) {
+        lines.push({ product_id: productId, inventory_batch_id: batch.id, price: 0 });
+      }
+    }
+  }
+
+  const { result, internalOrderId } = await chargeAndCreateOrder({
     service,
     lines,
     grossAmount,
@@ -335,24 +473,28 @@ export async function createOrderAndCharge(
     paymentMethod,
     bankCode,
     customerId,
-    buildEmailLines: async () => {
-      const { data: productRows } = await service
-        .from("products")
-        .select("id, name, image_url")
-        .in(
-          "id",
-          items.map((i) => i.productId)
-        );
-      const nameByProduct = new Map((productRows ?? []).map((p) => [p.id, p.name]));
-      const imageByProduct = new Map((productRows ?? []).map((p) => [p.id, p.image_url]));
-      return items.map((i) => ({
-        name: nameByProduct.get(i.productId) ?? "Item",
-        qty: i.qty,
-        price: priceByProduct.get(i.productId) ?? 0,
-        imageUrl: imageByProduct.get(i.productId),
-      }));
-    },
+    buildEmailLines: async () =>
+      finalItems.map((i) => {
+        const p = productById.get(i.productId);
+        return {
+          name: p?.name ?? "Item",
+          qty: i.qty,
+          price: i.price,
+          imageUrl: p?.image_url,
+        };
+      }),
   });
+
+  // Best-effort: the order already succeeded and was charged, so a failure
+  // recording the redemption shouldn't undo it — worst case is this
+  // customer could reuse the code once, same trade-off as a gift silently
+  // getting dropped when its stock has run out.
+  if (redeemedCode?.oncePerCustomer && customerId && internalOrderId && !("error" in result)) {
+    const { error: redemptionError } = await service
+      .from("discount_redemptions")
+      .insert({ discount_id: redeemedCode.id, customer_id: customerId, order_id: internalOrderId });
+    if (redemptionError) console.error("Failed to record discount redemption:", redemptionError.message);
+  }
 
   return result;
 }

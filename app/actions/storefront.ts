@@ -4,7 +4,9 @@ import { cookies } from "next/headers";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getWishlistProductIds } from "@/app/actions/customer";
-import { isSlabProduct } from "@/lib/productCategory";
+import { getActiveDiscounts } from "@/app/actions/discounts";
+import { priceWithDiscounts } from "@/lib/discounts";
+import { isSlabProduct, isBoosterBoxProduct } from "@/lib/productCategory";
 import type { StorefrontShortcut } from "@/lib/types";
 
 const DEFAULT_DIRECT_PRICE_PCT = 1.15;
@@ -38,6 +40,9 @@ export type StorefrontProduct = {
   sku: string | null;
   image_url: string | null;
   price: number | null;
+  // Pre-discount price, only set when an active discount actually lowered
+  // `price` — for showing it crossed out next to the discounted price.
+  originalPrice: number | null;
   preorder: StorefrontPreorder | null;
   tags: string[];
   setName: string | null;
@@ -60,7 +65,7 @@ async function resolveSetNames(setIds: (string | null | undefined)[]): Promise<M
   return new Map((data ?? []).map((s) => [s.id, s.name]));
 }
 
-type BatchInfo = { price: number; preorder: StorefrontPreorder | null };
+type BatchInfo = { price: number; originalPrice: number | null; preorder: StorefrontPreorder | null };
 
 function batchInfo(b: {
   cost: number;
@@ -68,13 +73,30 @@ function batchInfo(b: {
   is_preorder: boolean;
   preorder_duration_days: number | null;
   preorder_arrival_date: string | null;
-}): BatchInfo {
+}): Omit<BatchInfo, "originalPrice"> {
   return {
     price: b.direct_price ?? b.cost * DEFAULT_DIRECT_PRICE_PCT,
     preorder: b.is_preorder
       ? { days: b.preorder_duration_days ?? undefined, date: b.preorder_arrival_date ?? undefined }
       : null,
   };
+}
+
+// Applies each product's best active percentage/fixed discount (if any) on
+// top of its base batch price — a second, independent server-role lookup
+// alongside the batch price itself, same "never trust anything but the final
+// computed number" reasoning as batchInfo above.
+async function applyDiscounts(base: Map<string, Omit<BatchInfo, "originalPrice">>): Promise<Map<string, BatchInfo>> {
+  const discounts = await getActiveDiscounts();
+  const basePrices = new Map([...base].map(([id, info]) => [id, info.price]));
+  const discounted = priceWithDiscounts(basePrices, discounts);
+
+  const infos = new Map<string, BatchInfo>();
+  for (const [id, info] of base) {
+    const d = discounted.get(id)!;
+    infos.set(id, { price: d.price, originalPrice: d.originalPrice, preorder: info.preorder });
+  }
+  return infos;
 }
 
 // Batch cost/pricing data is internal — looked up here with the service
@@ -94,11 +116,11 @@ async function priceByProductId(productIds: string[]): Promise<Map<string, Batch
     .eq("is_storefront_price", true);
   if (error) throw new Error(error.message);
 
-  const infos = new Map<string, BatchInfo>();
+  const base = new Map<string, Omit<BatchInfo, "originalPrice">>();
   for (const b of data ?? []) {
-    infos.set(b.product_id, batchInfo(b));
+    base.set(b.product_id, batchInfo(b));
   }
-  return infos;
+  return applyDiscounts(base);
 }
 
 export type StorefrontCategory = "booster_boxes" | "singles" | "slabs" | "other";
@@ -111,7 +133,7 @@ export type StorefrontFilters = {
 
 function matchesCategory(p: { tags: string[] | null; name: string }, category: StorefrontCategory) {
   const tags = (p.tags ?? []).map((t) => t.toLowerCase());
-  const isBooster = tags.some((t) => t.includes("booster_box") || t.includes("booster box"));
+  const isBooster = isBoosterBoxProduct(p);
   const isSingle = tags.includes("single");
   const isSlab = isSlabProduct(p);
 
@@ -269,10 +291,11 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
   if (!batches || batches.length === 0) return [];
 
   const randomPick = [...batches].sort(() => Math.random() - 0.5).slice(0, limit);
-  const infos = new Map<string, BatchInfo>();
+  const base = new Map<string, Omit<BatchInfo, "originalPrice">>();
   for (const b of randomPick) {
-    infos.set(b.product_id, batchInfo(b));
+    base.set(b.product_id, batchInfo(b));
   }
+  const infos = await applyDiscounts(base);
 
   const supabase = await createClient();
   const { data: products, error } = await supabase
@@ -361,6 +384,7 @@ async function productsByIds(ids: string[]): Promise<StorefrontProduct[]> {
     tags: p.tags ?? [],
     setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
     price: infos.get(p.id)?.price ?? null,
+    originalPrice: infos.get(p.id)?.originalPrice ?? null,
     preorder: infos.get(p.id)?.preorder ?? null,
   }));
 }

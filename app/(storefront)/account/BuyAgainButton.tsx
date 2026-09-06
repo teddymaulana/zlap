@@ -27,7 +27,15 @@ export default function BuyAgainButton({ orderId }: { orderId: string }) {
       for (const item of result.items) {
         const qty = result.qtyByProductId[item.productId] ?? 1;
         for (let i = 0; i < qty; i++) {
-          addItem({ id: item.productId, name: item.name, sku: item.sku, image_url: item.imageUrl, price: item.price });
+          addItem({
+            id: item.productId,
+            name: item.name,
+            sku: item.sku,
+            image_url: item.imageUrl,
+            price: item.price,
+            originalPrice: item.originalPrice,
+            tags: item.tags,
+          });
         }
       }
       if (result.unavailable.length > 0) {

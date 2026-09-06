@@ -441,6 +441,8 @@ export type ReorderItem = {
   sku: string | null;
   imageUrl: string | null;
   price: number;
+  originalPrice: number | null;
+  tags: string[];
 };
 
 // "Buy again" — re-derives cart-ready items from a past order at *current*
@@ -474,7 +476,16 @@ export async function getReorderItems(
   const unavailable: string[] = [];
   for (const p of products) {
     if (p.price === null) unavailable.push(p.name);
-    else items.push({ productId: p.id, name: p.name, sku: p.sku, imageUrl: p.image_url, price: p.price });
+    else
+      items.push({
+        productId: p.id,
+        name: p.name,
+        sku: p.sku,
+        imageUrl: p.image_url,
+        price: p.price,
+        originalPrice: p.originalPrice,
+        tags: p.tags,
+      });
   }
   // A product removed from the catalog entirely won't come back from
   // getProductsForReorder at all — count it unavailable too, just unnamed.

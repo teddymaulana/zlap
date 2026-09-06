@@ -7,6 +7,7 @@ import { CartProvider } from "./CartContext";
 import { WishlistProvider } from "./WishlistContext";
 import { WhatsAppProvider } from "./WhatsAppContext";
 import StoreHeader from "./StoreHeader";
+import StoreMain from "./StoreMain";
 import AnnouncementBar from "./AnnouncementBar";
 import StoreFooter from "./StoreFooter";
 import MarketplaceLinks from "./MarketplaceLinks";
@@ -63,7 +64,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         <WhatsAppProvider>
           <StoreHeader tagline={tagline} />
           <AnnouncementBar messages={announcements} />
-          <main className="min-h-screen bg-gray-50 pb-16">{children}</main>
+          <StoreMain>{children}</StoreMain>
           <MarketplaceLinks />
           <StoreFooter />
           <CartDrawer />

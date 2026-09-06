@@ -194,7 +194,9 @@
     "preorder": "Pre-order",
     "arrivesOn": "Arrives {date}",
     "shipsInDays": "Ships in ~{days} days",
-    "freeShipping": "Free shipping across Indonesia",
+    "freeShipping": "Free shipping",
+    "authentic": "Authentic",
+    "factorySealed": "Factory sealed",
     "relatedItems": "Related items",
     "makeOffer": "Make an offer",
     "offerSent": "Offer sent",
@@ -205,7 +207,9 @@
     "currentPriceLine": "{name} — current price {price}",
     "yourOfferPlaceholder": "Your offer (IDR)",
     "yourNamePlaceholder": "Your name",
-    "sendOffer": "Send offer"
+    "sendOffer": "Send offer",
+    "freeEtbProtector": "Free ETB plastic case protector included",
+    "bogoFreeItem": "Buy this, get {name} free"
   },
   "payment": {
     "virtualAccount": "Virtual Account",

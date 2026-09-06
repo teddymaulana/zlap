@@ -94,8 +94,15 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
         <div className="text-xs text-blue-700">{preorderText(product.preorder)}</div>
       )}
       <div className="mt-auto pt-2">
-        <div className="text-sm font-semibold text-[#151515] tabular-nums">
-          {product.price !== null ? formatMoney(product.price) : copy.common.priceUnavailable}
+        <div className="flex flex-wrap items-baseline gap-1.5">
+          <span className="text-sm font-semibold text-[#151515] tabular-nums">
+            {product.price !== null ? formatMoney(product.price) : copy.common.priceUnavailable}
+          </span>
+          {product.originalPrice !== null && (
+            <span className="text-xs text-gray-400 line-through tabular-nums">
+              {formatMoney(product.originalPrice)}
+            </span>
+          )}
         </div>
         {inStock ? (
           <button

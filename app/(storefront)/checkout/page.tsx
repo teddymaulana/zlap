@@ -51,7 +51,7 @@ function writeSavedShipping(value: SavedShipping | null) {
 }
 
 export default function CheckoutPage() {
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, appliedCode, codePriceByProduct, cartDiscountAmount } = useCart();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -187,10 +187,16 @@ export default function CheckoutPage() {
     writeSavedShipping(saveShipping ? { name, phone, address, region } : null);
     try {
       const res = await createOrderAndCharge(
-        items.map((i) => ({ productId: i.id, qty: i.qty })),
+        // Gift/BOGO lines are dropped here — createOrderAndCharge recomputes
+        // everyone's earned free items from scratch server-side, and (unlike
+        // the old gift-with-purchase items) a BOGO free product isn't
+        // necessarily tagged in a way the server would otherwise recognize
+        // and filter out on its own.
+        items.filter((i) => !i.isGift).map((i) => ({ productId: i.id, qty: i.qty })),
         { name, phone, address: `${address}, ${region}`, email },
         paymentSelection.method,
-        paymentSelection.bank
+        paymentSelection.bank,
+        appliedCode ?? undefined
       );
       if ("error" in res) {
         setError(res.error);
@@ -374,9 +380,14 @@ export default function CheckoutPage() {
               )}
               <span className="min-w-0 flex-1 truncate">
                 {item.name} × {item.qty}
+                {item.isGift && <span className="ml-1 text-xs font-medium text-green-600">(Free gift)</span>}
               </span>
               <span className="shrink-0 tabular-nums">
-                {item.price !== null ? formatMoney(item.price * item.qty) : "—"}
+                {item.isGift
+                  ? "Free"
+                  : item.price !== null
+                    ? formatMoney((codePriceByProduct.get(item.id) ?? item.price) * item.qty)
+                    : "—"}
               </span>
             </div>
           ))}
@@ -430,8 +441,31 @@ export default function CheckoutPage() {
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
             <div className="flex items-center justify-between py-1 text-sm">
               <span className="text-gray-500">{copy.checkout.subtotal}</span>
-              <span className="tabular-nums">{formatMoney(totalPrice)}</span>
+              <span className="tabular-nums">{formatMoney(totalPrice + cartDiscountAmount)}</span>
             </div>
+            {cartDiscountAmount > 0 && (
+              <div className="flex items-center justify-between py-1 text-sm">
+                <span className="text-gray-500">
+                  Savings{appliedCode ? ` (${appliedCode.toUpperCase()})` : ""}
+                </span>
+                <span className="flex items-center gap-1 font-medium text-green-600">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                  >
+                    <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                    <circle cx="7" cy="7" r="1" />
+                  </svg>
+                  -{formatMoney(cartDiscountAmount)}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between py-1 text-sm">
               <span className="text-gray-500">{copy.checkout.processingFee}</span>
               <span className="font-medium text-green-600">{copy.checkout.free}</span>

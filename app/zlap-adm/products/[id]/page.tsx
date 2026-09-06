@@ -5,6 +5,7 @@ import { getCardSets } from "@/app/actions/sets";
 import type { InventoryBatchAvailability, Product } from "@/lib/types";
 import ProductHeaderForm from "./ProductHeaderForm";
 import ProductBatches from "./ProductBatches";
+import DeleteProductButton from "./DeleteProductButton";
 
 function formatMoney(amount: number) {
   return `Rp. ${Math.round(amount || 0).toLocaleString("id-ID")}`;
@@ -73,7 +74,12 @@ export default async function ProductDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
-      <ProductHeaderForm product={product as Product} allTags={allTags} sets={sets} />
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <ProductHeaderForm product={product as Product} allTags={allTags} sets={sets} />
+        </div>
+        <DeleteProductButton productId={id} productName={product.name} />
+      </div>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Inventory batches</h2>
         <div className="flex gap-4 text-sm text-gray-600">

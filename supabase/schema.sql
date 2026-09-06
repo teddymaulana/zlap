@@ -222,6 +222,54 @@ create table if not exists inventory_batches (
 create unique index if not exists one_storefront_price_per_product
   on inventory_batches (product_id) where is_storefront_price;
 
+-- Storefront discounts, managed from /zlap-adm/discounts. A discount applies
+-- to whichever products are listed in discount_products (empty = the whole
+-- cart, code-triggered discounts only — see below):
+--  - percentage/fixed: knocks that much off the assigned products' price.
+--  - bogo: buying an assigned product earns one free unit of free_product_id
+--    per unit bought (see lib/discounts.ts computeEarnedBogoFreebies) —
+--    percentage and fixed_amount are unused for this type.
+-- Pricing/eligibility is always computed from is_active + type at read time
+-- (app/actions/storefront.ts, app/actions/checkout.ts) — never cached here.
+--
+-- `code` turns a percentage/fixed discount from automatic into
+-- customer-entered: null (the default) applies automatically to its
+-- assigned products same as always; set, it only applies once a customer
+-- types it into the cart (lib/discounts.ts findDiscountByCode), and
+-- discount_products becomes optional — empty means the code discounts the
+-- whole cart subtotal instead of specific products. Never used with type
+-- 'bogo' (enforced in app/actions/discounts.ts, not here).
+--   - `stackable`: true applies on top of any automatic discount already
+--     active on the same product(s)/cart; false ("exclusive") overrides —
+--     computes off the pre-automatic-discount price instead.
+--   - `requires_login`: true rejects the code for a guest checkout (see
+--     getCurrentCustomerId in app/actions/checkout.ts).
+--   - `once_per_customer`: true caps it at one redemption per signed-in
+--     customer (enforced via discount_redemptions below) — implicitly
+--     requires login too, regardless of the requires_login flag.
+create table if not exists discounts (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  type text not null check (type in ('percentage', 'fixed', 'bogo')),
+  percentage numeric,
+  fixed_amount numeric,
+  free_product_id uuid references products(id) on delete set null,
+  is_active boolean not null default true,
+  code text,
+  stackable boolean not null default false,
+  requires_login boolean not null default false,
+  once_per_customer boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists discounts_code_unique on discounts (lower(code)) where code is not null;
+
+create table if not exists discount_products (
+  discount_id uuid not null references discounts(id) on delete cascade,
+  product_id uuid not null references products(id) on delete cascade,
+  primary key (discount_id, product_id)
+);
+
 create table if not exists purchase_lines (
   id uuid primary key default gen_random_uuid(),
   purchase_id uuid not null references purchases(id) on delete cascade,
@@ -338,6 +386,24 @@ create table if not exists orders (
   cancellation_reason text,
   created_at timestamptz not null default now()
 );
+
+-- One row per successful redemption of a once_per_customer discount code —
+-- the unique constraint is what actually enforces the limit
+-- (app/actions/checkout.ts's own check is just a friendlier pre-check ahead
+-- of that, and app/actions/discounts.ts's hasRedeemedDiscount is the same
+-- check for the cart preview). No RLS policies (service-role only), same
+-- reasoning as the customers table: never read/written through the
+-- authenticated admin client.
+create table if not exists discount_redemptions (
+  id uuid primary key default gen_random_uuid(),
+  discount_id uuid not null references discounts(id) on delete cascade,
+  customer_id uuid not null references customers(id) on delete cascade,
+  order_id uuid references orders(id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (discount_id, customer_id)
+);
+
+alter table discount_redemptions enable row level security;
 
 -- Lets an ERP-built order (app/orders/new + OrderLines, no customer/payment
 -- captured yet) be turned into a shareable link so the customer supplies
@@ -644,6 +710,10 @@ alter table stock_notifications enable row level security;
 alter table purchases enable row level security;
 alter table purchase_lines enable row level security;
 alter table inventory_batches enable row level security;
+-- Storefront pricing/BOGO reads go through the service role (same pattern as
+-- inventory_batches' cost/direct_price) — no public read policy needed.
+alter table discounts enable row level security;
+alter table discount_products enable row level security;
 alter table orders enable row level security;
 alter table order_lines enable row level security;
 -- Customer submissions (pending status) and the checkout-token lookup both
@@ -695,6 +765,10 @@ create policy "authenticated full access" on purchases for all
 create policy "authenticated full access" on purchase_lines for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on inventory_batches for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated full access" on discounts for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated full access" on discount_products for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on orders for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

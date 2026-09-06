@@ -73,6 +73,16 @@ export async function updateProduct(productId: string, formData: FormData) {
   revalidatePath("/");
 }
 
+export async function deleteProduct(productId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("products").delete().eq("id", productId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/zlap-adm/products");
+  revalidatePath("/");
+  redirect("/zlap-adm/products");
+}
+
 export async function uploadProductImage(productId: string, formData: FormData) {
   const file = formData.get("image") as File | null;
   if (!file || file.size === 0) return;
