@@ -247,6 +247,10 @@ create unique index if not exists one_storefront_price_per_product
 --   - `once_per_customer`: true caps it at one redemption per signed-in
 --     customer (enforced via discount_redemptions below) — implicitly
 --     requires login too, regardless of the requires_login flag.
+-- `badge_text` (e.g. "SALE"): shown on every assigned product's card and
+-- PDP (lib/discounts.ts badgesByProduct) — independent of code/type, but
+-- only for product-scoped discounts; a whole-cart code has no single
+-- product to badge.
 create table if not exists discounts (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -259,6 +263,7 @@ create table if not exists discounts (
   stackable boolean not null default false,
   requires_login boolean not null default false,
   once_per_customer boolean not null default false,
+  badge_text text,
   created_at timestamptz not null default now()
 );
 

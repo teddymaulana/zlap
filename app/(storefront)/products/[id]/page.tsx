@@ -59,18 +59,25 @@ export default async function StorefrontProductDetailPage({
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       <WhatsAppProductAnnouncer name={product.name} path={`/products/${product.id}`} />
       <div className="grid gap-8 sm:grid-cols-2">
-        {product.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="aspect-square w-full rounded border object-cover"
-          />
-        ) : (
-          <div className="flex aspect-square w-full items-center justify-center rounded border bg-gray-50 text-sm text-gray-400">
-            {copy.common.noImage}
-          </div>
-        )}
+        <div className="relative">
+          {product.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="aspect-square w-full rounded border object-cover"
+            />
+          ) : (
+            <div className="flex aspect-square w-full items-center justify-center rounded border bg-gray-50 text-sm text-gray-400">
+              {copy.common.noImage}
+            </div>
+          )}
+          {product.badge && (
+            <span className="absolute right-1.5 bottom-1.5 rounded bg-orange-600 px-1.5 py-0.5 text-[10px] font-medium text-white uppercase">
+              {product.badge}
+            </span>
+          )}
+        </div>
 
         <div className="flex flex-col gap-3">
           <h1 className="text-xl font-semibold">{product.name}</h1>

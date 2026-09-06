@@ -52,17 +52,24 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
             </div>
           )}
         </Link>
-        {!inStock ? (
-          <span className="absolute right-1.5 bottom-1.5 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
-            Out of Stock
-          </span>
-        ) : (
-          product.preorder && (
-            <span className="absolute right-1.5 bottom-1.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
-              {copy.product.preorder}
+        <div className="absolute right-1.5 bottom-1.5 flex flex-col items-end gap-1">
+          {!inStock ? (
+            <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              Out of Stock
             </span>
-          )
-        )}
+          ) : (
+            product.preorder && (
+              <span className="rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                {copy.product.preorder}
+              </span>
+            )
+          )}
+          {product.badge && (
+            <span className="rounded bg-orange-600 px-1.5 py-0.5 text-[10px] font-medium text-white uppercase">
+              {product.badge}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => toggle(product.id)}

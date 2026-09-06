@@ -3,6 +3,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* This app has a fixed light design (storefront and admin alike) with no
+     dark variant, so tell the browser not to auto-darken text/backgrounds
+     or native form controls when the OS/browser is set to dark style —
+     without this, unstyled text inherits a near-white color on a
+     dark-preferring device and disappears against our light backgrounds. */
+  color-scheme: light;
 }
 
 @theme inline {
@@ -10,13 +16,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

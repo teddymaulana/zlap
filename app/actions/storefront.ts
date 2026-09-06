@@ -5,7 +5,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getWishlistProductIds } from "@/app/actions/customer";
 import { getActiveDiscounts } from "@/app/actions/discounts";
-import { priceWithDiscounts } from "@/lib/discounts";
+import { priceWithDiscounts, badgesByProduct } from "@/lib/discounts";
 import { isSlabProduct, isBoosterBoxProduct } from "@/lib/productCategory";
 import type { StorefrontShortcut } from "@/lib/types";
 
@@ -43,6 +43,9 @@ export type StorefrontProduct = {
   // Pre-discount price, only set when an active discount actually lowered
   // `price` — for showing it crossed out next to the discounted price.
   originalPrice: number | null;
+  // Promotional badge text (e.g. "SALE") from an assigned discount's
+  // badgeText — null shows nothing. See lib/discounts.ts badgesByProduct.
+  badge: string | null;
   preorder: StorefrontPreorder | null;
   tags: string[];
   setName: string | null;
@@ -65,7 +68,12 @@ async function resolveSetNames(setIds: (string | null | undefined)[]): Promise<M
   return new Map((data ?? []).map((s) => [s.id, s.name]));
 }
 
-type BatchInfo = { price: number; originalPrice: number | null; preorder: StorefrontPreorder | null };
+type BatchInfo = {
+  price: number;
+  originalPrice: number | null;
+  badge: string | null;
+  preorder: StorefrontPreorder | null;
+};
 
 function batchInfo(b: {
   cost: number;
@@ -73,7 +81,7 @@ function batchInfo(b: {
   is_preorder: boolean;
   preorder_duration_days: number | null;
   preorder_arrival_date: string | null;
-}): Omit<BatchInfo, "originalPrice"> {
+}): Omit<BatchInfo, "originalPrice" | "badge"> {
   return {
     price: b.direct_price ?? b.cost * DEFAULT_DIRECT_PRICE_PCT,
     preorder: b.is_preorder
@@ -86,15 +94,16 @@ function batchInfo(b: {
 // top of its base batch price — a second, independent server-role lookup
 // alongside the batch price itself, same "never trust anything but the final
 // computed number" reasoning as batchInfo above.
-async function applyDiscounts(base: Map<string, Omit<BatchInfo, "originalPrice">>): Promise<Map<string, BatchInfo>> {
+async function applyDiscounts(base: Map<string, Omit<BatchInfo, "originalPrice" | "badge">>): Promise<Map<string, BatchInfo>> {
   const discounts = await getActiveDiscounts();
   const basePrices = new Map([...base].map(([id, info]) => [id, info.price]));
   const discounted = priceWithDiscounts(basePrices, discounts);
+  const badges = badgesByProduct(discounts);
 
   const infos = new Map<string, BatchInfo>();
   for (const [id, info] of base) {
     const d = discounted.get(id)!;
-    infos.set(id, { price: d.price, originalPrice: d.originalPrice, preorder: info.preorder });
+    infos.set(id, { price: d.price, originalPrice: d.originalPrice, badge: badges.get(id) ?? null, preorder: info.preorder });
   }
   return infos;
 }
@@ -116,7 +125,7 @@ async function priceByProductId(productIds: string[]): Promise<Map<string, Batch
     .eq("is_storefront_price", true);
   if (error) throw new Error(error.message);
 
-  const base = new Map<string, Omit<BatchInfo, "originalPrice">>();
+  const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge">>();
   for (const b of data ?? []) {
     base.set(b.product_id, batchInfo(b));
   }
@@ -291,7 +300,7 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
   if (!batches || batches.length === 0) return [];
 
   const randomPick = [...batches].sort(() => Math.random() - 0.5).slice(0, limit);
-  const base = new Map<string, Omit<BatchInfo, "originalPrice">>();
+  const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge">>();
   for (const b of randomPick) {
     base.set(b.product_id, batchInfo(b));
   }
@@ -385,6 +394,7 @@ async function productsByIds(ids: string[]): Promise<StorefrontProduct[]> {
     setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
     price: infos.get(p.id)?.price ?? null,
     originalPrice: infos.get(p.id)?.originalPrice ?? null,
+    badge: infos.get(p.id)?.badge ?? null,
     preorder: infos.get(p.id)?.preorder ?? null,
   }));
 }

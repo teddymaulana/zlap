@@ -63,6 +63,11 @@ export default async function DiscountsPage() {
                 ) : (
                   d.requiresLogin && <span>· Login required</span>
                 )}
+                {d.badgeText && d.productIds.length > 0 && (
+                  <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 uppercase">
+                    {d.badgeText}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-3">

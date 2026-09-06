@@ -19,6 +19,7 @@ type DiscountRow = {
   stackable: boolean;
   requires_login: boolean;
   once_per_customer: boolean;
+  badge_text: string | null;
   discount_products: { product_id: string }[] | null;
 };
 
@@ -36,11 +37,12 @@ function toDiscount(row: DiscountRow): Discount {
     stackable: row.stackable,
     requiresLogin: row.requires_login,
     oncePerCustomer: row.once_per_customer,
+    badgeText: row.badge_text,
   };
 }
 
 const DISCOUNT_SELECT =
-  "id, name, type, percentage, fixed_amount, free_product_id, is_active, code, stackable, requires_login, once_per_customer, discount_products(product_id)";
+  "id, name, type, percentage, fixed_amount, free_product_id, is_active, code, stackable, requires_login, once_per_customer, badge_text, discount_products(product_id)";
 
 export async function getDiscounts(): Promise<Discount[]> {
   const supabase = await createClient();
@@ -181,6 +183,7 @@ function parseDiscountForm(formData: FormData) {
   const stackable = formData.get("stackable") === "on";
   const requiresLogin = formData.get("requires_login") === "on";
   const oncePerCustomer = formData.get("once_per_customer") === "on";
+  const badgeText = String(formData.get("badge_text") ?? "").trim();
 
   if (!name) throw new Error("Name is required");
   if (!["percentage", "fixed", "bogo"].includes(type)) throw new Error("Invalid discount type");
@@ -211,6 +214,7 @@ function parseDiscountForm(formData: FormData) {
     stackable: code ? stackable : false,
     requires_login: code ? requiresLogin : false,
     once_per_customer: code ? oncePerCustomer : false,
+    badge_text: badgeText || null,
     productIds,
   };
 }

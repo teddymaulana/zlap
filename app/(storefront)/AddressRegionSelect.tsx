@@ -248,7 +248,7 @@ export default function AddressRegionSelect({
       />
       <RegionCombobox
         key={`village-${districtCode}`}
-        label={cities.find((c) => c.code === cityCode)?.name.startsWith("Kabupaten") ? "Desa" : "Kelurahan"}
+        label={cities.find((c) => c.code === cityCode)?.name.startsWith("Kabupaten") ? "Desa" : "Kelurahan/Desa"}
         value={villageCode}
         options={villages}
         disabled={!districtCode}

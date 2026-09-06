@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "zlap-erp",
   description: "Internal inventory, purchases, and order tracking",
+};
+
+// Fixed light design, no dark variant — see the color-scheme comment in
+// app/globals.css for why this matters on a dark-style phone browser.
+export const viewport: Viewport = {
+  colorScheme: "light",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

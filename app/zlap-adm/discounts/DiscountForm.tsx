@@ -174,6 +174,23 @@ export default function DiscountForm({
       )}
 
       <div className="flex flex-col gap-1">
+        <label htmlFor="badge_text" className="text-sm font-medium">
+          Badge (optional)
+        </label>
+        <p className="text-xs text-gray-500">
+          Shown on the product card and PDP for every assigned product below (e.g. &ldquo;SALE&rdquo;).
+          Not shown for a whole-cart code, since there&rsquo;s no specific product to attach it to.
+        </p>
+        <input
+          id="badge_text"
+          name="badge_text"
+          defaultValue={discount?.badgeText ?? ""}
+          placeholder="e.g. SALE"
+          className="w-32 rounded border px-3 py-2 uppercase"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
         <span className="text-sm font-medium">
           {type === "bogo" ? "Trigger products" : hasCode ? "Assigned products (optional)" : "Assigned products"}
         </span>

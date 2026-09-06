@@ -35,6 +35,10 @@ export type Discount = {
   // signed-in customer (see discount_redemptions in supabase/schema.sql) —
   // implicitly requires login too, regardless of requiresLogin.
   oncePerCustomer: boolean;
+  // Shown on every assigned product's card/PDP regardless of type or
+  // whether it's code-gated (e.g. "SALE") — null shows nothing. See
+  // badgesByProduct; never shown for a whole-cart code (no productIds).
+  badgeText: string | null;
 };
 
 // Automatic discounts apply on their own everywhere a product is priced;
@@ -197,4 +201,21 @@ export function applyCodeToCart(
   }
 
   return { priceByProduct, cartDiscountAmount };
+}
+
+// Which badge text (e.g. "SALE") to show on each product's card/PDP —
+// first active, product-scoped discount with a badge wins per product. A
+// whole-cart code's badge never shows here since it has no specific
+// product to attach to; automatic and code-gated discounts are both
+// eligible otherwise (a "SALE" badge is a promotional hint, not a promise
+// the price shown already reflects it).
+export function badgesByProduct(discounts: Discount[]): Map<string, string> {
+  const badges = new Map<string, string>();
+  for (const d of discounts) {
+    if (!d.isActive || !d.badgeText || d.productIds.length === 0) continue;
+    for (const productId of d.productIds) {
+      if (!badges.has(productId)) badges.set(productId, d.badgeText);
+    }
+  }
+  return badges;
 }

@@ -74,11 +74,11 @@ export default async function ProductDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <ProductHeaderForm product={product as Product} allTags={allTags} sets={sets} />
-        </div>
+      <div className="mb-4 flex justify-end">
         <DeleteProductButton productId={id} productName={product.name} />
+      </div>
+      <div className="mb-4">
+        <ProductHeaderForm product={product as Product} allTags={allTags} sets={sets} />
       </div>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Inventory batches</h2>

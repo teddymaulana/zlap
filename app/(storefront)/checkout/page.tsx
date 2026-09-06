@@ -366,31 +366,45 @@ export default function CheckoutPage() {
         <h1 className="mb-6 text-lg font-semibold">{copy.checkout.title}</h1>
 
         <div className="mb-6 divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 px-4 py-2 text-sm">
-              {item.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.image_url}
-                  alt={item.name}
-                  className="h-10 w-10 shrink-0 rounded border border-gray-200 object-cover"
-                />
-              ) : (
-                <div className="h-10 w-10 shrink-0 rounded border border-gray-200 bg-gray-50" />
-              )}
-              <span className="min-w-0 flex-1 truncate">
-                {item.name} × {item.qty}
-                {item.isGift && <span className="ml-1 text-xs font-medium text-green-600">(Free gift)</span>}
-              </span>
-              <span className="shrink-0 tabular-nums">
-                {item.isGift
-                  ? "Free"
-                  : item.price !== null
-                    ? formatMoney((codePriceByProduct.get(item.id) ?? item.price) * item.qty)
-                    : "—"}
-              </span>
-            </div>
-          ))}
+          {items.map((item) => {
+            const trueBasePrice = item.originalPrice ?? item.price ?? 0;
+            const effectivePrice = codePriceByProduct.get(item.id) ?? item.price ?? 0;
+            const isDiscounted = !item.isGift && trueBasePrice > effectivePrice;
+            return (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+                {item.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.image_url}
+                    alt={item.name}
+                    className="h-10 w-10 shrink-0 rounded border border-gray-200 object-cover"
+                  />
+                ) : (
+                  <div className="h-10 w-10 shrink-0 rounded border border-gray-200 bg-gray-50" />
+                )}
+                <span className="min-w-0 flex-1 truncate">
+                  {item.name} × {item.qty}
+                  {item.isGift && <span className="ml-1 text-xs font-medium text-green-600">(Free gift)</span>}
+                </span>
+                <span className="flex shrink-0 flex-col items-end">
+                  {(item.isGift ? item.originalPrice : isDiscounted ? trueBasePrice : null) && (
+                    <span className="text-xs text-gray-400 line-through tabular-nums">
+                      {formatMoney(trueBasePrice * item.qty)}
+                    </span>
+                  )}
+                  <span
+                    className={`font-bold tabular-nums ${item.isGift ? "text-green-600 uppercase" : ""}`}
+                  >
+                    {item.isGift
+                      ? "Free"
+                      : item.price !== null
+                        ? formatMoney(effectivePrice * item.qty)
+                        : "—"}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
