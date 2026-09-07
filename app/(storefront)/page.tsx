@@ -247,12 +247,20 @@ function StorePageContent() {
       {results === null ? (
         <>
           <Image
+            src="/zlap-card-hero-banner-mobile.png"
+            alt="Zlap Card"
+            width={390}
+            height={170}
+            priority
+            className="mb-8 h-auto w-full rounded sm:hidden"
+          />
+          <Image
             src="/zlap-card-hero-banner.png"
             alt="Zlap Card"
             width={3200}
             height={360}
             priority
-            className="mb-8 h-auto w-full rounded"
+            className="mb-8 hidden h-auto w-full rounded sm:block"
           />
           {isLoadingFeatured ? (
             <PageSpinner label={copy.home.loadingProducts} />
@@ -260,6 +268,20 @@ function StorePageContent() {
             <>
               <FeaturedCarousel title={sectionTitles.featured_section_1} products={section1} />
               <FeaturedCarousel title={sectionTitles.featured_section_2} products={section2} />
+              <Image
+                src="/free-gift-banner-mobile.png"
+                alt="Free gift with purchase"
+                width={390}
+                height={200}
+                className="mb-8 h-auto w-full rounded sm:hidden"
+              />
+              <Image
+                src="/free-gift-banner.png"
+                alt="Free gift with purchase"
+                width={1600}
+                height={260}
+                className="mb-8 hidden h-auto w-full rounded sm:block"
+              />
             </>
           )}
         </>

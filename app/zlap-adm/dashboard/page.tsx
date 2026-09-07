@@ -558,8 +558,8 @@ export default async function DashboardPage({
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b bg-gray-50 text-left text-gray-500">
-                  <th className="px-4 py-2 font-medium">Product</th>
-                  <th className="px-4 py-2 font-medium text-right">Sold qty</th>
+                  <th className="max-w-[200px] py-2 pr-0 pl-4 font-medium">Product</th>
+                  <th className="max-w-[20px] px-4 py-2 font-medium text-right">Sold qty</th>
                   <th className="px-4 py-2 font-medium text-right">Revenue</th>
                   <th className="px-4 py-2 font-medium text-right">Cost</th>
                   <th className="px-4 py-2 font-medium text-right">Net</th>
@@ -568,12 +568,12 @@ export default async function DashboardPage({
               <tbody className="divide-y">
                 {pagedSales.map((s) => (
                   <tr key={s.productId}>
-                    <td className="px-4 py-2">
+                    <td className="max-w-[200px] truncate py-2 pr-0 pl-4">
                       <Link href={`/zlap-adm/products/${s.productId}`} className="hover:underline">
                         {s.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 text-right">{s.soldQty}</td>
+                    <td className="max-w-[20px] px-4 py-2 text-right">{s.soldQty}</td>
                     <td className="px-4 py-2 text-right">{formatMoney(s.revenue)}</td>
                     <td className="px-4 py-2 text-right">{formatMoney(s.cost)}</td>
                     <td className="px-4 py-2 text-right">{formatMoney(s.revenue - s.cost)}</td>

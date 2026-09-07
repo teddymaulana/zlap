@@ -87,8 +87,16 @@ export default async function OrderDetailPage({
       )}
       <CancellationPanel order={o} />
       <OrderCheckoutLink order={o} lineCount={(lines ?? []).length} />
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between gap-2">
         <OrderAwb order={o} />
+        <a
+          href={`/api/zlap-adm/orders/${o.id}/label`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
+        >
+          Print shipping label
+        </a>
       </div>
       <OrderLines
         orderId={id}
