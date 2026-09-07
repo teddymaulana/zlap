@@ -34,7 +34,17 @@ function StorePageContent() {
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [results, setResults] = useState<StorefrontProduct[] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  // Lazy-initialized from the URL so a direct load of "/?q=..." renders the
+  // searching state on the very first paint — the mount effect below that
+  // actually runs the search fires after that paint, so without this, the
+  // homepage content flashes first (results is still null) until it resolves.
+  const [isSearching, setIsSearching] = useState(
+    () =>
+      Boolean(searchParams.get("q")?.trim()) ||
+      Boolean(searchParams.get("brand")) ||
+      Boolean(searchParams.get("setId")) ||
+      Boolean(searchParams.get("category"))
+  );
   const [section1, setSection1] = useState<StorefrontProduct[]>([]);
   const [section2, setSection2] = useState<StorefrontProduct[]>([]);
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
@@ -244,7 +254,9 @@ function StorePageContent() {
         ))}
       </div>
 
-      {results === null ? (
+      {isSearching ? (
+        <PageSpinner label={copy.home.searching} />
+      ) : results === null ? (
         <>
           <Image
             src="/zlap-card-hero-banner-mobile.png"
@@ -285,8 +297,6 @@ function StorePageContent() {
             </>
           )}
         </>
-      ) : isSearching ? (
-        <PageSpinner label={copy.home.searching} />
       ) : results.length === 0 ? (
         <p className="text-sm text-gray-500">{copy.home.noProducts}</p>
       ) : (

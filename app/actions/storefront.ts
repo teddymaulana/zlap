@@ -739,3 +739,210 @@ export async function getMostViewedProducts(limit = 8, days = 30): Promise<Store
       ...infos.get(p.id)!,
     }));
 }
+
+export type JpSetStatus = "in-stock" | "low-stock" | "sold-out";
+
+export type JpSet = {
+  productId: string;
+  code: string | null;
+  name: string;
+  era: string | null;
+  releasedAt: string | null;
+  status: JpSetStatus;
+  boxPrice: number | null;
+  packsPerBox: number | null;
+  cardsPerPack: number | null;
+  boxImage: string | null;
+  logoImage: string | null;
+  href: string;
+};
+
+// Set code, JP release date, and pack contents aren't tracked anywhere in
+// the products/inventory tables — they're supplied by hand here per
+// featured set until (if ever) that becomes real catalog data. Price,
+// stock, and the box photo below are pulled live so those never go stale.
+//
+// code/releasedAt/logoImage sourced from tcgseal.id's catalog (backed by
+// Scrydex) — logos downloaded into public/sets/ rather than hotlinked.
+// TODO: packsPerBox/cardsPerPack (booster box contents, not tracked by that
+// catalog) are still unknown — fill in the real values once you have them.
+const JP_FEATURED_SETS: {
+  productId: string;
+  code: string | null;
+  era: string | null;
+  releasedAt: string | null;
+  packsPerBox: number | null;
+  cardsPerPack: number | null;
+  logoImage: string | null;
+}[] = [
+  {
+    // Code/release date from tcgseal.id's catalog (sourced from Scrydex,
+    // scrydexId "m6_ja"). packsPerBox/cardsPerPack still unknown.
+    productId: "ca5fb482-1c49-486e-b5a6-eac56113b4c2", // Storm Emeralda
+    code: "M6",
+    era: "Mega Evolution",
+    releasedAt: "2026-07-31",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/storm-emeralda-logo.png",
+  },
+  {
+    // scrydexId "m5_ja".
+    productId: "887c05f7-0726-42c9-9de7-4366a196a1c3", // Abyss Eye
+    code: "M5",
+    era: "Mega Evolution",
+    releasedAt: "2026-05-22",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/abyss-eye-logo.png",
+  },
+  {
+    // scrydexId "m4_ja".
+    productId: "e8553842-0907-4792-813a-3c0b2520f0f8", // Ninja Spinner
+    code: "M4",
+    era: "Mega Evolution",
+    releasedAt: "2026-03-13",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/ninja-spinner-logo.png",
+  },
+  {
+    // scrydexId "m3_ja".
+    productId: "2023ce71-4fa5-4d69-9143-b3cd596232ea", // Munikis Zero
+    code: "M3",
+    era: "Mega Evolution",
+    releasedAt: "2026-01-23",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/munikis-zero-logo.png",
+  },
+  {
+    // scrydexId "m2a_ja".
+    productId: "9f13a1bb-110f-43a0-9fc1-18260e54d747", // Mega Dream
+    code: "M2A",
+    era: "Mega Evolution",
+    releasedAt: "2025-11-28",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/mega-dream-logo.png",
+  },
+  {
+    // scrydexId "m2_ja".
+    productId: "db719196-8e01-4d5e-88a3-d5ec01dc351a", // Inferno X
+    code: "M2",
+    era: "Mega Evolution",
+    releasedAt: "2025-09-26",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/inferno-x-logo.png",
+  },
+  {
+    // scrydexId "m1s_ja".
+    productId: "91adef88-20ec-466e-abdf-9304df2608c0", // Mega Symphonia
+    code: "M1S",
+    era: "Mega Evolution",
+    releasedAt: "2025-08-01",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/mega-symphonia-logo.png",
+  },
+  {
+    // scrydexId "m1l_ja".
+    productId: "0561353d-0524-4cd9-8d4d-ec9746f327f2", // Mega Brave
+    code: "M1L",
+    era: "Mega Evolution",
+    releasedAt: "2025-08-01",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/mega-brave-logo.png",
+  },
+  {
+    // scrydexId "sv11b_ja". Product chosen among 3 name matches ("ETB Black
+    // Bolt", "Black Bolt Booster Bundle", "Black Bolt") as the one matching
+    // every other entry's PKMBBX<name> booster-box SKU convention.
+    productId: "e2e2632b-7abc-4791-bd65-29d043f7f18a", // Black Bolt
+    code: "SV11B",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-06-06",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/black-bolt-logo.png",
+  },
+  {
+    // scrydexId "sv11w_ja".
+    productId: "7bcd5441-6aae-484f-8cc8-d0afcaab5824", // White Flare
+    code: "SV11W",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-06-06",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/white-flare-logo.png",
+  },
+  {
+    // scrydexId "sv10_ja".
+    productId: "a0d9e64c-a6da-40e3-87fa-05ac8bb81a07", // Glory of Team Rocket
+    code: "SV10",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-04-18",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/glory-of-team-rocket-logo.png",
+  },
+  {
+    // scrydexId "sv8a_ja".
+    productId: "efd855d5-17f9-4cc8-8350-40b3dfbe70d1", // Terastal Festival
+    code: "SV8A",
+    era: "Scarlet & Violet",
+    releasedAt: "2024-12-06",
+    packsPerBox: null,
+    cardsPerPack: null,
+    logoImage: "/sets/terastal-festival-logo.png",
+  },
+];
+
+// Sorted newest release first; sets with no known release date sort last
+// rather than floating to the top ahead of dated ones.
+export async function getJpFeaturedSets(): Promise<JpSet[]> {
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const productIds = JP_FEATURED_SETS.map((s) => s.productId);
+
+  const [{ data: products, error: productsError }, { data: batches, error: batchesError }] =
+    await Promise.all([
+      service.from("products").select("id, name, image_url").in("id", productIds),
+      service
+        .from("inventory_batch_availability")
+        .select("product_id, direct_price, storefront_available")
+        .eq("is_storefront_price", true)
+        .in("product_id", productIds),
+    ]);
+  if (productsError) throw new Error(productsError.message);
+  if (batchesError) throw new Error(batchesError.message);
+
+  const productById = new Map((products ?? []).map((p) => [p.id, p]));
+  const priceInfoByProduct = new Map((batches ?? []).map((b) => [b.product_id, b]));
+
+  return JP_FEATURED_SETS.map((meta) => {
+    const product = productById.get(meta.productId);
+    const priceInfo = priceInfoByProduct.get(meta.productId);
+    const available = priceInfo?.storefront_available ?? 0;
+    const status: JpSetStatus = available <= 0 ? "sold-out" : available <= 3 ? "low-stock" : "in-stock";
+
+    return {
+      productId: meta.productId,
+      code: meta.code,
+      name: product?.name ?? "Unknown set",
+      era: meta.era,
+      releasedAt: meta.releasedAt,
+      status,
+      boxPrice: priceInfo?.direct_price ?? null,
+      packsPerBox: meta.packsPerBox,
+      cardsPerPack: meta.cardsPerPack,
+      boxImage: product?.image_url ?? null,
+      logoImage: meta.logoImage,
+      href: `/products/${meta.productId}`,
+    };
+  }).sort((a, b) => (b.releasedAt ?? "").localeCompare(a.releasedAt ?? ""));
+}

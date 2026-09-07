@@ -38,17 +38,26 @@ export default async function StorefrontProductDetailPage({
   const { id } = await params;
   const product = await getStorefrontProductDetail(id);
   if (!product) notFound();
-  await recordProductView(id);
-  const recentSales = await getStorefrontProductRecentSales(id);
-  const relatedProducts = await getRelatedProducts(id);
+
+  // None of these depend on each other (or on anything but the id/product
+  // we already have), so they were previously firing as a sequential
+  // waterfall — each one waiting on the last — which is most of what made
+  // this page feel slow to load. Running them together cuts that to a
+  // single round trip.
+  const [, recentSales, relatedProducts, activeDiscounts, giftCatalog] = await Promise.all([
+    recordProductView(id),
+    getStorefrontProductRecentSales(id),
+    getRelatedProducts(id),
+    getActiveDiscounts(),
+    isEtbProduct(product) ? getGiftCatalog() : Promise.resolve(null),
+  ]);
 
   const brandLabel = PRODUCT_BRANDS.find((b) => b.value === product.brand)?.label ?? null;
 
-  const etbProtector = isEtbProduct(product)
-    ? (await getGiftCatalog()).find((g) => g.tags.includes(GIFT_ROLE_TAGS.etb_protector)) ?? null
+  const etbProtector = giftCatalog
+    ? (giftCatalog.find((g) => g.tags.includes(GIFT_ROLE_TAGS.etb_protector)) ?? null)
     : null;
 
-  const activeDiscounts = await getActiveDiscounts();
   const bogoDiscount =
     activeDiscounts.find((d) => d.type === "bogo" && d.productIds.includes(product.id)) ?? null;
   const bogoFreeProduct = bogoDiscount?.freeProductId
