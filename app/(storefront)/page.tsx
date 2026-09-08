@@ -15,11 +15,12 @@ import { getCardSetsInStock } from "@/app/actions/sets";
 import type { CardSet, StorefrontShortcut } from "@/lib/types";
 import { copy } from "@/lib/copy";
 import ButtonSpinner from "@/app/ButtonSpinner";
-import PageSpinner from "@/app/PageSpinner";
+import ZlapLoader from "@/app/ZlapLoader";
 import ProductCard from "./ProductCard";
 import FeaturedCarousel from "./FeaturedCarousel";
 import CategoryShortcuts from "./CategoryShortcuts";
 import FilterToolbar, { type StorefrontFilterValue } from "./FilterToolbar";
+import ShopBySetCTAs from "./ShopBySetCTAs";
 
 const EMPTY_FILTERS: StorefrontFilterValue = { brand: "", setId: "", category: "" };
 
@@ -255,7 +256,7 @@ function StorePageContent() {
       </div>
 
       {isSearching ? (
-        <PageSpinner label={copy.home.searching} />
+        <ZlapLoader label={copy.home.searching} />
       ) : results === null ? (
         <>
           <Image
@@ -274,8 +275,9 @@ function StorePageContent() {
             priority
             className="mb-8 hidden h-auto w-full rounded sm:block"
           />
+          <ShopBySetCTAs />
           {isLoadingFeatured ? (
-            <PageSpinner label={copy.home.loadingProducts} />
+            <ZlapLoader label={copy.home.loadingProducts} />
           ) : (
             <>
               <FeaturedCarousel title={sectionTitles.featured_section_1} products={section1} />
@@ -312,7 +314,7 @@ function StorePageContent() {
 
 export default function StorePage() {
   return (
-    <Suspense fallback={<PageSpinner label={copy.home.loadingProducts} />}>
+    <Suspense fallback={<ZlapLoader label={copy.home.loadingProducts} />}>
       <StorePageContent />
     </Suspense>
   );

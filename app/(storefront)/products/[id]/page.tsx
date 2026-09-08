@@ -175,9 +175,11 @@ export default async function StorefrontProductDetailPage({
             </div>
           )}
 
-          <div className="mt-4">
-            <SalesChart data={recentSales} />
-          </div>
+          {recentSales.length > 10 && (
+            <div className="mt-4">
+              <SalesChart data={recentSales} />
+            </div>
+          )}
         </div>
       </div>
 

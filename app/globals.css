@@ -23,3 +23,51 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), sans-serif;
 }
+
+/* Zlap loader — "Chasing light" (see app/ZlapLoader.tsx and
+   ~/Downloads/logo-loading-handsoff for the design handoff). Nine letter
+   groups fade up on a stagger so a light appears to chase left-to-right
+   through the wordmark. Opacity-only, no layout/repaint cost. */
+.zl-loader {
+  display: inline-block;
+  line-height: 0;
+}
+.zl-loader svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.zl-loader .zl-letter {
+  opacity: 0.22;
+  animation: zl-chase 1.5s ease-in-out infinite;
+}
+.zl-loader .zl-letter:nth-child(1) { animation-delay: 0s; }
+.zl-loader .zl-letter:nth-child(2) { animation-delay: 0.1s; }
+.zl-loader .zl-letter:nth-child(3) { animation-delay: 0.2s; }
+.zl-loader .zl-letter:nth-child(4) { animation-delay: 0.3s; }
+.zl-loader .zl-letter:nth-child(5) { animation-delay: 0.4s; }
+.zl-loader .zl-letter:nth-child(6) { animation-delay: 0.5s; }
+.zl-loader .zl-letter:nth-child(7) { animation-delay: 0.6s; }
+.zl-loader .zl-letter:nth-child(8) { animation-delay: 0.7s; }
+.zl-loader .zl-letter:nth-child(9) { animation-delay: 0.8s; }
+
+@keyframes zl-chase {
+  0%, 55%, 100% { opacity: 0.22; }
+  18% { opacity: 1; }
+}
+
+.zl-caption {
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a2938a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zl-loader .zl-letter {
+    animation: none;
+    opacity: 1;
+  }
+}

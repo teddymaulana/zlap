@@ -87,13 +87,13 @@ export default function FilterToolbar({
 
   const hasActiveFilters = Boolean(value.brand || value.setId || value.category);
 
-  const inputClass = "w-28 rounded bg-[#efefef] px-2 py-1 text-xs sm:w-40";
+  const inputClass = "w-24 shrink-0 rounded bg-[#efefef] px-2 py-1 text-xs sm:w-40";
   const dropdownClass = "absolute z-10 mt-1 max-h-64 w-56 overflow-y-auto rounded border bg-white shadow";
   const optionClass = "block w-full px-3 py-1.5 text-left text-sm hover:bg-gray-50";
 
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2">
-      <div className="relative" ref={brandRef}>
+    <div className="mb-6 flex flex-nowrap items-center gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible">
+      <div className="relative shrink-0" ref={brandRef}>
         <input
           type="text"
           value={brandSearch}
@@ -137,7 +137,7 @@ export default function FilterToolbar({
         )}
       </div>
 
-      <div className="relative" ref={setRef}>
+      <div className="relative shrink-0" ref={setRef}>
         <input
           type="text"
           value={setSearch}
@@ -192,7 +192,7 @@ export default function FilterToolbar({
         )}
       </div>
 
-      <div className="relative" ref={categoryRef}>
+      <div className="relative shrink-0" ref={categoryRef}>
         <input
           type="text"
           value={categorySearch}
@@ -244,7 +244,7 @@ export default function FilterToolbar({
             setCategorySearch("");
             onChange({ brand: "", setId: "", category: "" });
           }}
-          className="text-sm text-gray-500 hover:underline"
+          className="shrink-0 text-sm text-gray-500 hover:underline"
         >
           {copy.filters.clearFilters}
         </button>

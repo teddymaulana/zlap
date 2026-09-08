@@ -23,17 +23,10 @@ export default function SalesChart({ data }: { data: SaleEvent[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
 
   // Fewer than a handful of points makes for a noisy, not-very-meaningful
-  // line — hide the chart until there's enough sales history to show a
-  // real trend.
+  // line — hide the section entirely until there's enough sales history to
+  // show a real trend, rather than surfacing an empty-state placeholder.
   if (data.length <= 10) {
-    return (
-      <div>
-        <h2 className="mb-2 text-sm font-semibold text-gray-700">Recent sales on ZLAP</h2>
-        <p className="text-sm text-gray-500">
-          {data.length === 0 ? "No sales yet." : "Not enough sales yet to show a chart."}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   const chartWidth = WIDTH - PADDING_LEFT - PADDING_RIGHT;

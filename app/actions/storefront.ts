@@ -433,6 +433,9 @@ export async function getStorefrontProductDetail(
   const info = infos.get(product.id);
   if (!info) return null; // not sellable on the storefront (no storefront price set)
 
+  const availability = await getStorefrontAvailability([product.id]);
+  const inStock = (availability[0]?.available ?? 0) > 0;
+
   return {
     id: product.id,
     name: product.name,
@@ -442,6 +445,7 @@ export async function getStorefrontProductDetail(
     brand: product.brand,
     setName: product.set_id ? (setNames.get(product.set_id) ?? null) : null,
     offersEnabled: product.offers_enabled,
+    inStock,
     ...info,
   };
 }
@@ -740,33 +744,25 @@ export async function getMostViewedProducts(limit = 8, days = 30): Promise<Store
     }));
 }
 
-export type JpSetStatus = "in-stock" | "low-stock" | "sold-out";
+export type FeaturedSetStatus = "in-stock" | "low-stock" | "sold-out";
 
-export type JpSet = {
+export type FeaturedSet = {
   productId: string;
   code: string | null;
   name: string;
   era: string | null;
   releasedAt: string | null;
-  status: JpSetStatus;
+  status: FeaturedSetStatus;
   boxPrice: number | null;
   packsPerBox: number | null;
   cardsPerPack: number | null;
   boxImage: string | null;
   logoImage: string | null;
+  language: string;
   href: string;
 };
 
-// Set code, JP release date, and pack contents aren't tracked anywhere in
-// the products/inventory tables — they're supplied by hand here per
-// featured set until (if ever) that becomes real catalog data. Price,
-// stock, and the box photo below are pulled live so those never go stale.
-//
-// code/releasedAt/logoImage sourced from tcgseal.id's catalog (backed by
-// Scrydex) — logos downloaded into public/sets/ rather than hotlinked.
-// TODO: packsPerBox/cardsPerPack (booster box contents, not tracked by that
-// catalog) are still unknown — fill in the real values once you have them.
-const JP_FEATURED_SETS: {
+type FeaturedSetMeta = {
   productId: string;
   code: string | null;
   era: string | null;
@@ -774,140 +770,18 @@ const JP_FEATURED_SETS: {
   packsPerBox: number | null;
   cardsPerPack: number | null;
   logoImage: string | null;
-}[] = [
-  {
-    // Code/release date from tcgseal.id's catalog (sourced from Scrydex,
-    // scrydexId "m6_ja"). packsPerBox/cardsPerPack still unknown.
-    productId: "ca5fb482-1c49-486e-b5a6-eac56113b4c2", // Storm Emeralda
-    code: "M6",
-    era: "Mega Evolution",
-    releasedAt: "2026-07-31",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/storm-emeralda-logo.png",
-  },
-  {
-    // scrydexId "m5_ja".
-    productId: "887c05f7-0726-42c9-9de7-4366a196a1c3", // Abyss Eye
-    code: "M5",
-    era: "Mega Evolution",
-    releasedAt: "2026-05-22",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/abyss-eye-logo.png",
-  },
-  {
-    // scrydexId "m4_ja".
-    productId: "e8553842-0907-4792-813a-3c0b2520f0f8", // Ninja Spinner
-    code: "M4",
-    era: "Mega Evolution",
-    releasedAt: "2026-03-13",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/ninja-spinner-logo.png",
-  },
-  {
-    // scrydexId "m3_ja".
-    productId: "2023ce71-4fa5-4d69-9143-b3cd596232ea", // Munikis Zero
-    code: "M3",
-    era: "Mega Evolution",
-    releasedAt: "2026-01-23",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/munikis-zero-logo.png",
-  },
-  {
-    // scrydexId "m2a_ja".
-    productId: "9f13a1bb-110f-43a0-9fc1-18260e54d747", // Mega Dream
-    code: "M2A",
-    era: "Mega Evolution",
-    releasedAt: "2025-11-28",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/mega-dream-logo.png",
-  },
-  {
-    // scrydexId "m2_ja".
-    productId: "db719196-8e01-4d5e-88a3-d5ec01dc351a", // Inferno X
-    code: "M2",
-    era: "Mega Evolution",
-    releasedAt: "2025-09-26",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/inferno-x-logo.png",
-  },
-  {
-    // scrydexId "m1s_ja".
-    productId: "91adef88-20ec-466e-abdf-9304df2608c0", // Mega Symphonia
-    code: "M1S",
-    era: "Mega Evolution",
-    releasedAt: "2025-08-01",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/mega-symphonia-logo.png",
-  },
-  {
-    // scrydexId "m1l_ja".
-    productId: "0561353d-0524-4cd9-8d4d-ec9746f327f2", // Mega Brave
-    code: "M1L",
-    era: "Mega Evolution",
-    releasedAt: "2025-08-01",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/mega-brave-logo.png",
-  },
-  {
-    // scrydexId "sv11b_ja". Product chosen among 3 name matches ("ETB Black
-    // Bolt", "Black Bolt Booster Bundle", "Black Bolt") as the one matching
-    // every other entry's PKMBBX<name> booster-box SKU convention.
-    productId: "e2e2632b-7abc-4791-bd65-29d043f7f18a", // Black Bolt
-    code: "SV11B",
-    era: "Scarlet & Violet",
-    releasedAt: "2025-06-06",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/black-bolt-logo.png",
-  },
-  {
-    // scrydexId "sv11w_ja".
-    productId: "7bcd5441-6aae-484f-8cc8-d0afcaab5824", // White Flare
-    code: "SV11W",
-    era: "Scarlet & Violet",
-    releasedAt: "2025-06-06",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/white-flare-logo.png",
-  },
-  {
-    // scrydexId "sv10_ja".
-    productId: "a0d9e64c-a6da-40e3-87fa-05ac8bb81a07", // Glory of Team Rocket
-    code: "SV10",
-    era: "Scarlet & Violet",
-    releasedAt: "2025-04-18",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/glory-of-team-rocket-logo.png",
-  },
-  {
-    // scrydexId "sv8a_ja".
-    productId: "efd855d5-17f9-4cc8-8350-40b3dfbe70d1", // Terastal Festival
-    code: "SV8A",
-    era: "Scarlet & Violet",
-    releasedAt: "2024-12-06",
-    packsPerBox: null,
-    cardsPerPack: null,
-    logoImage: "/sets/terastal-festival-logo.png",
-  },
-];
+};
 
-// Sorted newest release first; sets with no known release date sort last
-// rather than floating to the top ahead of dated ones.
-export async function getJpFeaturedSets(): Promise<JpSet[]> {
+// Shared by getJpFeaturedSets/getIdFeaturedSets below — looks up each
+// listed product's live price/stock and box photo, and layers the
+// hand-supplied catalog metadata (code/era/release date/pack contents/logo)
+// on top since none of that is tracked in the products/inventory tables.
+async function resolveFeaturedSets(meta: FeaturedSetMeta[], language: string): Promise<FeaturedSet[]> {
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  const productIds = JP_FEATURED_SETS.map((s) => s.productId);
+  const productIds = meta.map((s) => s.productId);
 
   const [{ data: products, error: productsError }, { data: batches, error: batchesError }] =
     await Promise.all([
@@ -924,25 +798,438 @@ export async function getJpFeaturedSets(): Promise<JpSet[]> {
   const productById = new Map((products ?? []).map((p) => [p.id, p]));
   const priceInfoByProduct = new Map((batches ?? []).map((b) => [b.product_id, b]));
 
-  return JP_FEATURED_SETS.map((meta) => {
-    const product = productById.get(meta.productId);
-    const priceInfo = priceInfoByProduct.get(meta.productId);
-    const available = priceInfo?.storefront_available ?? 0;
-    const status: JpSetStatus = available <= 0 ? "sold-out" : available <= 3 ? "low-stock" : "in-stock";
+  return meta
+    .map((m) => {
+      const product = productById.get(m.productId);
+      const priceInfo = priceInfoByProduct.get(m.productId);
+      const available = priceInfo?.storefront_available ?? 0;
+      const status: FeaturedSetStatus = available <= 0 ? "sold-out" : available <= 3 ? "low-stock" : "in-stock";
 
-    return {
-      productId: meta.productId,
-      code: meta.code,
-      name: product?.name ?? "Unknown set",
-      era: meta.era,
-      releasedAt: meta.releasedAt,
-      status,
-      boxPrice: priceInfo?.direct_price ?? null,
-      packsPerBox: meta.packsPerBox,
-      cardsPerPack: meta.cardsPerPack,
-      boxImage: product?.image_url ?? null,
-      logoImage: meta.logoImage,
-      href: `/products/${meta.productId}`,
-    };
-  }).sort((a, b) => (b.releasedAt ?? "").localeCompare(a.releasedAt ?? ""));
+      return {
+        productId: m.productId,
+        code: m.code,
+        name: product?.name ?? "Unknown set",
+        era: m.era,
+        releasedAt: m.releasedAt,
+        status,
+        boxPrice: priceInfo?.direct_price ?? null,
+        packsPerBox: m.packsPerBox,
+        cardsPerPack: m.cardsPerPack,
+        boxImage: product?.image_url ?? null,
+        logoImage: m.logoImage,
+        language,
+        href: `/products/${m.productId}`,
+      };
+    })
+    .sort((a, b) => (b.releasedAt ?? "").localeCompare(a.releasedAt ?? ""));
+}
+
+// Set code, JP release date, and pack contents aren't tracked anywhere in
+// the products/inventory tables — they're supplied by hand here per
+// featured set until (if ever) that becomes real catalog data. Price,
+// stock, and the box photo below are pulled live so those never go stale.
+//
+// code/releasedAt/logoImage sourced from tcgseal.id's catalog (backed by
+// Scrydex) — logos downloaded into public/sets/ rather than hotlinked.
+// TODO: packsPerBox/cardsPerPack (booster box contents, not tracked by that
+// catalog) are still unknown — fill in the real values once you have them.
+const JP_FEATURED_SETS: FeaturedSetMeta[] = [
+  {
+    // Code/release date from tcgseal.id's catalog (sourced from Scrydex,
+    // scrydexId "m6_ja"). packsPerBox/cardsPerPack still unknown.
+    productId: "ca5fb482-1c49-486e-b5a6-eac56113b4c2", // Storm Emeralda
+    code: "M6",
+    era: "Mega Evolution",
+    releasedAt: "2026-07-31",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/storm-emeralda-logo.png",
+  },
+  {
+    // scrydexId "m5_ja".
+    productId: "887c05f7-0726-42c9-9de7-4366a196a1c3", // Abyss Eye
+    code: "M5",
+    era: "Mega Evolution",
+    releasedAt: "2026-05-22",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/abyss-eye-logo.png",
+  },
+  {
+    // scrydexId "m4_ja".
+    productId: "e8553842-0907-4792-813a-3c0b2520f0f8", // Ninja Spinner
+    code: "M4",
+    era: "Mega Evolution",
+    releasedAt: "2026-03-13",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/ninja-spinner-logo.png",
+  },
+  {
+    // scrydexId "m3_ja".
+    productId: "2023ce71-4fa5-4d69-9143-b3cd596232ea", // Munikis Zero
+    code: "M3",
+    era: "Mega Evolution",
+    releasedAt: "2026-01-23",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/munikis-zero-logo.png",
+  },
+  {
+    // scrydexId "m2a_ja".
+    productId: "9f13a1bb-110f-43a0-9fc1-18260e54d747", // Mega Dream
+    code: "M2A",
+    era: "Mega Evolution",
+    releasedAt: "2025-11-28",
+    packsPerBox: 10,
+    cardsPerPack: 10,
+    logoImage: "/sets/mega-dream-logo.png",
+  },
+  {
+    // scrydexId "m2_ja".
+    productId: "db719196-8e01-4d5e-88a3-d5ec01dc351a", // Inferno X
+    code: "M2",
+    era: "Mega Evolution",
+    releasedAt: "2025-09-26",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/inferno-x-logo.png",
+  },
+  {
+    // scrydexId "m1s_ja".
+    productId: "91adef88-20ec-466e-abdf-9304df2608c0", // Mega Symphonia
+    code: "M1S",
+    era: "Mega Evolution",
+    releasedAt: "2025-08-01",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/mega-symphonia-logo.png",
+  },
+  {
+    // scrydexId "m1l_ja".
+    productId: "0561353d-0524-4cd9-8d4d-ec9746f327f2", // Mega Brave
+    code: "M1L",
+    era: "Mega Evolution",
+    releasedAt: "2025-08-01",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/mega-brave-logo.png",
+  },
+  {
+    // scrydexId "sv11b_ja". Product chosen among 3 name matches ("ETB Black
+    // Bolt", "Black Bolt Booster Bundle", "Black Bolt") as the one matching
+    // every other entry's PKMBBX<name> booster-box SKU convention.
+    productId: "e2e2632b-7abc-4791-bd65-29d043f7f18a", // Black Bolt
+    code: "SV11B",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-06-06",
+    packsPerBox: 20,
+    cardsPerPack: 8,
+    logoImage: "/sets/black-bolt-logo.png",
+  },
+  {
+    // scrydexId "sv11w_ja".
+    productId: "7bcd5441-6aae-484f-8cc8-d0afcaab5824", // White Flare
+    code: "SV11W",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-06-06",
+    packsPerBox: 20,
+    cardsPerPack: 8,
+    logoImage: "/sets/white-flare-logo.png",
+  },
+  {
+    // scrydexId "sv10_ja".
+    productId: "a0d9e64c-a6da-40e3-87fa-05ac8bb81a07", // Glory of Team Rocket
+    code: "SV10",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-04-18",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/glory-of-team-rocket-logo.png",
+  },
+  {
+    // scrydexId "sv9a_ja".
+    productId: "3f151786-566e-429e-8cce-44b866ad8952", // HeatWave Arena
+    code: "SV9a",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-03-14",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/heat-wave-arena-logo.png",
+  },
+  {
+    // scrydexId "sv9_ja".
+    productId: "d58133c7-18b6-4e4e-b001-ba937ea956d1", // Battle Partner
+    code: "SV9",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-01-24",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/battle-partners-logo.png",
+  },
+  {
+    // scrydexId "sv8a_ja".
+    productId: "efd855d5-17f9-4cc8-8350-40b3dfbe70d1", // Terastal Festival
+    code: "SV8A",
+    era: "Scarlet & Violet",
+    releasedAt: "2024-12-06",
+    packsPerBox: 10,
+    cardsPerPack: 10,
+    logoImage: "/sets/terastal-festival-logo.png",
+  },
+  {
+    // scrydexId "sv8_ja".
+    productId: "22003032-0281-41dd-af7c-8b77397a762c", // Super Electric Breaker
+    code: "SV8",
+    era: "Scarlet & Violet",
+    releasedAt: "2024-10-18",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/super-electric-breaker-logo.png",
+  },
+  {
+    // scrydexId "sv2a_ja".
+    productId: "e55bd59e-dd8f-46d5-8951-d0924886f060", // Pokemon Card 151
+    code: "SV2a",
+    era: "Scarlet & Violet",
+    releasedAt: "2023-06-16",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/pokemon-151-logo.png",
+  },
+  {
+    // scrydexId "swsh12a_ja".
+    productId: "4632e0e0-fdcc-45bd-bcc6-5e453ee680a7", // VSTAR Universe
+    code: "S12a",
+    era: "Sword & Shield",
+    releasedAt: "2022-12-02",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/vstar-universe-logo.png",
+  },
+  {
+    // scrydexId "swsh8b_ja".
+    productId: "2e276881-a3eb-4c76-bb8c-ccf9253d3a90", // VMAX Climax
+    code: "S8b",
+    era: "Sword & Shield",
+    releasedAt: "2021-12-03",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/vmax-climax-logo.png",
+  },
+  {
+    // scrydexId "swsh4a_ja".
+    productId: "a58db201-4f63-4c9e-b0ab-f72f8c4f3daf", // Shiny Star V
+    code: "S4a",
+    era: "Sword & Shield",
+    releasedAt: "2020-11-20",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: "/sets/shiny-star-v-logo.png",
+  },
+];
+
+// Sorted newest release first; sets with no known release date sort last
+// rather than floating to the top ahead of dated ones.
+export async function getJpFeaturedSets(): Promise<FeaturedSet[]> {
+  return resolveFeaturedSets(JP_FEATURED_SETS, "Japanese");
+}
+
+// Indonesian-market catalog data is far sparser than JP's — tcgseal.id (the
+// source for JP code/releasedAt/logoImage) doesn't track Indonesia at all,
+// and most Indonesian-language card_sets rows have no linked booster-box
+// product yet. Fill in code/era/releasedAt/logoImage by hand per set, same
+// as JP_FEATURED_SETS, as more become available.
+const ID_FEATURED_SETS: FeaturedSetMeta[] = [
+  {
+    // Indonesian localization of JP's Abyss Eye-numbered slot in the Mega
+    // Evolution series — "Void Blast" in English, MA5 I.
+    productId: "95dc5456-169a-4834-b4d9-5e0adcbaa37e", // Ancaman Bayangan
+    code: "MA5",
+    era: "Evolusi Mega",
+    releasedAt: "2026-06-26",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: null,
+  },
+  {
+    // "Void Blast" in English, MA4 I.
+    productId: "30be1e01-0863-436c-a4c4-223237ab352c", // Ledakan Peniada
+    code: "MA4",
+    era: "Evolusi Mega",
+    releasedAt: "2026-04-03",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: null,
+  },
+  {
+    // Localization of JP's Mega Dream (M2A) — "Mega Dream ex" in English,
+    // MA3 I. High-class booster: 10 packs/box, 10 cards/pack (not the usual
+    // 30/5).
+    productId: "a72ef99a-2808-4b79-9629-a74fdaf3d657", // Mega Impian Ex
+    code: "MA3",
+    era: "Evolusi Mega",
+    releasedAt: "2026-01-30",
+    packsPerBox: 10,
+    cardsPerPack: 10,
+    logoImage: null,
+  },
+  {
+    // Global simultaneous release (incl. Indonesian) — see
+    // https://www.pokemon.com/us/pokemon-news/get-ready-for-pokemon-tcg-30th-celebration.
+    // Set code unconfirmed for the Indonesian-market product specifically.
+    productId: "80cc0c3c-02b1-4532-8696-3f30ce5cd823", // Poke Indo 30th CELEBRATION BB
+    code: null,
+    era: "Evolusi Mega",
+    releasedAt: "2026-09-16",
+    packsPerBox: 20,
+    cardsPerPack: 8,
+    logoImage: null,
+  },
+];
+
+export async function getIdFeaturedSets(): Promise<FeaturedSet[]> {
+  return resolveFeaturedSets(ID_FEATURED_SETS, "Indonesian");
+}
+
+// English sets link to their Elite Trainer Box product rather than a
+// booster box (that's what ETB-tagged products cover here) — same
+// resolveFeaturedSets href convention, just a different product per set.
+// Only sets we actually carry an ETB for are listed. Where a set has more
+// than one ETB variant in the catalog (Mega Evolution ships Gardevoir- and
+// Lucario-cover versions, plus a Pokémon Center-exclusive Lucario one),
+// whichever variant actually has a storefront price is used.
+//
+// code/releasedAt/logoImage sourced from tcgseal.id's catalog (backed by
+// Scrydex), same as JP_FEATURED_SETS — logos downloaded into public/sets/.
+// packsPerBox/cardsPerPack are a standard modern ETB estimate (9 packs of
+// 10 cards), not verified per box.
+const EN_FEATURED_SETS: FeaturedSetMeta[] = [
+  {
+    // scrydexId "me5".
+    productId: "63a7f710-f5d9-4632-9c1c-3d2e55f0f03c", // Pitch Black Elite Trainer Box
+    code: "ME5",
+    era: "Mega Evolution",
+    releasedAt: "2026-07-17",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/pitch-black-logo.png",
+  },
+  {
+    // scrydexId "me4". Not tagged "etb" in the catalog like the others (tag
+    // hygiene gap), but it's the Chaos Rising Elite Trainer Box product.
+    productId: "9d708247-4ca1-4d74-91c0-ffaae84c7728", // Chaos Rising Elite Trainer Box
+    code: "ME4",
+    era: "Mega Evolution",
+    releasedAt: "2026-05-22",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/chaos-rising-logo.png",
+  },
+  {
+    // scrydexId "me3".
+    productId: "0eb9e5d1-9542-4b5d-b2ac-1e723db33589", // Perfect Order Elite Trainer Box
+    code: "ME3",
+    era: "Mega Evolution",
+    releasedAt: "2026-03-27",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/perfect-order-logo.png",
+  },
+  {
+    // scrydexId "me2pt5".
+    productId: "98df3c22-9252-4f0a-ab70-9b0347ef3506", // Ascended Heroes Elite Trainer Box
+    code: "ME2.5",
+    era: "Mega Evolution",
+    releasedAt: "2026-01-30",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/ascended-heroes-logo.png",
+  },
+  {
+    // scrydexId "me2".
+    productId: "f15b12b1-001b-4cce-af4b-283b7ef4f6d8", // ETB Phantasmal Flames
+    code: "ME2",
+    era: "Mega Evolution",
+    releasedAt: "2025-11-14",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/phantasmal-flames-logo.png",
+  },
+  {
+    // scrydexId "me1". Product chosen among 3 ETB variants (Gardevoir-cover,
+    // Lucario-cover, Lucario Pokémon Center) as the one with a live
+    // storefront price — the standard Lucario-cover ETB has no priced batch.
+    productId: "3b1dcf19-07e5-4510-bbef-c12d246c1998", // ETB Mega Gardevoir
+    code: "ME1",
+    era: "Mega Evolution",
+    releasedAt: "2025-09-26",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/mega-evolution-logo.png",
+  },
+  {
+    // scrydexId "zsv10pt5".
+    productId: "e42e31d5-a96d-4437-876e-1e6aaf4c37de", // ETB Black Bolt
+    code: "SV10.5",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-07-18",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/black-bolt-en-logo.png",
+  },
+  {
+    // scrydexId "sv10".
+    productId: "d9bddc59-0981-4d98-a160-8b2d5473ab59", // Destined Rivals Pokemon Center Elite Trainer box
+    code: "SV10",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-05-30",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/destined-rivals-logo.png",
+  },
+  {
+    // scrydexId "sv8pt5".
+    productId: "f5161daa-c0ce-463e-bcb3-7d3b6b508fab", // Prismatic Evolution Elite Trainer Box
+    code: "SV8.5",
+    era: "Scarlet & Violet",
+    releasedAt: "2025-01-17",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/prismatic-evolutions-logo.png",
+  },
+  {
+    // scrydexId "sv8".
+    productId: "61a0af46-075e-4ce5-97dd-e91d962f21b2", // Surging Sparks Elite Trainer Box Pokemon Center
+    code: "SV8",
+    era: "Scarlet & Violet",
+    releasedAt: "2024-11-08",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/surging-sparks-logo.png",
+  },
+  {
+    // scrydexId "sv3".
+    productId: "7bd2a4a2-2969-4e31-9259-0e4f56c037b3", // ETB Obsidian Flames
+    code: "SV3",
+    era: "Scarlet & Violet",
+    releasedAt: "2023-08-11",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/obsidian-flames-logo.png",
+  },
+  {
+    // scrydexId "cel25".
+    productId: "f3cd0f4e-728f-4ff1-8464-4ec57836ccb3", // Elite Trainer Box Pokemon 25th Celebrations
+    code: "CEL25",
+    era: "25th Anniversary",
+    releasedAt: "2021-10-08",
+    packsPerBox: 9,
+    cardsPerPack: 10,
+    logoImage: "/sets/celebrations-logo.png",
+  },
+];
+
+export async function getEnFeaturedSets(): Promise<FeaturedSet[]> {
+  return resolveFeaturedSets(EN_FEATURED_SETS, "English");
 }
