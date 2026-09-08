@@ -238,6 +238,18 @@ export async function sendPasswordResetEmail(params: { to: string; resetUrl: str
   await send(params.to, "Reset your Zlap Card password", html);
 }
 
+export async function sendVerificationEmail(params: { to: string; verifyUrl: string }) {
+  const html = wrapEmail(
+    "Verify your email",
+    `<p>Thanks for creating a Zlap Card account — confirm this is your email address to finish setting it up.</p>
+     <p style="margin-top:16px;">
+       <a href="${params.verifyUrl}" style="display:inline-block; background:#111; color:#fff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:600;">Verify email</a>
+     </p>
+     <p style="margin-top:16px; font-size:13px; color:#6b7280;">If you didn't create this account, you can ignore this email.</p>`
+  );
+  await send(params.to, "Verify your Zlap Card email", html);
+}
+
 export async function sendRefundCompletedEmail(params: { to: string; orderCode: string }) {
   const html = wrapEmail(
     "Refund completed",

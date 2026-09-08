@@ -313,12 +313,22 @@ create table if not exists customers (
   -- in app/actions/customer.ts) — same shape as offers.checkout_token.
   reset_token text unique,
   reset_token_expires_at timestamptz,
+  -- Email verification (see sendVerificationEmail/verifyEmailWithToken in
+  -- app/actions/customer.ts). Signup sends the link but nothing is gated on
+  -- it yet — email_verified_at null just means "hasn't clicked the link".
+  email_verified_at timestamptz,
+  verification_token text unique,
+  verification_token_expires_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 -- Existing databases created before the reset-token columns existed.
 alter table customers add column if not exists reset_token text unique;
 alter table customers add column if not exists reset_token_expires_at timestamptz;
+-- Existing databases created before the email-verification columns existed.
+alter table customers add column if not exists email_verified_at timestamptz;
+alter table customers add column if not exists verification_token text unique;
+alter table customers add column if not exists verification_token_expires_at timestamptz;
 
 create table if not exists customer_sessions (
   id uuid primary key default gen_random_uuid(),

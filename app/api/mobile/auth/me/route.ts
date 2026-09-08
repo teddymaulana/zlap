@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   );
   const { data: customer } = await service
     .from("customers")
-    .select("id, email, name, phone")
+    .select("id, email, name, phone, email_verified_at")
     .eq("id", customerId)
     .maybeSingle();
   if (!customer) return NextResponse.json({ error: "Not signed in" }, { status: 401 });

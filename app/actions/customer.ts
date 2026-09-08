@@ -11,10 +11,14 @@ import {
   getCurrentCustomerId,
 } from "@/lib/customerAuth";
 import { getProductsForReorder } from "@/app/actions/storefront";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 
 const SITE_URL = "https://zlapcard.com";
 const RESET_TOKEN_TTL_HOURS = 1;
+// Longer-lived than the password reset token — verification isn't
+// security-sensitive the same way a password reset link is, so there's no
+// need to rush the customer into clicking it.
+const VERIFY_TOKEN_TTL_HOURS = 48;
 
 function serviceClient() {
   return createServiceClient(
@@ -40,6 +44,11 @@ export async function signUpCustomer(formData: FormData): Promise<{ error: strin
     .maybeSingle();
   if (existing) return { error: "An account with this email already exists" };
 
+  const verificationToken = randomBytes(24).toString("hex");
+  const verificationTokenExpiresAt = new Date(
+    Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000
+  ).toISOString();
+
   // Deliberately not collecting a shipping address here — see the note on
   // CustomerProfile below. Each order still captures its own address at
   // checkout time.
@@ -50,12 +59,87 @@ export async function signUpCustomer(formData: FormData): Promise<{ error: strin
       password_hash: hashPassword(password),
       name,
       phone: phone || null,
+      verification_token: verificationToken,
+      verification_token_expires_at: verificationTokenExpiresAt,
     })
     .select("id")
     .single();
   if (error) return { error: error.message };
 
   await createCustomerSession(customer.id);
+  // Best-effort, same as every other transactional email here — a delivery
+  // hiccup must never block account creation.
+  await sendVerificationEmail({
+    to: email,
+    verifyUrl: `${SITE_URL}/account/verify-email?token=${verificationToken}`,
+  });
+  return { error: null };
+}
+
+// Not gated on anything today — see the email_verified_at comment on the
+// customers table. This just marks the address confirmed for a future gate
+// (or for staff/analytics) and clears the token so the link can't be reused.
+export async function verifyEmailWithToken(token: string): Promise<{ error: string | null }> {
+  if (!token) return { error: "This verification link is invalid" };
+
+  const service = serviceClient();
+  const { data: customer } = await service
+    .from("customers")
+    .select("id, email_verified_at, verification_token_expires_at")
+    .eq("verification_token", token)
+    .maybeSingle();
+  if (!customer) return { error: "This verification link is invalid or has already been used" };
+  if (customer.email_verified_at) return { error: null }; // already verified — idempotent
+  if (
+    !customer.verification_token_expires_at ||
+    new Date(customer.verification_token_expires_at) < new Date()
+  ) {
+    return { error: "This verification link has expired — request a new one from your account" };
+  }
+
+  const { error } = await service
+    .from("customers")
+    .update({
+      email_verified_at: new Date().toISOString(),
+      verification_token: null,
+      verification_token_expires_at: null,
+    })
+    .eq("id", customer.id);
+  if (error) return { error: error.message };
+
+  return { error: null };
+}
+
+export async function resendVerificationEmail(): Promise<{ error: string | null }> {
+  const customerId = await getCurrentCustomerId();
+  if (!customerId) return { error: "You need to be signed in" };
+
+  const service = serviceClient();
+  const { data: customer } = await service
+    .from("customers")
+    .select("email, email_verified_at")
+    .eq("id", customerId)
+    .maybeSingle();
+  if (!customer) return { error: "You need to be signed in" };
+  if (customer.email_verified_at) return { error: null }; // already verified — nothing to send
+
+  const verificationToken = randomBytes(24).toString("hex");
+  const verificationTokenExpiresAt = new Date(
+    Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000
+  ).toISOString();
+  const { error } = await service
+    .from("customers")
+    .update({
+      verification_token: verificationToken,
+      verification_token_expires_at: verificationTokenExpiresAt,
+    })
+    .eq("id", customerId);
+  if (error) return { error: error.message };
+
+  await sendVerificationEmail({
+    to: customer.email,
+    verifyUrl: `${SITE_URL}/account/verify-email?token=${verificationToken}`,
+  });
   return { error: null };
 }
 
@@ -154,6 +238,7 @@ export type CustomerProfile = {
   email: string;
   name: string | null;
   phone: string | null;
+  emailVerifiedAt: string | null;
 };
 
 export async function getCurrentCustomer(): Promise<CustomerProfile | null> {
@@ -162,10 +247,17 @@ export async function getCurrentCustomer(): Promise<CustomerProfile | null> {
 
   const { data } = await serviceClient()
     .from("customers")
-    .select("id, email, name, phone")
+    .select("id, email, name, phone, email_verified_at")
     .eq("id", customerId)
     .maybeSingle();
-  return data;
+  if (!data) return null;
+  return {
+    id: data.id,
+    email: data.email,
+    name: data.name,
+    phone: data.phone,
+    emailVerifiedAt: data.email_verified_at,
+  };
 }
 
 export async function updateCustomerProfile(params: {

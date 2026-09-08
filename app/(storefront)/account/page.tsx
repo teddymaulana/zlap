@@ -7,6 +7,7 @@ import ProductCard from "../ProductCard";
 import SignOutButton from "./SignOutButton";
 import CancelOrderButton from "./CancelOrderButton";
 import ProfileEditor from "./ProfileEditor";
+import VerifyEmailBanner from "./VerifyEmailBanner";
 
 export default async function AccountPage() {
   const customer = await getCurrentCustomer();
@@ -23,6 +24,8 @@ export default async function AccountPage() {
         </div>
         <SignOutButton />
       </div>
+
+      {!customer.emailVerifiedAt && <VerifyEmailBanner />}
 
       <section className="mb-10">
         <h2 className="mb-3 text-sm font-semibold text-gray-700">Order history</h2>
