@@ -128,6 +128,9 @@ function StorePageContent() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Submitting via Enter leaves the input focused, which keeps the mobile
+    // on-screen keyboard open even though the search has already run.
+    (document.activeElement as HTMLElement | null)?.blur();
     const trimmed = query.trim();
     const url = trimmed ? `/?q=${encodeURIComponent(trimmed)}` : "/";
     window.history.replaceState(null, "", url);
@@ -207,7 +210,7 @@ function StorePageContent() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={copy.home.searchPlaceholder}
-          className="w-full rounded bg-[#efefef] py-3 pr-10 pl-11 text-base"
+          className="w-full rounded bg-[#efefef] py-3 pr-10 pl-11 text-base outline-none"
         />
         {query && (
           <button
