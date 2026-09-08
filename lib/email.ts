@@ -89,7 +89,21 @@ function orderLookupLink(orderCode: string): string {
   return `<p style="margin-top:16px;"><a href="${url}" style="color:#111; text-decoration:underline;">Check your order status</a></p>`;
 }
 
-export type OrderConfirmationLine = { name: string; qty: number; price: number; imageUrl?: string | null };
+const SET_LANGUAGE_LABELS: Record<"en" | "jp" | "id", string> = {
+  en: "English",
+  jp: "Japanese",
+  id: "Indonesian",
+};
+
+export type OrderConfirmationLine = {
+  name: string;
+  qty: number;
+  price: number;
+  imageUrl?: string | null;
+  // Only set for graded/single items (see isGradedOrSingleProduct) — the
+  // caller resolves this, so the template here just renders it when present.
+  setLanguage?: "en" | "jp" | "id" | null;
+};
 
 export async function sendOrderConfirmationEmail(params: {
   to: string;
@@ -115,6 +129,7 @@ export async function sendOrderConfirmationEmail(params: {
           </td>
           <td style="padding:14px 8px; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">
             <div style="font-weight:600;">${l.name}</div>
+            ${l.setLanguage ? `<div style="color:#6b7280; font-size:12px; margin-top:2px;">${SET_LANGUAGE_LABELS[l.setLanguage]}</div>` : ""}
             <div style="color:#6b7280; font-size:12px; margin-top:2px;">Qty: ${l.qty}</div>
           </td>
           <td style="padding:14px 16px; text-align:right; font-weight:700; white-space:nowrap; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">${formatMoney(l.price * l.qty)}</td>

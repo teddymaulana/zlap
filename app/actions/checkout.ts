@@ -8,6 +8,7 @@ import { sendOrderConfirmationEmail, type OrderConfirmationLine } from "@/lib/em
 import { ALL_GIFT_TAGS, computeEarnedGifts, giftRoleForTags, isGiftProduct, type GiftRole } from "@/lib/gwp";
 import { getActiveDiscounts } from "@/app/actions/discounts";
 import { priceWithDiscounts, computeEarnedBogoFreebies, applyCodeToCart, findDiscountByCode } from "@/lib/discounts";
+import { isGradedOrSingleProduct } from "@/lib/productCategory";
 
 const DEFAULT_DIRECT_PRICE_PCT = 1.15;
 
@@ -309,8 +310,8 @@ export async function createOrderAndCharge(
     discounts,
     customerId,
   ] = await Promise.all([
-    service.from("products").select("id, name, image_url, tags").in("id", requestedIds),
-    service.from("products").select("id, name, image_url, tags").overlaps("tags", ALL_GIFT_TAGS),
+    service.from("products").select("id, name, image_url, tags, set_id").in("id", requestedIds),
+    service.from("products").select("id, name, image_url, tags, set_id").overlaps("tags", ALL_GIFT_TAGS),
     getActiveDiscounts(),
     getCurrentCustomerId(),
   ]);
@@ -373,7 +374,7 @@ export async function createOrderAndCharge(
   if (bogoFreeProductIds.length > 0) {
     const { data: bogoProducts, error: bogoProductsError } = await service
       .from("products")
-      .select("id, name, image_url, tags")
+      .select("id, name, image_url, tags, set_id")
       .in("id", bogoFreeProductIds);
     if (bogoProductsError) return { error: bogoProductsError.message };
     for (const p of bogoProducts ?? []) productById.set(p.id, p);
@@ -465,6 +466,18 @@ export async function createOrderAndCharge(
     }
   }
 
+  // Only graded/single items need their set language resolved for the
+  // confirmation email (see isGradedOrSingleProduct) — batched into one
+  // query rather than one lookup per line item.
+  const emailLanguageSetIds = [...productById.values()]
+    .filter((p): p is typeof p & { set_id: string } => Boolean(p.set_id) && isGradedOrSingleProduct(p))
+    .map((p) => p.set_id);
+  const { data: emailLanguageSets } =
+    emailLanguageSetIds.length > 0
+      ? await service.from("card_sets").select("id, language").in("id", [...new Set(emailLanguageSetIds)])
+      : { data: [] };
+  const emailLanguageBySetId = new Map((emailLanguageSets ?? []).map((s) => [s.id, s.language as "en" | "jp" | "id"]));
+
   const { result, internalOrderId } = await chargeAndCreateOrder({
     service,
     lines,
@@ -481,6 +494,8 @@ export async function createOrderAndCharge(
           qty: i.qty,
           price: i.price,
           imageUrl: p?.image_url,
+          setLanguage:
+            p?.set_id && isGradedOrSingleProduct(p) ? (emailLanguageBySetId.get(p.set_id) ?? null) : null,
         };
       }),
   });

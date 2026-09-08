@@ -26,7 +26,11 @@ export async function POST(request: Request) {
     .select("id, email, name, phone, password_hash")
     .eq("email", email)
     .maybeSingle();
-  if (!customer || !verifyPassword(password, customer.password_hash)) {
+  // password_hash is null for a Google-only account (set up on the web
+  // storefront — see continueWithGoogle in app/actions/customer.ts) since
+  // mobile has no Google sign-in yet; guard before verifyPassword rather
+  // than letting it throw on a null stored hash.
+  if (!customer || !customer.password_hash || !verifyPassword(password, customer.password_hash)) {
     return NextResponse.json({ error: "Incorrect email or password" }, { status: 401 });
   }
 

@@ -9,7 +9,7 @@ import { getGiftCatalog } from "@/app/actions/gwp";
 import { GIFT_ROLE_TAGS } from "@/lib/gwp";
 import { isEtbProduct } from "@/lib/productCategory";
 import { getActiveDiscounts, getBogoFreeProductCatalog } from "@/app/actions/discounts";
-import { PRODUCT_BRANDS } from "@/lib/constants";
+import { PRODUCT_BRANDS, CARD_SET_LANGUAGES } from "@/lib/constants";
 import ProductDetailActions from "./ProductDetailActions";
 import OfferButton from "./OfferButton";
 import SalesChart from "./SalesChart";
@@ -53,6 +53,8 @@ export default async function StorefrontProductDetailPage({
   ]);
 
   const brandLabel = PRODUCT_BRANDS.find((b) => b.value === product.brand)?.label ?? null;
+  const setLanguageLabel =
+    CARD_SET_LANGUAGES.find((l) => l.value === product.setLanguage)?.label ?? null;
 
   const etbProtector = giftCatalog
     ? (giftCatalog.find((g) => g.tags.includes(GIFT_ROLE_TAGS.etb_protector)) ?? null)
@@ -94,7 +96,12 @@ export default async function StorefrontProductDetailPage({
           {(brandLabel || product.setName) && (
             <div className="flex flex-col gap-0.5 text-sm text-gray-600">
               {brandLabel && <div>{brandLabel}</div>}
-              {product.setName && <div>{product.setName}</div>}
+              {product.setName && (
+                <div>
+                  {product.setName}
+                  {setLanguageLabel && ` · ${setLanguageLabel}`}
+                </div>
+              )}
             </div>
           )}
 

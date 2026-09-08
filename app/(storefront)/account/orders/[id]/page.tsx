@@ -5,6 +5,7 @@ import CancelOrderButton from "../../CancelOrderButton";
 import BuyAgainButton from "../../BuyAgainButton";
 import QrPayment from "../../../QrPayment";
 import { formatStatus } from "@/lib/format";
+import { CARD_SET_LANGUAGES } from "@/lib/constants";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -105,6 +106,11 @@ export default async function CustomerOrderDetailPage({
             )}
             <div className="min-w-0 flex-1 text-sm">
               <div className="truncate font-medium">{l.name}</div>
+              {l.setLanguage && (
+                <div className="text-gray-500">
+                  {CARD_SET_LANGUAGES.find((lang) => lang.value === l.setLanguage)?.label}
+                </div>
+              )}
               <div className="text-gray-500">Qty {l.qty}</div>
             </div>
             <div className="text-sm font-semibold tabular-nums">{formatMoney(l.price * l.qty)}</div>

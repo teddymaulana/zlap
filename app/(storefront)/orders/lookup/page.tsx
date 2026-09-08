@@ -6,6 +6,7 @@ import { getGuestOrderDetail, type CustomerOrderDetail } from "@/app/actions/cus
 import { formatStatus } from "@/lib/format";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import QrPayment from "../../QrPayment";
+import { CARD_SET_LANGUAGES } from "@/lib/constants";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -163,6 +164,11 @@ export default function GuestOrderLookupPage() {
                   )}
                   <div className="min-w-0 flex-1 text-sm">
                     <div className="truncate font-medium">{l.name}</div>
+                    {l.setLanguage && (
+                      <div className="text-gray-500">
+                        {CARD_SET_LANGUAGES.find((lang) => lang.value === l.setLanguage)?.label}
+                      </div>
+                    )}
                     <div className="text-gray-500">Qty {l.qty}</div>
                   </div>
                   <div className="text-sm font-semibold tabular-nums">{formatMoney(l.price * l.qty)}</div>

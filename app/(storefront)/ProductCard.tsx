@@ -28,8 +28,10 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
   const isWishlisted = productIds.has(product.id);
   const showSetName = product.setName && isSlabProduct(product);
   // undefined (every listing besides search) is treated as in stock — only
-  // search populates this field (see StorefrontProduct in storefront.ts).
-  const inStock = product.inStock !== false;
+  // search populates this field (see StorefrontProduct in storefront.ts). A
+  // null price (an active batch left with no direct_price set) always shows
+  // as out of stock, regardless of actual quantity.
+  const inStock = product.inStock !== false && product.price !== null;
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
 
   return (

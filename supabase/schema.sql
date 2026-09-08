@@ -306,7 +306,10 @@ create table if not exists purchase_lines (
 create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
-  password_hash text not null,
+  -- Null for a Google-only account (see continueWithGoogle in
+  -- app/actions/customer.ts) — they can still set one later via "Forgot
+  -- password", which overwrites the hash unconditionally either way.
+  password_hash text,
   name text,
   phone text,
   -- "Forgot password" flow (see requestPasswordReset/resetPasswordWithToken
@@ -329,6 +332,10 @@ alter table customers add column if not exists reset_token_expires_at timestampt
 alter table customers add column if not exists email_verified_at timestamptz;
 alter table customers add column if not exists verification_token text unique;
 alter table customers add column if not exists verification_token_expires_at timestamptz;
+-- Existing databases created before Google sign-in — lets continueWithGoogle
+-- insert a customer with no password. Safe to re-run (no-op if already
+-- nullable).
+alter table customers alter column password_hash drop not null;
 
 create table if not exists customer_sessions (
   id uuid primary key default gen_random_uuid(),

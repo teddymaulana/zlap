@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "./CartContext";
 import { getStorefrontAvailability } from "@/app/actions/storefront";
+import { isGradedOrSingleProduct } from "@/lib/productCategory";
+import { CARD_SET_LANGUAGES } from "@/lib/constants";
 import { copy, fillCopy } from "@/lib/copy";
+
+function setLanguageLabel(item: { tags: string[]; name: string; setLanguage?: "en" | "jp" | "id" | null }) {
+  if (!item.setLanguage || !isGradedOrSingleProduct(item)) return null;
+  return CARD_SET_LANGUAGES.find((l) => l.value === item.setLanguage)?.label ?? null;
+}
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -106,6 +113,9 @@ export default function CartDrawer() {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{item.name}</div>
+                    {setLanguageLabel(item) && (
+                      <div className="text-xs text-gray-500">{setLanguageLabel(item)}</div>
+                    )}
                     {item.isGift ? (
                       <div className="mt-0.5 text-xs font-medium text-green-600">Free gift</div>
                     ) : (

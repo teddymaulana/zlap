@@ -35,6 +35,7 @@ export default function BuyAgainButton({ orderId }: { orderId: string }) {
             price: item.price,
             originalPrice: item.originalPrice,
             tags: item.tags,
+            setLanguage: item.setLanguage,
           });
         }
       }

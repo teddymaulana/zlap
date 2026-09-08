@@ -49,6 +49,7 @@ export type StorefrontProduct = {
   preorder: StorefrontPreorder | null;
   tags: string[];
   setName: string | null;
+  setLanguage: "en" | "jp" | "id" | null;
   // Only populated by searchStorefrontProducts (the one listing that's
   // stock-aware) — undefined everywhere else (featured carousels, related
   // products, etc.), where it's treated as "in stock" since those don't
@@ -56,20 +57,22 @@ export type StorefrontProduct = {
   inStock?: boolean;
 };
 
-// Batch-resolves set_id -> set name for a list of products in one query,
-// rather than one lookup per product.
-async function resolveSetNames(setIds: (string | null | undefined)[]): Promise<Map<string, string>> {
+// Batch-resolves set_id -> {name, language} for a list of products in one
+// query, rather than one lookup per product.
+async function resolveSetInfo(
+  setIds: (string | null | undefined)[]
+): Promise<Map<string, { name: string; language: "en" | "jp" | "id" }>> {
   const ids = [...new Set(setIds.filter((id): id is string => Boolean(id)))];
   if (ids.length === 0) return new Map();
 
   const supabase = await createClient();
-  const { data, error } = await supabase.from("card_sets").select("id, name").in("id", ids);
+  const { data, error } = await supabase.from("card_sets").select("id, name, language").in("id", ids);
   if (error) throw new Error(error.message);
-  return new Map((data ?? []).map((s) => [s.id, s.name]));
+  return new Map((data ?? []).map((s) => [s.id, { name: s.name, language: s.language }]));
 }
 
 type BatchInfo = {
-  price: number;
+  price: number | null;
   originalPrice: number | null;
   badge: string | null;
   preorder: StorefrontPreorder | null;
@@ -83,7 +86,10 @@ function batchInfo(b: {
   preorder_arrival_date: string | null;
 }): Omit<BatchInfo, "originalPrice" | "badge"> {
   return {
-    price: b.direct_price ?? b.cost * DEFAULT_DIRECT_PRICE_PCT,
+    // An explicit direct_price of 0 means no real price has been set for
+    // this batch (a placeholder, not a free item) — treat it as unpriced
+    // rather than falling through to a literal IDR 0 price.
+    price: b.direct_price === 0 ? null : (b.direct_price ?? b.cost * DEFAULT_DIRECT_PRICE_PCT),
     preorder: b.is_preorder
       ? { days: b.preorder_duration_days ?? undefined, date: b.preorder_arrival_date ?? undefined }
       : null,
@@ -96,12 +102,21 @@ function batchInfo(b: {
 // computed number" reasoning as batchInfo above.
 async function applyDiscounts(base: Map<string, Omit<BatchInfo, "originalPrice" | "badge">>): Promise<Map<string, BatchInfo>> {
   const discounts = await getActiveDiscounts();
-  const basePrices = new Map([...base].map(([id, info]) => [id, info.price]));
+  // Unpriced batches (price null) skip discounting entirely — there's no
+  // base price to discount off of.
+  const basePrices = new Map<string, number>();
+  for (const [id, info] of base) {
+    if (info.price !== null) basePrices.set(id, info.price);
+  }
   const discounted = priceWithDiscounts(basePrices, discounts);
   const badges = badgesByProduct(discounts);
 
   const infos = new Map<string, BatchInfo>();
   for (const [id, info] of base) {
+    if (info.price === null) {
+      infos.set(id, { price: null, originalPrice: null, badge: null, preorder: info.preorder });
+      continue;
+    }
     const d = discounted.get(id)!;
     infos.set(id, { price: d.price, originalPrice: d.originalPrice, badge: badges.get(id) ?? null, preorder: info.preorder });
   }
@@ -255,7 +270,7 @@ export async function searchStorefrontProducts(
   }
 
   const infos = await priceByProductId(products.map((p) => p.id));
-  const setNames = await resolveSetNames(products.map((p) => p.set_id));
+  const setInfos = await resolveSetInfo(products.map((p) => p.set_id));
   const availability = await getStorefrontAvailability(products.map((p) => p.id));
   const availableByProduct = new Map(availability.map((a) => [a.productId, a.available]));
   const showWhenOosByProduct = new Map(products.map((p) => [p.id, p.show_when_oos]));
@@ -271,7 +286,8 @@ export async function searchStorefrontProducts(
         sku: p.sku,
         image_url: p.image_url,
         tags: p.tags ?? [],
-        setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
+        setName: p.set_id ? (setInfos.get(p.set_id)?.name ?? null) : null,
+        setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
         ...info,
         inStock: (availableByProduct.get(p.id) ?? 0) > 0,
       };
@@ -313,14 +329,15 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
     .in("id", [...infos.keys()]);
   if (error) throw new Error(error.message);
 
-  const setNames = await resolveSetNames((products ?? []).map((p) => p.set_id));
+  const setInfos = await resolveSetInfo((products ?? []).map((p) => p.set_id));
   return (products ?? []).map((p) => ({
     id: p.id,
     name: p.name,
     sku: p.sku,
     image_url: p.image_url,
     tags: p.tags ?? [],
-    setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
+    setName: p.set_id ? (setInfos.get(p.set_id)?.name ?? null) : null,
+    setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
     ...infos.get(p.id)!,
   }));
 }
@@ -340,7 +357,7 @@ export async function getFeaturedProducts(
   if (!products || products.length === 0) return [];
 
   const infos = await priceByProductId(products.map((p) => p.id));
-  const setNames = await resolveSetNames(products.map((p) => p.set_id));
+  const setInfos = await resolveSetInfo(products.map((p) => p.set_id));
   return products
     .filter((p) => infos.has(p.id))
     .map((p) => ({
@@ -349,7 +366,8 @@ export async function getFeaturedProducts(
       sku: p.sku,
       image_url: p.image_url,
       tags: p.tags ?? [],
-      setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
+      setName: p.set_id ? (setInfos.get(p.set_id)?.name ?? null) : null,
+      setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
       ...infos.get(p.id)!,
     }));
 }
@@ -384,14 +402,15 @@ async function productsByIds(ids: string[]): Promise<StorefrontProduct[]> {
   if (error) throw new Error(error.message);
 
   const infos = await priceByProductId((products ?? []).map((p) => p.id));
-  const setNames = await resolveSetNames((products ?? []).map((p) => p.set_id));
+  const setInfos = await resolveSetInfo((products ?? []).map((p) => p.set_id));
   return (products ?? []).map((p) => ({
     id: p.id,
     name: p.name,
     sku: p.sku,
     image_url: p.image_url,
     tags: p.tags ?? [],
-    setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
+    setName: p.set_id ? (setInfos.get(p.set_id)?.name ?? null) : null,
+    setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
     price: infos.get(p.id)?.price ?? null,
     originalPrice: infos.get(p.id)?.originalPrice ?? null,
     badge: infos.get(p.id)?.badge ?? null,
@@ -428,7 +447,11 @@ export async function getStorefrontProductDetail(
   if (error) throw new Error(error.message);
   if (!product) return null;
 
-  const setNames = await resolveSetNames([product.set_id]);
+  const { data: set, error: setError } = product.set_id
+    ? await supabase.from("card_sets").select("name, language").eq("id", product.set_id).maybeSingle()
+    : { data: null, error: null };
+  if (setError) throw new Error(setError.message);
+
   const infos = await priceByProductId([product.id]);
   const info = infos.get(product.id);
   if (!info) return null; // not sellable on the storefront (no storefront price set)
@@ -443,7 +466,8 @@ export async function getStorefrontProductDetail(
     image_url: product.image_url,
     tags: product.tags ?? [],
     brand: product.brand,
-    setName: product.set_id ? (setNames.get(product.set_id) ?? null) : null,
+    setName: set?.name ?? null,
+    setLanguage: set?.language ?? null,
     offersEnabled: product.offers_enabled,
     inStock,
     ...info,
@@ -542,7 +566,7 @@ export async function getRelatedProducts(
 
   const ranked = [...candidates.values()].sort((a, b) => b.score - a.score);
   const infos = await priceByProductId(ranked.map((c) => c.id));
-  const setNames = await resolveSetNames(ranked.map((c) => c.set_id));
+  const setInfos = await resolveSetInfo(ranked.map((c) => c.set_id));
 
   return ranked
     .filter((c) => infos.has(c.id))
@@ -555,7 +579,8 @@ export async function getRelatedProducts(
         sku: c.sku,
         image_url: c.image_url,
         tags: c.tags,
-        setName: c.set_id ? (setNames.get(c.set_id) ?? null) : null,
+        setName: c.set_id ? (setInfos.get(c.set_id)?.name ?? null) : null,
+        setLanguage: c.set_id ? (setInfos.get(c.set_id)?.language ?? null) : null,
         ...info,
       };
     });
@@ -726,7 +751,7 @@ export async function getMostViewedProducts(limit = 8, days = 30): Promise<Store
   if (productsError) throw new Error(productsError.message);
 
   const infos = await priceByProductId((products ?? []).map((p) => p.id));
-  const setNames = await resolveSetNames((products ?? []).map((p) => p.set_id));
+  const setInfos = await resolveSetInfo((products ?? []).map((p) => p.set_id));
   const rankIndex = new Map(ranked.map(([id], i) => [id, i]));
 
   return (products ?? [])
@@ -739,7 +764,8 @@ export async function getMostViewedProducts(limit = 8, days = 30): Promise<Store
       sku: p.sku,
       image_url: p.image_url,
       tags: p.tags ?? [],
-      setName: p.set_id ? (setNames.get(p.set_id) ?? null) : null,
+      setName: p.set_id ? (setInfos.get(p.set_id)?.name ?? null) : null,
+      setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
       ...infos.get(p.id)!,
     }));
 }
@@ -1072,6 +1098,30 @@ const ID_FEATURED_SETS: FeaturedSetMeta[] = [
     releasedAt: "2026-01-30",
     packsPerBox: 10,
     cardsPerPack: 10,
+    logoImage: null,
+  },
+  {
+    // Localization of JP's Munikis Zero-era Charizard release ("Blue Blaze"
+    // in English), MA2 I — features Mega Charizard X ex. Released 2025-12-05
+    // (per jagatplay.com), after an initial 2025-11-28 date slipped.
+    productId: "98e062f4-10bb-4a0a-8839-e27df0f6cac8", // Kobaran Biru
+    code: "MA2",
+    era: "Evolusi Mega",
+    releasedAt: "2025-12-05",
+    packsPerBox: 30,
+    cardsPerPack: 5,
+    logoImage: null,
+  },
+  {
+    // Indonesian market's launch set for the era — localizes JP's
+    // Symphonia/Brave (M1S/M1L) split; "Mega Evolution" in English, MA1 I.
+    // Released 2025-09-26 by AKG Entertainment (per psegameshop.com).
+    productId: "0114d84b-a075-45e5-a6cc-7202deb81e8f", // Evolusi Mega
+    code: "MA1",
+    era: "Evolusi Mega",
+    releasedAt: "2025-09-26",
+    packsPerBox: 30,
+    cardsPerPack: 5,
     logoImage: null,
   },
   {

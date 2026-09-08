@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateCustomerProfile, updateCustomerPassword, type CustomerProfile } from "@/app/actions/customer";
+import {
+  updateCustomerProfile,
+  updateCustomerPassword,
+  setInitialPassword,
+  type CustomerProfile,
+} from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
 
 const inputClass = "rounded border px-3 py-2 text-sm";
@@ -36,7 +41,9 @@ export default function ProfileEditor({ customer }: { customer: CustomerProfile 
     setPasswordError(null);
     setPasswordSaved(false);
     startPasswordTransition(async () => {
-      const result = await updateCustomerPassword({ currentPassword, newPassword });
+      const result = customer.hasPassword
+        ? await updateCustomerPassword({ currentPassword, newPassword })
+        : await setInitialPassword(newPassword);
       if (result.error) {
         setPasswordError(result.error);
       } else {
@@ -87,32 +94,45 @@ export default function ProfileEditor({ customer }: { customer: CustomerProfile 
       </form>
 
       <form onSubmit={submitPassword} className="flex flex-col gap-2 rounded border p-4">
-        <h3 className="mb-1 text-sm font-semibold text-gray-700">Change password</h3>
-        <input
-          type="password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          placeholder="Current password"
-          required
-          className={inputClass}
-        />
+        <h3 className="mb-1 text-sm font-semibold text-gray-700">
+          {customer.hasPassword ? "Change password" : "Set a password"}
+        </h3>
+        {!customer.hasPassword && (
+          <p className="mb-1 text-xs text-gray-500">
+            You signed in with Google — set a password here if you&apos;d also like to sign in with your email.
+          </p>
+        )}
+        {customer.hasPassword && (
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Current password"
+            required
+            className={inputClass}
+          />
+        )}
         <input
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="New password (min. 8 characters)"
+          placeholder={customer.hasPassword ? "New password (min. 8 characters)" : "Password (min. 8 characters)"}
           required
           minLength={8}
           className={inputClass}
         />
         {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
-        {passwordSaved && <p className="text-sm text-green-700">Password updated.</p>}
+        {passwordSaved && (
+          <p className="text-sm text-green-700">{customer.hasPassword ? "Password updated." : "Password set."}</p>
+        )}
         <button
           type="submit"
           disabled={isPasswordPending}
           className="relative mt-1 self-start rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          <span className={isPasswordPending ? "invisible" : ""}>Update password</span>
+          <span className={isPasswordPending ? "invisible" : ""}>
+            {customer.hasPassword ? "Update password" : "Set password"}
+          </span>
           {isPasswordPending && <ButtonSpinner />}
         </button>
       </form>

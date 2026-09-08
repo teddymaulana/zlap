@@ -18,7 +18,14 @@ import AddressRegionSelect from "../AddressRegionSelect";
 import FloatingLabelInput from "../FloatingLabelInput";
 import FloatingLabelTextarea from "../FloatingLabelTextarea";
 import PaymentMethodPicker, { type PaymentSelection } from "./PaymentMethodPicker";
+import { isGradedOrSingleProduct } from "@/lib/productCategory";
+import { CARD_SET_LANGUAGES } from "@/lib/constants";
 import { copy, fillCopy } from "@/lib/copy";
+
+function setLanguageLabel(item: { tags: string[]; name: string; setLanguage?: "en" | "jp" | "id" | null }) {
+  if (!item.setLanguage || !isGradedOrSingleProduct(item)) return null;
+  return CARD_SET_LANGUAGES.find((l) => l.value === item.setLanguage)?.label ?? null;
+}
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -385,6 +392,9 @@ export default function CheckoutPage() {
                 <span className="min-w-0 flex-1 truncate">
                   {item.name} × {item.qty}
                   {item.isGift && <span className="ml-1 text-xs font-medium text-green-600">(Free gift)</span>}
+                  {setLanguageLabel(item) && (
+                    <span className="ml-1 text-xs text-gray-500">({setLanguageLabel(item)})</span>
+                  )}
                 </span>
                 <span className="flex shrink-0 flex-col items-end">
                   {(item.isGift ? item.originalPrice : isDiscounted ? trueBasePrice : null) && (

@@ -12,6 +12,7 @@ import {
 } from "@/lib/customerAuth";
 import { getProductsForReorder } from "@/app/actions/storefront";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
+import { isGradedOrSingleProduct } from "@/lib/productCategory";
 
 const SITE_URL = "https://zlapcard.com";
 const RESET_TOKEN_TTL_HOURS = 1;
@@ -154,7 +155,14 @@ export async function signInCustomer(formData: FormData): Promise<{ error: strin
     .select("id, password_hash")
     .eq("email", email)
     .maybeSingle();
-  if (!customer || !verifyPassword(password, customer.password_hash)) {
+  if (!customer) return { error: "Incorrect email or password" };
+  // A Google-only account (see continueWithGoogle below) has no password to
+  // check against — send them to the right button instead of a generic
+  // "incorrect password" that implies retrying would help.
+  if (!customer.password_hash) {
+    return { error: "This account uses Google sign-in — use \"Continue with Google\" instead" };
+  }
+  if (!verifyPassword(password, customer.password_hash)) {
     return { error: "Incorrect email or password" };
   }
 
@@ -164,6 +172,55 @@ export async function signInCustomer(formData: FormData): Promise<{ error: strin
 
 export async function signOutCustomer() {
   await destroyCustomerSession();
+}
+
+// Bridges a Google OAuth identity (already verified by Supabase Auth in the
+// /account/auth/callback route — see the comment there) into our own
+// customers/customer_sessions system, same as the rest of the storefront's
+// auth. Matches purely by email: Google has already verified ownership of
+// it, so linking an existing password-based account here is safe and is the
+// only sane behavior (see the discussion that led to this feature).
+export async function continueWithGoogle(
+  email: string,
+  name: string | null
+): Promise<{ error: string | null }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return { error: "Google didn't return an email address" };
+
+  const service = serviceClient();
+  const { data: existing } = await service
+    .from("customers")
+    .select("id, email_verified_at")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  let customerId: string;
+  if (existing) {
+    customerId = existing.id;
+    // Google already verified this email — satisfy the homegrown
+    // verify-email step (see the customers table comment in schema.sql) if
+    // this customer hadn't clicked their own verification link yet.
+    if (!existing.email_verified_at) {
+      await service
+        .from("customers")
+        .update({ email_verified_at: new Date().toISOString() })
+        .eq("id", customerId);
+    }
+  } else {
+    const { data: created, error } = await service
+      .from("customers")
+      // No password_hash — this customer only ever signs in via Google
+      // unless they later set one through "Forgot password" (that flow
+      // just overwrites the hash, no existing one required).
+      .insert({ email: normalizedEmail, password_hash: null, name, email_verified_at: new Date().toISOString() })
+      .select("id")
+      .single();
+    if (error) return { error: error.message };
+    customerId = created.id;
+  }
+
+  await createCustomerSession(customerId);
+  return { error: null };
 }
 
 // Always returns success regardless of whether the email matches an account,
@@ -239,6 +296,10 @@ export type CustomerProfile = {
   name: string | null;
   phone: string | null;
   emailVerifiedAt: string | null;
+  // False for a Google-only account (see continueWithGoogle) that hasn't
+  // set one yet — ProfileEditor shows "Set a password" instead of "Change
+  // password" for these, since there's no current password to verify.
+  hasPassword: boolean;
 };
 
 export async function getCurrentCustomer(): Promise<CustomerProfile | null> {
@@ -247,7 +308,7 @@ export async function getCurrentCustomer(): Promise<CustomerProfile | null> {
 
   const { data } = await serviceClient()
     .from("customers")
-    .select("id, email, name, phone, email_verified_at")
+    .select("id, email, name, phone, email_verified_at, password_hash")
     .eq("id", customerId)
     .maybeSingle();
   if (!data) return null;
@@ -257,6 +318,7 @@ export async function getCurrentCustomer(): Promise<CustomerProfile | null> {
     name: data.name,
     phone: data.phone,
     emailVerifiedAt: data.email_verified_at,
+    hasPassword: data.password_hash !== null,
   };
 }
 
@@ -307,13 +369,50 @@ export async function updateCustomerPassword(params: {
     .select("password_hash")
     .eq("id", customerId)
     .maybeSingle();
-  if (!customer || !verifyPassword(params.currentPassword, customer.password_hash)) {
+  if (!customer) return { error: "Current password is incorrect" };
+  // A Google-only account (see continueWithGoogle above) has no current
+  // password to check against — ProfileEditor routes these to
+  // setInitialPassword below instead, which needs no current password.
+  if (!customer.password_hash) {
+    return { error: "This account has no password yet — use \"Set a password\" instead" };
+  }
+  if (!verifyPassword(params.currentPassword, customer.password_hash)) {
     return { error: "Current password is incorrect" };
   }
 
   const { error } = await service
     .from("customers")
     .update({ password_hash: hashPassword(params.newPassword) })
+    .eq("id", customerId);
+  if (error) return { error: error.message };
+
+  return { error: null };
+}
+
+// Companion to updateCustomerPassword above, for a Google-only account
+// (see continueWithGoogle) that hasn't set a password yet — no current
+// password to verify, since there isn't one, but they're already
+// authenticated via their customer_session, so no extra verification step
+// (e.g. an emailed link) is needed either.
+export async function setInitialPassword(newPassword: string): Promise<{ error: string | null }> {
+  const customerId = await getCurrentCustomerId();
+  if (!customerId) return { error: "You need to be signed in" };
+  if (newPassword.length < 8) return { error: "Password must be at least 8 characters" };
+
+  const service = serviceClient();
+  const { data: customer } = await service
+    .from("customers")
+    .select("password_hash")
+    .eq("id", customerId)
+    .maybeSingle();
+  if (!customer) return { error: "You need to be signed in" };
+  // Already has one — this isn't the right action to change it (that's
+  // updateCustomerPassword, which correctly requires the current password).
+  if (customer.password_hash) return { error: "This account already has a password" };
+
+  const { error } = await service
+    .from("customers")
+    .update({ password_hash: hashPassword(newPassword) })
     .eq("id", customerId);
   if (error) return { error: error.message };
 
@@ -348,6 +447,9 @@ export type CustomerOrderLine = {
   image_url: string | null;
   price: number;
   qty: number;
+  // Only set for graded/single items (see isGradedOrSingleProduct) — null
+  // for everything else, so views can gate display on a truthy check alone.
+  setLanguage: "en" | "jp" | "id" | null;
 };
 
 export type CustomerOrderDetail = {
@@ -382,15 +484,29 @@ async function loadOrderDetail(
 ): Promise<CustomerOrderDetail> {
   const { data: rawLines, error } = await service
     .from("order_lines")
-    .select("product_id, price, products(name, image_url)")
+    .select("product_id, price, products(name, image_url, tags, set_id)")
     .eq("order_id", order.id);
   if (error) throw new Error(error.message);
 
+  // Only graded/single items need their set language resolved (see
+  // isGradedOrSingleProduct) — batched into one query rather than one
+  // lookup per line, same reasoning as storefront.ts's resolveSetInfo.
+  type LineProduct = { name: string; image_url: string | null; tags: string[] | null; set_id: string | null };
+  const productByLine = new Map(
+    (rawLines ?? []).map((l) => [l.product_id, l.products as unknown as LineProduct | null])
+  );
+  const languageSetIds = [...productByLine.values()]
+    .filter((p): p is LineProduct => Boolean(p?.set_id) && isGradedOrSingleProduct({ tags: p!.tags, name: p!.name }))
+    .map((p) => p.set_id as string);
+  const { data: sets } =
+    languageSetIds.length > 0
+      ? await service.from("card_sets").select("id, language").in("id", [...new Set(languageSetIds)])
+      : { data: [] };
+  const languageBySetId = new Map((sets ?? []).map((s) => [s.id, s.language as "en" | "jp" | "id"]));
+
   const grouped = new Map<string, CustomerOrderLine>();
   for (const l of rawLines ?? []) {
-    // Embedded to-one relations come back as a plain object at runtime
-    // despite the default array typing.
-    const product = l.products as unknown as { name: string; image_url: string | null } | null;
+    const product = productByLine.get(l.product_id) ?? null;
     const existing = grouped.get(l.product_id);
     if (existing) {
       existing.qty += 1;
@@ -401,6 +517,10 @@ async function loadOrderDetail(
         image_url: product?.image_url ?? null,
         price: l.price ?? 0,
         qty: 1,
+        setLanguage:
+          product?.set_id && isGradedOrSingleProduct({ tags: product.tags, name: product.name })
+            ? (languageBySetId.get(product.set_id) ?? null)
+            : null,
       });
     }
   }
@@ -535,6 +655,7 @@ export type ReorderItem = {
   price: number;
   originalPrice: number | null;
   tags: string[];
+  setLanguage: "en" | "jp" | "id" | null;
 };
 
 // "Buy again" — re-derives cart-ready items from a past order at *current*
@@ -577,6 +698,7 @@ export async function getReorderItems(
         price: p.price,
         originalPrice: p.originalPrice,
         tags: p.tags,
+        setLanguage: p.setLanguage,
       });
   }
   // A product removed from the catalog entirely won't come back from

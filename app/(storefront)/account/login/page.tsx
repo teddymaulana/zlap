@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signInCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
+import GoogleSignInButton from "../GoogleSignInButton";
 
 export default function LoginPage() {
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(useSearchParams().get("error"));
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -54,6 +55,12 @@ export default function LoginPage() {
           {isPending && <ButtonSpinner />}
         </button>
       </form>
+      <div className="flex items-center gap-3 text-xs text-gray-400">
+        <div className="h-px flex-1 bg-gray-200" />
+        or
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+      <GoogleSignInButton />
       <p className="text-sm text-gray-500">
         Don&apos;t have an account?{" "}
         <Link href="/account/signup" className="text-black underline">

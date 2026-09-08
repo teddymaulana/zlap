@@ -26,6 +26,11 @@ export type CartItem = {
   price: number | null;
   qty: number;
   tags: string[];
+  // The card set's language (EN/JP/ID) — carried through to checkout/order/
+  // email display for graded and single items, where it materially affects
+  // the item. Optional since not every addItem caller (e.g. gift lines
+  // below) has a set to resolve it from.
+  setLanguage?: "en" | "jp" | "id" | null;
   // Auto-added gift-with-purchase line — see CartProvider's sync effect
   // below. Never set by addItem; the UI should hide qty/remove controls for
   // these since they're recomputed (and re-added) on every render anyway.
