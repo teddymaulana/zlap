@@ -31,7 +31,14 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(hashBuffer, suppliedBuffer);
 }
 
-export async function createCustomerSession(customerId: string) {
+// Creates the session row and sets the web cookie, same as always — also
+// returns the raw session id (== the row's id), which is otherwise only
+// ever read back out of the cookie. The mobile app has no cookie jar, so
+// its login endpoint (app/api/mobile/auth/login) hands this id back in the
+// JSON response instead, for the client to send as a Bearer token on every
+// subsequent request (see getCustomerIdForToken below) — same session
+// table, same expiry, just a different transport.
+export async function createCustomerSession(customerId: string): Promise<string> {
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const { data, error } = await serviceClient()
     .from("customer_sessions")
@@ -47,6 +54,8 @@ export async function createCustomerSession(customerId: string) {
     maxAge: SESSION_DAYS * 24 * 60 * 60,
     path: "/",
   });
+
+  return data.id;
 }
 
 export async function destroyCustomerSession() {
@@ -58,9 +67,10 @@ export async function destroyCustomerSession() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function getCurrentCustomerId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+// Shared by the cookie-based web lookup below and the mobile app's
+// Bearer-token lookup (app/api/mobile/*) — same table, same expiry rule,
+// just a different place the session id comes from.
+export async function getCustomerIdForToken(sessionId: string | null | undefined): Promise<string | null> {
   if (!sessionId) return null;
 
   const { data } = await serviceClient()
@@ -70,4 +80,9 @@ export async function getCurrentCustomerId(): Promise<string | null> {
     .maybeSingle();
   if (!data || new Date(data.expires_at) < new Date()) return null;
   return data.customer_id;
+}
+
+export async function getCurrentCustomerId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return getCustomerIdForToken(cookieStore.get(SESSION_COOKIE)?.value);
 }
