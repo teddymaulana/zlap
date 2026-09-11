@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getWishlistProductIds } from "@/app/actions/customer";
@@ -10,27 +9,6 @@ import { isSlabProduct, isBoosterBoxProduct } from "@/lib/productCategory";
 import type { StorefrontShortcut } from "@/lib/types";
 
 const DEFAULT_DIRECT_PRICE_PCT = 1.15;
-
-// Temporary dev gate for the storefront while it's under construction —
-// swap for real access control before launch.
-const STOREFRONT_PASSWORD = process.env.STOREFRONT_PASSWORD || "zlapdev";
-const ACCESS_COOKIE = "storefront_access";
-
-export async function unlockStorefront(formData: FormData) {
-  const password = String(formData.get("password") ?? "");
-  if (password !== STOREFRONT_PASSWORD) {
-    return { error: "Incorrect password" };
-  }
-
-  const cookieStore = await cookies();
-  cookieStore.set(ACCESS_COOKIE, STOREFRONT_PASSWORD, {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-    path: "/",
-  });
-  return { error: null };
-}
 
 export type StorefrontPreorder = { days?: number; date?: string };
 

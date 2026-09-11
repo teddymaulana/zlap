@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { copy } from "@/lib/copy";
-import PasswordGate from "./PasswordGate";
 import { CartProvider } from "./CartContext";
 import { WishlistProvider } from "./WishlistContext";
 import { WhatsAppProvider } from "./WhatsAppContext";
@@ -13,9 +11,6 @@ import StoreFooter from "./StoreFooter";
 import MarketplaceLinks from "./MarketplaceLinks";
 import CartDrawer from "./CartDrawer";
 import WhatsAppFloatingButton from "./WhatsAppFloatingButton";
-
-const STOREFRONT_PASSWORD = process.env.STOREFRONT_PASSWORD || "zlapdev";
-const ACCESS_COOKIE = "storefront_access";
 
 export const metadata: Metadata = {
   title: "ZLAP CARD",
@@ -49,13 +44,6 @@ async function getHeaderCopy(): Promise<{ tagline: string; announcements: string
 }
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const hasAccess = cookieStore.get(ACCESS_COOKIE)?.value === STOREFRONT_PASSWORD;
-
-  if (!hasAccess) {
-    return <PasswordGate />;
-  }
-
   const { tagline, announcements } = await getHeaderCopy();
 
   return (

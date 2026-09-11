@@ -313,6 +313,7 @@ export default function CartDrawer() {
             >
               {copy.cart.checkout}
             </Link>
+            <p className="mt-2 text-center text-xs text-gray-500">{copy.cart.checkoutComingSoon}</p>
           </div>
         )}
       </div>

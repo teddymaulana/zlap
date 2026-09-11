@@ -31,6 +31,11 @@ function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
 }
 
+// Checkout is paused while the payment gateway integration is finished —
+// flip this back on to re-enable placing new orders. Existing order status
+// lookups (the `?order=` flow above) stay working either way.
+const CHECKOUT_ENABLED = false;
+
 // Device-local only — deliberately never sent to the server. The customers
 // table intentionally doesn't store addresses server-side (see the comment
 // on it in supabase/schema.sql), so "remember my shipping info" here is a
@@ -362,6 +367,38 @@ export default function CheckoutPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-md px-4 py-10">
           <p className="text-sm text-gray-500">{copy.checkout.emptyCart}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!CHECKOUT_ENABLED) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-md px-4 py-10">
+          <h1 className="mb-2 text-lg font-semibold">{copy.checkout.comingSoonTitle}</h1>
+          <p className="text-sm text-gray-600">{copy.checkout.comingSoonBody}</p>
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+            {copy.checkout.comingSoonContact}{" "}
+            <a
+              href={`https://wa.me/6285121369155?text=${encodeURIComponent(
+                "Halo, saya ingin bertanya tentang cara pemesanan."
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-black underline"
+            >
+              WhatsApp
+            </a>{" "}
+            atau{" "}
+            <a href="mailto:info@zlapcard.com" className="font-medium text-black underline">
+              email
+            </a>
+            .
+          </div>
+          <Link href="/" className="mt-4 inline-block text-sm text-black underline">
+            {copy.checkout.backToStore}
+          </Link>
         </div>
       </div>
     );

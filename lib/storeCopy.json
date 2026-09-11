@@ -188,7 +188,8 @@
     "removeAria": "Remove from cart",
     "item": "item",
     "onlyNInStock": "Only {n} in stock",
-    "checkout": "Checkout"
+    "checkout": "Checkout",
+    "checkoutComingSoon": "Checkout is coming soon — your cart will be here when it opens."
   },
   "product": {
     "preorder": "Pre-order",
@@ -267,17 +268,14 @@
     "loadingOrder": "Loading your order…",
     "emptyCart": "Your cart is empty.",
     "orderNotFound": "Kami tidak dapat menemukan pesanan tersebut. Tautan mungkin salah atau pesanan sudah tidak ada.",
-    "backToStore": "Back to store"
+    "backToStore": "Back to store",
+    "comingSoonTitle": "Checkout coming soon",
+    "comingSoonBody": "We're finishing up our payment setup. Checkout isn't open just yet, but feel free to keep browsing — your cart will be saved for when it launches.",
+    "comingSoonContact": "Want to order in the meantime? Reach out via"
   },
   "whatsapp": {
     "chatAria": "Chat with us on WhatsApp",
     "defaultMessage": "Halo, saya ingin bertanya tentang produk kalian.",
     "productInquiryTemplate": "Halo, saya tertarik dengan produk \"{name}\" ({link}). Apakah masih tersedia?"
-  },
-  "passwordGate": {
-    "title": "Zlap Store",
-    "notice": "This storefront is still in development.",
-    "passwordPlaceholder": "Password",
-    "submit": "Enter"
   }
 }
