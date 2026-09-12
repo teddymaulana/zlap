@@ -78,6 +78,21 @@ export default function ProductHeaderForm({
           <span className="text-sm font-medium">Tags</span>
           <TagPicker initialTags={product.tags} allTags={allTags} />
         </div>
+        <div className="flex flex-col gap-1 rounded border p-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              name="storefront_enabled"
+              defaultChecked={product.storefront_enabled}
+              className="h-4 w-4"
+            />
+            Show this product on the storefront
+          </label>
+          <p className="text-xs text-gray-500">
+            Uncheck to fully hide this product from storefront search, featured sections, related
+            products, wishlist, and its own product page — regardless of stock.
+          </p>
+        </div>
         <div className="flex flex-col gap-2 rounded border p-3">
           <label className="flex items-center gap-2 text-sm font-medium">
             <input
@@ -116,6 +131,22 @@ export default function ProductHeaderForm({
           <p className="text-xs text-gray-500">
             Shown at the end of search results, marked Out of Stock, with a &ldquo;Notify me&rdquo; option
             instead of Add to cart.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1 rounded border p-3">
+          <label htmlFor="restock_eta_date" className="text-sm font-medium">
+            Estimated restock date (optional)
+          </label>
+          <input
+            id="restock_eta_date"
+            name="restock_eta_date"
+            type="date"
+            defaultValue={product.restock_eta_date ?? ""}
+            className="w-fit rounded border px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-gray-500">
+            Shown to customers as &ldquo;Back in stock around {"{date}"}&rdquo; while this product is out
+            of stock.
           </p>
         </div>
         <button

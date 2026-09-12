@@ -5,6 +5,7 @@ import {
   addPurchaseLine,
   deletePurchaseLine,
   pushToInventory,
+  updatePurchaseLine,
 } from "@/app/actions/purchases";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import type { Product, PurchaseLine } from "@/lib/types";
@@ -27,6 +28,8 @@ export default function PurchaseLines({
   const [search, setSearch] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [finalPriceOverrides, setFinalPriceOverrides] = useState<Record<string, number>>({});
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
@@ -126,43 +129,216 @@ export default function PurchaseLines({
         </form>
       </div>
 
-      <div className="divide-y rounded border">
-        {lines.map((line) => {
-          const product = productById.get(line.product_id);
-          const allocatedFee = line.exclude_cost
-            ? 0
-            : line.use_custom_landed_cost
-              ? Number(line.custom_landed_cost) || 0
-              : totalItemCost > 0
-                ? Math.round((line.unit_cost / totalItemCost) * totalFees)
-                : 0;
-          const landedCost = line.unit_cost + allocatedFee;
+      <div className="overflow-x-auto rounded border">
+        <table className="w-full min-w-[1020px] text-sm">
+          <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+            <tr>
+              <th className="px-3 py-2 font-medium">Product</th>
+              <th className="px-3 py-2 text-right font-medium">Qty</th>
+              <th className="px-3 py-2 text-right font-medium">Unit cost</th>
+              <th className="px-3 py-2 text-right font-medium">Fee</th>
+              <th className="px-3 py-2 text-right font-medium">Landed</th>
+              <th className="px-3 py-2 text-right font-medium">
+                Market est.
+                <div className="normal-case text-[10px] font-normal">no profit</div>
+              </th>
+              <th className="px-3 py-2 text-right font-medium">
+                Final price
+                <div className="normal-case text-[10px] font-normal">editable, not saved</div>
+              </th>
+              <th className="px-3 py-2 text-right font-medium">
+                Net income
+                <div className="normal-case text-[10px] font-normal">final − market est.</div>
+              </th>
+              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {lines.map((line) => {
+              const product = productById.get(line.product_id);
+              const allocatedFee = line.exclude_cost
+                ? 0
+                : line.use_custom_landed_cost
+                  ? Number(line.custom_landed_cost) || 0
+                  : totalItemCost > 0
+                    ? Math.round((line.unit_cost / totalItemCost) * totalFees)
+                    : 0;
+              const landedCost = line.unit_cost + allocatedFee;
 
-          return (
-            <div key={line.id} className="flex items-center justify-between px-3 py-2 text-sm">
-              <div>
-                <div className="font-medium">{product?.name ?? line.product_id}</div>
-                <div className="text-gray-500">
-                  qty {line.qty} × {formatMoney(line.unit_cost)} · landed{" "}
-                  {formatMoney(landedCost)}
-                  {line.pushed && <span className="ml-2 text-green-700">pushed</span>}
-                </div>
-              </div>
-              {!line.pushed && (
-                <button
-                  type="button"
-                  onClick={() => startTransition(() => deletePurchaseLine(purchaseId, line.id))}
-                  className="text-red-600 hover:underline"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {lines.length === 0 && (
-          <div className="px-3 py-6 text-sm text-gray-500">No lines yet.</div>
-        )}
+              if (editingLineId === line.id) {
+                return (
+                  <tr key={line.id}>
+                    <td colSpan={10} className="px-3 py-3">
+                      <form
+                        action={(fd) =>
+                          startTransition(() => {
+                            updatePurchaseLine(purchaseId, line.id, fd).then(() => {
+                              setEditingLineId(null);
+                            });
+                          })
+                        }
+                        className="flex flex-col gap-2"
+                      >
+                        <div className="font-medium">{product?.name ?? line.product_id}</div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                          <input
+                            name="qty"
+                            type="number"
+                            min={0}
+                            defaultValue={line.qty}
+                            placeholder="Qty"
+                            required
+                            className="rounded border px-2 py-1"
+                          />
+                          <input
+                            name="unit_cost"
+                            type="number"
+                            min={0}
+                            defaultValue={line.unit_cost}
+                            placeholder="Unit cost"
+                            required
+                            className="rounded border px-2 py-1"
+                          />
+                          <label className="flex items-center gap-1 text-sm">
+                            <input
+                              type="checkbox"
+                              name="exclude_cost"
+                              defaultChecked={line.exclude_cost}
+                            />{" "}
+                            Exclude fee
+                          </label>
+                          <label className="flex items-center gap-1 text-sm">
+                            <input
+                              type="checkbox"
+                              name="use_custom_landed_cost"
+                              defaultChecked={line.use_custom_landed_cost}
+                            />{" "}
+                            Custom fee
+                          </label>
+                          <input
+                            name="custom_landed_cost"
+                            type="number"
+                            min={0}
+                            defaultValue={line.custom_landed_cost ?? ""}
+                            placeholder="Custom fee amount"
+                            className="rounded border px-2 py-1"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={isPending}
+                            className="relative rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                          >
+                            <span className={isPending ? "invisible" : ""}>Save</span>
+                            {isPending && <ButtonSpinner />}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => setEditingLineId(null)}
+                            className="rounded border px-3 py-1.5 text-sm disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              }
+
+              const marketEst = landedCost * 1.18;
+              const defaultFinalPrice = marketEst * 1.1;
+              const finalPrice = finalPriceOverrides[line.id] ?? defaultFinalPrice;
+              const netIncome = finalPrice - marketEst;
+
+              const badges: { label: string; className: string }[] = [];
+              if (line.exclude_cost) {
+                badges.push({ label: "Fee excluded", className: "bg-gray-100 text-gray-700" });
+              } else if (line.use_custom_landed_cost) {
+                badges.push({ label: "Custom fee", className: "bg-amber-100 text-amber-800" });
+              }
+              if (line.pushed) {
+                badges.push({ label: "Pushed", className: "bg-green-100 text-green-700" });
+              }
+
+              return (
+                <tr key={line.id}>
+                  <td className="px-3 py-2 font-medium">{product?.name ?? line.product_id}</td>
+                  <td className="px-3 py-2 text-right">{line.qty}</td>
+                  <td className="px-3 py-2 text-right">{formatMoney(line.unit_cost)}</td>
+                  <td className="px-3 py-2 text-right">{formatMoney(allocatedFee)}</td>
+                  <td className="px-3 py-2 text-right">{formatMoney(landedCost)}</td>
+                  <td className="px-3 py-2 text-right">{formatMoney(marketEst)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <input
+                      type="number"
+                      min={0}
+                      value={Math.round(finalPrice)}
+                      onChange={(e) =>
+                        setFinalPriceOverrides((prev) => ({
+                          ...prev,
+                          [line.id]: Number(e.target.value) || 0,
+                        }))
+                      }
+                      className="w-28 rounded border px-2 py-1 text-right"
+                    />
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right font-medium ${
+                      netIncome >= 0 ? "text-green-700" : "text-red-600"
+                    }`}
+                  >
+                    {formatMoney(netIncome)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {badges.map((b) => (
+                        <span
+                          key={b.label}
+                          className={`rounded px-1.5 py-0.5 text-xs ${b.className}`}
+                        >
+                          {b.label}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {!line.pushed && (
+                      <div className="flex justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditingLineId(line.id)}
+                          className="text-blue-600 hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            startTransition(() => deletePurchaseLine(purchaseId, line.id))
+                          }
+                          className="text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {lines.length === 0 && (
+              <tr>
+                <td colSpan={10} className="px-3 py-6 text-center text-sm text-gray-500">
+                  No lines yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <button

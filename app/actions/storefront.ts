@@ -33,6 +33,15 @@ export type StorefrontProduct = {
   // products, etc.), where it's treated as "in stock" since those don't
   // filter by quantity.
   inStock?: boolean;
+  // Real numeric stock count, populated only where it's already fetched
+  // (searchStorefrontProducts, getStorefrontProductDetail,
+  // getRecommendedProducts) — undefined elsewhere, in which case the
+  // low-stock badge just doesn't render (same fallback as inStock above).
+  stockCount?: number;
+  // Staff-set restock estimate (products.restock_eta_date) — only
+  // populated where inStock is a real computed value, since it's only
+  // ever shown while a product is actually out of stock.
+  restockEtaDate?: string | null;
 };
 
 // Batch-resolves set_id -> {name, language} for a list of products in one
@@ -167,9 +176,9 @@ export async function searchStorefrontProducts(
     matchingSetIds = (matchingSets ?? []).map((s) => s.id);
   }
 
-  const PRODUCT_COLUMNS = "id, name, sku, image_url, tags, set_id, show_when_oos";
+  const PRODUCT_COLUMNS = "id, name, sku, image_url, tags, set_id, show_when_oos, restock_eta_date";
 
-  let builder = supabase.from("products").select(PRODUCT_COLUMNS);
+  let builder = supabase.from("products").select(PRODUCT_COLUMNS).eq("storefront_enabled", true);
   if (trimmed) {
     const orParts = [`name.ilike.%${trimmed}%`, `sku.ilike.%${trimmed}%`];
     if (matchingSetIds.length > 0) orParts.push(`set_id.in.(${matchingSetIds.join(",")})`);
@@ -208,7 +217,7 @@ export async function searchStorefrontProducts(
   // already uses for its tag-overlap search below.
   if (trimmed) {
     const q = trimmed.toLowerCase();
-    let tagBuilder = supabase.from("products").select(PRODUCT_COLUMNS);
+    let tagBuilder = supabase.from("products").select(PRODUCT_COLUMNS).eq("storefront_enabled", true);
     if (filters.brand) tagBuilder = tagBuilder.eq("brand", filters.brand);
     if (filters.setId) tagBuilder = tagBuilder.eq("set_id", filters.setId);
     const { data: tagCandidates } = await tagBuilder.limit(1000);
@@ -268,6 +277,8 @@ export async function searchStorefrontProducts(
         setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
         ...info,
         inStock: (availableByProduct.get(p.id) ?? 0) > 0,
+        stockCount: availableByProduct.get(p.id) ?? 0,
+        restockEtaDate: p.restock_eta_date,
       };
     });
 
@@ -287,13 +298,16 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
   );
   const { data: batches, error: batchesError } = await service
     .from("inventory_batch_availability")
-    .select("product_id, cost, direct_price, is_preorder, preorder_duration_days, preorder_arrival_date")
+    .select(
+      "product_id, cost, direct_price, is_preorder, preorder_duration_days, preorder_arrival_date, storefront_available"
+    )
     .eq("is_storefront_price", true)
     .gt("storefront_available", 0);
   if (batchesError) throw new Error(batchesError.message);
   if (!batches || batches.length === 0) return [];
 
   const randomPick = [...batches].sort(() => Math.random() - 0.5).slice(0, limit);
+  const stockByProduct = new Map(randomPick.map((b) => [b.product_id, b.storefront_available]));
   const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge">>();
   for (const b of randomPick) {
     base.set(b.product_id, batchInfo(b));
@@ -304,6 +318,7 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
   const { data: products, error } = await supabase
     .from("products")
     .select("id, name, sku, image_url, tags, set_id")
+    .eq("storefront_enabled", true)
     .in("id", [...infos.keys()]);
   if (error) throw new Error(error.message);
 
@@ -316,6 +331,7 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
     tags: p.tags ?? [],
     setName: p.set_id ? (setInfos.get(p.set_id)?.name ?? null) : null,
     setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
+    stockCount: stockByProduct.get(p.id),
     ...infos.get(p.id)!,
   }));
 }
@@ -329,6 +345,7 @@ export async function getFeaturedProducts(
     .from("products")
     .select("id, name, sku, image_url, tags, set_id")
     .eq(section, true)
+    .eq("storefront_enabled", true)
     .order(`${section}_order`, { ascending: true })
     .limit(limit);
   if (error) throw new Error(error.message);
@@ -376,6 +393,7 @@ async function productsByIds(ids: string[]): Promise<StorefrontProduct[]> {
   const { data: products, error } = await supabase
     .from("products")
     .select("id, name, sku, image_url, tags, set_id")
+    .eq("storefront_enabled", true)
     .in("id", ids);
   if (error) throw new Error(error.message);
 
@@ -419,11 +437,11 @@ export async function getStorefrontProductDetail(
   const supabase = await createClient();
   const { data: product, error } = await supabase
     .from("products")
-    .select("id, name, sku, image_url, tags, brand, set_id, offers_enabled")
+    .select("id, name, sku, image_url, tags, brand, set_id, offers_enabled, restock_eta_date, storefront_enabled")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!product) return null;
+  if (!product || !product.storefront_enabled) return null;
 
   const { data: set, error: setError } = product.set_id
     ? await supabase.from("card_sets").select("name, language").eq("id", product.set_id).maybeSingle()
@@ -435,7 +453,8 @@ export async function getStorefrontProductDetail(
   if (!info) return null; // not sellable on the storefront (no storefront price set)
 
   const availability = await getStorefrontAvailability([product.id]);
-  const inStock = (availability[0]?.available ?? 0) > 0;
+  const stockCount = availability[0]?.available ?? 0;
+  const inStock = stockCount > 0;
 
   return {
     id: product.id,
@@ -448,6 +467,8 @@ export async function getStorefrontProductDetail(
     setLanguage: set?.language ?? null,
     offersEnabled: product.offers_enabled,
     inStock,
+    stockCount,
+    restockEtaDate: product.restock_eta_date,
     ...info,
   };
 }
@@ -497,6 +518,7 @@ export async function getRelatedProducts(
     const { data: byTag } = await supabase
       .from("products")
       .select("id, name, sku, image_url, tags, set_id")
+      .eq("storefront_enabled", true)
       .neq("id", productId)
       .overlaps("tags", currentTags)
       .limit(50);
@@ -521,6 +543,7 @@ export async function getRelatedProducts(
     const { data: byName } = await supabase
       .from("products")
       .select("id, name, sku, image_url, tags, set_id")
+      .eq("storefront_enabled", true)
       .neq("id", productId)
       .or(orFilter)
       .limit(50);
@@ -562,6 +585,48 @@ export async function getRelatedProducts(
         ...info,
       };
     });
+}
+
+// Other products from the same set (e.g. other singles/ETBs from the same
+// release) — a cheaper, simpler sibling to a "frequently bought together"
+// feature, using the same set_id lookup searchStorefrontProducts' setId
+// filter already relies on. Takes a productId (not a raw set_id) to match
+// getRelatedProducts' call shape and avoid exposing set_id on the
+// client-facing StorefrontProduct type.
+export async function getSetProducts(productId: string, limit = 8): Promise<StorefrontProduct[]> {
+  const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("products")
+    .select("set_id")
+    .eq("id", productId)
+    .maybeSingle();
+  if (!current?.set_id) return [];
+
+  const { data: siblings } = await supabase
+    .from("products")
+    .select("id, name, sku, image_url, tags, set_id")
+    .eq("set_id", current.set_id)
+    .eq("storefront_enabled", true)
+    .neq("id", productId)
+    .limit(50);
+  if (!siblings || siblings.length === 0) return [];
+
+  const infos = await priceByProductId(siblings.map((p) => p.id));
+  const setInfos = await resolveSetInfo(siblings.map((p) => p.set_id));
+
+  return siblings
+    .filter((p) => infos.has(p.id))
+    .slice(0, limit)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      image_url: p.image_url,
+      tags: p.tags ?? [],
+      setName: p.set_id ? (setInfos.get(p.set_id)?.name ?? null) : null,
+      setLanguage: p.set_id ? (setInfos.get(p.set_id)?.language ?? null) : null,
+      ...infos.get(p.id)!,
+    }));
 }
 
 export type SaleEvent = { date: string; price: number };
@@ -722,6 +787,7 @@ export async function getMostViewedProducts(limit = 8, days = 30): Promise<Store
   const { data: products, error: productsError } = await supabase
     .from("products")
     .select("id, name, sku, image_url, tags, set_id")
+    .eq("storefront_enabled", true)
     .in(
       "id",
       ranked.map(([id]) => id)
@@ -789,7 +855,11 @@ async function resolveFeaturedSets(meta: FeaturedSetMeta[], language: string): P
 
   const [{ data: products, error: productsError }, { data: batches, error: batchesError }] =
     await Promise.all([
-      service.from("products").select("id, name, image_url").in("id", productIds),
+      service
+        .from("products")
+        .select("id, name, image_url")
+        .eq("storefront_enabled", true)
+        .in("id", productIds),
       service
         .from("inventory_batch_availability")
         .select("product_id, direct_price, storefront_available")
@@ -803,6 +873,7 @@ async function resolveFeaturedSets(meta: FeaturedSetMeta[], language: string): P
   const priceInfoByProduct = new Map((batches ?? []).map((b) => [b.product_id, b]));
 
   return meta
+    .filter((m) => productById.has(m.productId))
     .map((m) => {
       const product = productById.get(m.productId);
       const priceInfo = priceInfoByProduct.get(m.productId);

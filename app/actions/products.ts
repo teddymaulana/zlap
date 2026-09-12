@@ -50,6 +50,8 @@ export async function updateProduct(productId: string, formData: FormData) {
   const offerMinPriceRaw = String(formData.get("offer_min_price") ?? "").trim();
   const offerMinPrice = offerMinPriceRaw ? Number(offerMinPriceRaw) : null;
   const showWhenOos = formData.get("show_when_oos") === "on";
+  const restockEtaDate = String(formData.get("restock_eta_date") || "") || null;
+  const storefrontEnabled = formData.get("storefront_enabled") === "on";
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -63,6 +65,8 @@ export async function updateProduct(productId: string, formData: FormData) {
       offers_enabled: offersEnabled,
       offer_min_price: offerMinPrice,
       show_when_oos: showWhenOos,
+      restock_eta_date: restockEtaDate,
+      storefront_enabled: storefrontEnabled,
     })
     .eq("id", productId);
 

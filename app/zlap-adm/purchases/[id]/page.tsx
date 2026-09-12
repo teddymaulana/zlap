@@ -32,18 +32,28 @@ export default async function PurchaseDetailPage({
   if (!purchase) notFound();
 
   const p = purchase as Purchase;
+  const purchaseLines = (lines ?? []) as PurchaseLine[];
   const totalFees =
     p.inter_shipping + p.forwarding + p.local_cargo + p.payment_fee + p.other_expense - p.deduction;
+  const totalItemCost = purchaseLines.reduce((sum, l) => sum + l.unit_cost * l.qty, 0);
+  const totalQty = purchaseLines.reduce((sum, l) => sum + l.qty, 0);
+  const grandTotal = totalItemCost + totalFees;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8">
+    <div className="mx-auto w-full max-w-5xl px-4 py-8">
       <h1 className="mb-6 text-xl font-semibold">{p.name || "Purchase"}</h1>
-      <PurchaseHeaderForm purchase={p} />
+      <PurchaseHeaderForm
+        purchase={p}
+        totalQty={totalQty}
+        totalItemCost={totalItemCost}
+        totalFees={totalFees}
+        grandTotal={grandTotal}
+      />
       <h2 className="mb-3 text-lg font-semibold">Lines</h2>
       <PurchaseLines
         purchaseId={id}
         products={(products ?? []) as Product[]}
-        lines={(lines ?? []) as PurchaseLine[]}
+        lines={purchaseLines}
         totalFees={totalFees}
       />
     </div>

@@ -88,7 +88,7 @@ export default function SetCard({ set }: { set: FeaturedSet }) {
             className="text-[13px] font-bold -tracking-[0.01em] sm:text-[19px]"
             style={{ color: soldOut ? "#6b6960" : "#14100a" }}
           >
-            {set.boxPrice !== null ? idr(set.boxPrice) : "Price unavailable"}
+            {set.boxPrice ? idr(set.boxPrice) : "Price unavailable"}
           </p>
         </div>
       </div>

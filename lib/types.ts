@@ -20,6 +20,12 @@ export type Product = {
   offers_enabled: boolean;
   offer_min_price: number | null;
   show_when_oos: boolean;
+  // Staff-set estimate for when an out-of-stock product will be
+  // restocked — shown to customers as "Back in stock around {date}"
+  // (app/(storefront)/ProductCard.tsx, products/[id]/page.tsx) only
+  // while the product is actually out of stock.
+  restock_eta_date: string | null;
+  storefront_enabled: boolean;
   created_at: string;
   updated_at: string;
 };

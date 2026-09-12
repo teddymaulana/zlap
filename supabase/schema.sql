@@ -142,12 +142,27 @@ create table if not exists products (
   -- results, styled as OOS, with "Add to cart" replaced by "Notify me"
   -- (app/(storefront)/ProductCard.tsx).
   show_when_oos boolean not null default false,
+  -- Staff-set estimate for when an out-of-stock product will be restocked —
+  -- shown to customers as "Back in stock around {date}" (ProductCard,
+  -- products/[id]/page.tsx) only while the product is actually out of
+  -- stock. Set/cleared manually from /zlap-adm; no automatic clearing when
+  -- new stock arrives, since the storefront only displays it while OOS.
+  restock_eta_date date,
+  -- Staff kill switch: hides this product from storefront search, featured
+  -- carousels, related/set-sibling lists, wishlist, reorder, and the PDP
+  -- itself (app/actions/storefront.ts) — regardless of stock or pricing.
+  -- Distinct from show_when_oos, which only affects out-of-stock visibility.
+  storefront_enabled boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 -- Existing databases created before this column existed.
 alter table products add column if not exists show_when_oos boolean not null default false;
+-- Existing databases created before the restock ETA column existed.
+alter table products add column if not exists restock_eta_date date;
+-- Existing databases created before the storefront kill switch existed.
+alter table products add column if not exists storefront_enabled boolean not null default true;
 
 create or replace function set_updated_at() returns trigger as $$
 begin
