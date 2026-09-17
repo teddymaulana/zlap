@@ -148,7 +148,8 @@ export type Purchase = {
 export type PurchaseLine = {
   id: string;
   purchase_id: string;
-  product_id: string;
+  product_id: string | null;
+  new_product_name: string | null;
   qty: number;
   unit_cost: number;
   exclude_cost: boolean;

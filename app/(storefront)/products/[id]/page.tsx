@@ -3,19 +3,20 @@ import {
   getStorefrontProductDetail,
   getStorefrontProductRecentSales,
   getRelatedProducts,
+  getSetProducts,
   recordProductView,
 } from "@/app/actions/storefront";
 import { getGiftCatalog } from "@/app/actions/gwp";
 import { GIFT_ROLE_TAGS } from "@/lib/gwp";
 import { isEtbProduct } from "@/lib/productCategory";
 import { getActiveDiscounts, getBogoFreeProductCatalog } from "@/app/actions/discounts";
-import { PRODUCT_BRANDS, CARD_SET_LANGUAGES } from "@/lib/constants";
+import { PRODUCT_BRANDS, CARD_SET_LANGUAGES, LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import ProductDetailActions from "./ProductDetailActions";
 import OfferButton from "./OfferButton";
 import SalesChart from "./SalesChart";
 import ProductCard from "../../ProductCard";
 import WhatsAppProductAnnouncer from "../../WhatsAppProductAnnouncer";
-import { copy, fillCopy } from "@/lib/copy";
+import { copy, fillCopy, formatShortDate } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -24,8 +25,7 @@ function formatMoney(amount: number) {
 function preorderText(preorder: { days?: number; date?: string } | null) {
   if (!preorder) return null;
   if (preorder.date) {
-    const date = new Date(preorder.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-    return fillCopy(copy.product.arrivesOn, { date });
+    return fillCopy(copy.product.arrivesOn, { date: formatShortDate(preorder.date) });
   }
   return fillCopy(copy.product.shipsInDays, { days: preorder.days ?? 30 });
 }
@@ -44,17 +44,26 @@ export default async function StorefrontProductDetailPage({
   // waterfall — each one waiting on the last — which is most of what made
   // this page feel slow to load. Running them together cuts that to a
   // single round trip.
-  const [, recentSales, relatedProducts, activeDiscounts, giftCatalog] = await Promise.all([
+  const [, recentSales, setProducts, relatedProductsRaw, activeDiscounts, giftCatalog] = await Promise.all([
     recordProductView(id),
     getStorefrontProductRecentSales(id),
+    getSetProducts(id),
     getRelatedProducts(id),
     getActiveDiscounts(),
     isEtbProduct(product) ? getGiftCatalog() : Promise.resolve(null),
   ]);
 
+  // Don't show the same product twice on the page if it qualifies for both
+  // sections.
+  const setProductIds = new Set(setProducts.map((p) => p.id));
+  const relatedProducts = relatedProductsRaw.filter((p) => !setProductIds.has(p.id));
+
   const brandLabel = PRODUCT_BRANDS.find((b) => b.value === product.brand)?.label ?? null;
   const setLanguageLabel =
     CARD_SET_LANGUAGES.find((l) => l.value === product.setLanguage)?.label ?? null;
+  const isLowStock =
+    product.inStock !== false && typeof product.stockCount === "number" && product.stockCount > 0 &&
+    product.stockCount <= LOW_STOCK_THRESHOLD;
 
   const etbProtector = giftCatalog
     ? (giftCatalog.find((g) => g.tags.includes(GIFT_ROLE_TAGS.etb_protector)) ?? null)
@@ -120,6 +129,16 @@ export default async function StorefrontProductDetailPage({
 
           {product.preorder && (
             <div className="text-sm text-blue-700">{preorderText(product.preorder)}</div>
+          )}
+          {isLowStock && (
+            <div className="text-sm font-medium text-orange-700">
+              {fillCopy(copy.product.onlyNLeft, { n: product.stockCount! })}
+            </div>
+          )}
+          {product.inStock === false && product.restockEtaDate && (
+            <div className="text-sm text-red-700">
+              {fillCopy(copy.product.backInStockOn, { date: formatShortDate(product.restockEtaDate) })}
+            </div>
           )}
 
           <div className="mt-2 flex items-baseline gap-2">
@@ -251,6 +270,17 @@ export default async function StorefrontProductDetailPage({
           </span>
         </div>
       </div>
+
+      {setProducts.length > 0 && (
+        <div className="mt-12">
+          <h2 className="mb-3 text-sm font-semibold text-gray-700">{copy.product.moreFromThisSet}</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {setProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {relatedProducts.length > 0 && (
         <div className="mt-12">

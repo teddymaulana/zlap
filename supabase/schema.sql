@@ -293,7 +293,12 @@ create table if not exists discount_products (
 create table if not exists purchase_lines (
   id uuid primary key default gen_random_uuid(),
   purchase_id uuid not null references purchases(id) on delete cascade,
-  product_id uuid not null references products(id),
+  -- Null when the line is for a product that doesn't exist in the catalog
+  -- yet (new_product_name holds its name instead) — pushToInventory
+  -- (app/actions/purchases.ts) creates the product row and backfills this
+  -- on push, so it's only ever null before that.
+  product_id uuid references products(id),
+  new_product_name text,
   qty numeric not null,
   unit_cost numeric not null,
   exclude_cost boolean not null default false,
@@ -301,7 +306,10 @@ create table if not exists purchase_lines (
   custom_landed_cost numeric,
   pushed boolean not null default false,
   inventory_batch_id uuid references inventory_batches(id) on delete set null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint purchase_lines_product_or_name check (
+    product_id is not null or new_product_name is not null
+  )
 );
 
 -- Storefront customer accounts — a lightweight auth system deliberately kept

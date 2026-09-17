@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import {
   addPurchaseLine,
   deletePurchaseLine,
+  pushPurchaseLine,
   pushToInventory,
   updatePurchaseLine,
 } from "@/app/actions/purchases";
@@ -30,8 +31,20 @@ export default function PurchaseLines({
   const [isPending, startTransition] = useTransition();
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [finalPriceOverrides, setFinalPriceOverrides] = useState<Record<string, number>>({});
+  const [copied, setCopied] = useState(false);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+
+  const lineDisplayName = (line: PurchaseLine) =>
+    (line.product_id && productById.get(line.product_id)?.name) ||
+    line.new_product_name ||
+    line.product_id ||
+    "Unknown product";
+
+  const copyText = useMemo(
+    () => lines.map((l) => `${l.qty}x ${lineDisplayName(l)}`).join("\n"),
+    [lines, productById]
+  );
 
   const matches = useMemo(() => {
     if (!search) return [];
@@ -77,6 +90,12 @@ export default function PurchaseLines({
             ))}
           </div>
         )}
+        {search.trim() && matches.length === 0 && !selectedProductId && (
+          <div className="mb-2 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            No match — adding this line will create a new product named &quot;{search.trim()}
+            &quot;.
+          </div>
+        )}
         <form
           action={(fd) =>
             startTransition(() => {
@@ -89,6 +108,11 @@ export default function PurchaseLines({
           className="grid grid-cols-2 gap-2 sm:grid-cols-5"
         >
           <input type="hidden" name="product_id" value={selectedProductId} />
+          <input
+            type="hidden"
+            name="new_product_name"
+            value={selectedProductId ? "" : search.trim()}
+          />
           <input
             name="qty"
             type="number"
@@ -120,13 +144,37 @@ export default function PurchaseLines({
           />
           <button
             type="submit"
-            disabled={!selectedProductId || isPending}
+            disabled={(!selectedProductId && !search.trim()) || isPending}
             className="relative col-span-2 rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50 sm:col-span-1"
           >
             <span className={isPending ? "invisible" : ""}>Add line</span>
             {isPending && <ButtonSpinner />}
           </button>
         </form>
+      </div>
+
+      <div className="rounded border p-3">
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-sm font-medium">Copy for supplier chat</label>
+          <button
+            type="button"
+            disabled={!copyText}
+            onClick={async () => {
+              await navigator.clipboard.writeText(copyText);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+            className="rounded border px-2 py-1 text-xs disabled:opacity-50 hover:bg-gray-50"
+          >
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+        <textarea
+          readOnly
+          value={copyText}
+          rows={Math.min(Math.max(lines.length, 2), 10)}
+          className="w-full resize-y rounded border px-3 py-2 font-mono text-sm"
+        />
       </div>
 
       <div className="overflow-x-auto rounded border">
@@ -156,7 +204,7 @@ export default function PurchaseLines({
           </thead>
           <tbody className="divide-y">
             {lines.map((line) => {
-              const product = productById.get(line.product_id);
+              const displayName = lineDisplayName(line);
               const allocatedFee = line.exclude_cost
                 ? 0
                 : line.use_custom_landed_cost
@@ -180,7 +228,7 @@ export default function PurchaseLines({
                         }
                         className="flex flex-col gap-2"
                       >
-                        <div className="font-medium">{product?.name ?? line.product_id}</div>
+                        <div className="font-medium">{displayName}</div>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                           <input
                             name="qty"
@@ -262,11 +310,13 @@ export default function PurchaseLines({
               }
               if (line.pushed) {
                 badges.push({ label: "Pushed", className: "bg-green-100 text-green-700" });
+              } else if (!line.product_id) {
+                badges.push({ label: "New product", className: "bg-blue-100 text-blue-700" });
               }
 
               return (
                 <tr key={line.id}>
-                  <td className="px-3 py-2 font-medium">{product?.name ?? line.product_id}</td>
+                  <td className="px-3 py-2 font-medium">{displayName}</td>
                   <td className="px-3 py-2 text-right">{line.qty}</td>
                   <td className="px-3 py-2 text-right">{formatMoney(line.unit_cost)}</td>
                   <td className="px-3 py-2 text-right">{formatMoney(allocatedFee)}</td>
@@ -306,26 +356,42 @@ export default function PurchaseLines({
                     </div>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    {!line.pushed && (
-                      <div className="flex justify-end gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setEditingLineId(line.id)}
-                          className="text-blue-600 hover:underline"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startTransition(() => deletePurchaseLine(purchaseId, line.id))
-                          }
-                          className="text-red-600 hover:underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        title={
+                          line.pushed
+                            ? "Recalculate landed cost from current fees and update the inventory batch"
+                            : undefined
+                        }
+                        onClick={() =>
+                          startTransition(() => pushPurchaseLine(purchaseId, line.id))
+                        }
+                        className="text-green-700 hover:underline"
+                      >
+                        {line.pushed ? "Re-push" : "Push"}
+                      </button>
+                      {!line.pushed && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditingLineId(line.id)}
+                            className="text-blue-600 hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startTransition(() => deletePurchaseLine(purchaseId, line.id))
+                            }
+                            className="text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

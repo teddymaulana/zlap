@@ -24,12 +24,14 @@ export default function PurchaseHeaderForm({
   totalItemCost,
   totalFees,
   grandTotal,
+  netIncomeEstimate,
 }: {
   purchase: Purchase;
   totalQty: number;
   totalItemCost: number;
   totalFees: number;
   grandTotal: number;
+  netIncomeEstimate: number;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -38,7 +40,7 @@ export default function PurchaseHeaderForm({
       action={(fd) => startTransition(() => updatePurchaseHeader(purchase.id, fd))}
       className="mb-6 flex flex-col gap-3 rounded border p-4"
     >
-      <div className="grid grid-cols-2 gap-3 border-b pb-3 text-center sm:grid-cols-4">
+      <div className="grid grid-cols-3 gap-3 border-b pb-3 text-center">
         <div>
           <div className="text-xs uppercase text-gray-500">Total products</div>
           <div className="text-2xl font-bold">{totalQty}</div>
@@ -54,6 +56,16 @@ export default function PurchaseHeaderForm({
         <div>
           <div className="text-xs uppercase text-gray-500">Total</div>
           <div className="text-2xl font-bold">{formatMoney(grandTotal)}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase text-gray-500">Net income estimate</div>
+          <div
+            className={`text-2xl font-bold ${
+              netIncomeEstimate >= 0 ? "text-green-700" : "text-red-600"
+            }`}
+          >
+            {formatMoney(netIncomeEstimate)}
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

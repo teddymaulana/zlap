@@ -12,7 +12,8 @@
     "checkYourOrder": "Cek pesanan Anda",
     "brandName": "ZLAP CARD",
     "qty": "Qty",
-    "close": "Close"
+    "close": "Close",
+    "loading": "Loading…"
   },
   "header": {
     "signIn": "Sign In",
@@ -22,7 +23,8 @@
     "menuAria": "Menu",
     "requestCard": "Request a card",
     "trackOrder": "Track order",
-    "openCart": "Open cart"
+    "openCart": "Open cart",
+    "closeSearch": "Close search"
   },
   "footer": {
     "instagramAria": "Instagram",
@@ -195,10 +197,13 @@
     "preorder": "Pre-order",
     "arrivesOn": "Arrives {date}",
     "shipsInDays": "Ships in ~{days} days",
+    "onlyNLeft": "Only {n} left",
+    "backInStockOn": "Back in stock around {date}",
     "freeShipping": "Free shipping",
     "authentic": "Authentic",
     "factorySealed": "Factory sealed",
     "relatedItems": "Related items",
+    "moreFromThisSet": "More from this set",
     "makeOffer": "Make an offer",
     "offerSent": "Offer sent",
     "offerEmailPrefix": "We'll email you at",

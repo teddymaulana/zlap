@@ -7,7 +7,8 @@ import { isSlabProduct } from "@/lib/productCategory";
 import { useCart } from "./CartContext";
 import { useWishlist } from "./WishlistContext";
 import NotifyMeModal from "./NotifyMeModal";
-import { copy, fillCopy } from "@/lib/copy";
+import { copy, fillCopy, formatShortDate } from "@/lib/copy";
+import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -16,8 +17,7 @@ function formatMoney(amount: number) {
 function preorderText(preorder: StorefrontProduct["preorder"]) {
   if (!preorder) return null;
   if (preorder.date) {
-    const date = new Date(preorder.date).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-    return fillCopy(copy.product.arrivesOn, { date });
+    return fillCopy(copy.product.arrivesOn, { date: formatShortDate(preorder.date) });
   }
   return fillCopy(copy.product.shipsInDays, { days: preorder.days ?? 30 });
 }
@@ -32,6 +32,9 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
   // null price (an active batch left with no direct_price set) always shows
   // as out of stock, regardless of actual quantity.
   const inStock = product.inStock !== false && product.price !== null;
+  const isLowStock =
+    inStock && typeof product.stockCount === "number" && product.stockCount > 0 &&
+    product.stockCount <= LOW_STOCK_THRESHOLD;
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
 
   return (
@@ -59,6 +62,10 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
           {!inStock ? (
             <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
               Out of Stock
+            </span>
+          ) : isLowStock ? (
+            <span className="rounded bg-orange-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              {fillCopy(copy.product.onlyNLeft, { n: product.stockCount! })}
             </span>
           ) : (
             product.preorder && (
@@ -102,6 +109,11 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
       {showSetName && <div className="text-xs text-gray-500">{product.setName}</div>}
       {product.preorder && (
         <div className="text-xs text-blue-700">{preorderText(product.preorder)}</div>
+      )}
+      {!inStock && product.restockEtaDate && (
+        <div className="text-xs text-red-700">
+          {fillCopy(copy.product.backInStockOn, { date: formatShortDate(product.restockEtaDate) })}
+        </div>
       )}
       <div className="mt-auto pt-2">
         <div className="flex flex-wrap items-baseline gap-1.5">

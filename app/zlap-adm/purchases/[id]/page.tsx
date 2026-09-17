@@ -39,6 +39,23 @@ export default async function PurchaseDetailPage({
   const totalQty = purchaseLines.reduce((sum, l) => sum + l.qty, 0);
   const grandTotal = totalItemCost + totalFees;
 
+  const feeAllocationBase = purchaseLines
+    .filter((l) => !l.exclude_cost && !l.use_custom_landed_cost)
+    .reduce((sum, l) => sum + l.unit_cost * l.qty, 0);
+  const netIncomeEstimate = purchaseLines.reduce((sum, l) => {
+    const allocatedFee = l.exclude_cost
+      ? 0
+      : l.use_custom_landed_cost
+        ? Number(l.custom_landed_cost) || 0
+        : feeAllocationBase > 0
+          ? Math.round((l.unit_cost / feeAllocationBase) * totalFees)
+          : 0;
+    const landedCost = l.unit_cost + allocatedFee;
+    const marketEst = landedCost * 1.18;
+    const defaultFinalPrice = marketEst * 1.1;
+    return sum + (defaultFinalPrice - marketEst) * l.qty;
+  }, 0);
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
       <h1 className="mb-6 text-xl font-semibold">{p.name || "Purchase"}</h1>
@@ -48,6 +65,7 @@ export default async function PurchaseDetailPage({
         totalItemCost={totalItemCost}
         totalFees={totalFees}
         grandTotal={grandTotal}
+        netIncomeEstimate={netIncomeEstimate}
       />
       <h2 className="mb-3 text-lg font-semibold">Lines</h2>
       <PurchaseLines

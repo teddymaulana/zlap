@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getGiftCatalog, type GiftCatalogItem } from "@/app/actions/gwp";
+import { getStorefrontAvailability } from "@/app/actions/storefront";
 import { computeEarnedGifts, giftRoleForTags, type GiftRole } from "@/lib/gwp";
 import {
   getActiveDiscounts,
@@ -47,7 +48,7 @@ type CartContextValue = {
   isOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
-  addItem: (product: NewCartItem) => void;
+  addItem: (product: NewCartItem) => Promise<void>;
   removeItem: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
   clearCart: () => void;
@@ -198,15 +199,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [items, giftCatalog, discounts, bogoFreeProducts, giftDataLoaded, hydrated]);
 
-  const addItem = (product: NewCartItem) => {
+  const addItem = async (product: NewCartItem) => {
+    // Re-fetch live stock right before adding — the same numeric count the
+    // cart drawer's "+" stepper caps against — so a product card or PDP
+    // can't push a line past what's actually available (the drawer button
+    // only clamps its own increment; it never protected these entry points).
+    const [row] = await getStorefrontAvailability([product.id]);
+    const available = row?.available;
+    // A product that's not in the cart yet and has just sold out (stock hit
+    // 0 between page load and this click) has nothing to show for itself —
+    // don't pop the drawer open with no explanation. An item already in the
+    // cart at its cap still opens the drawer, where the "Only N in stock"
+    // label under it explains why the qty didn't move.
+    let addedOrAlreadyPresent = true;
     setItems((prev) => {
       const existing = prev.find((i) => i.id === product.id);
       if (existing) {
+        if (typeof available === "number" && existing.qty >= available) return prev;
         return prev.map((i) => (i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
+      }
+      if (typeof available === "number" && available <= 0) {
+        addedOrAlreadyPresent = false;
+        return prev;
       }
       return [...prev, { ...product, tags: product.tags ?? [], isGift: false, qty: 1 }];
     });
-    setIsOpen(true);
+    if (addedOrAlreadyPresent) setIsOpen(true);
   };
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));

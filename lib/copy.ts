@@ -12,3 +12,9 @@ export const copy = raw;
 export function fillCopy(template: string, vars: Record<string, string | number>) {
   return template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? ""));
 }
+
+// Shared "3 Jan"-style formatting for the two customer-facing date estimates
+// (pre-order arrival, restock ETA) so both stay visually consistent.
+export function formatShortDate(iso: string) {
+  return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+}

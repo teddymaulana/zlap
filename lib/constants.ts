@@ -1,5 +1,12 @@
 export const PAGE_SIZE = 25;
 
+// Threshold at/under which a product's numeric stock count shows an "Only N
+// left" badge instead of just "in stock" (ProductCard, PDP). Set to 0
+// (disabled) for now — too much of the catalog sits at low stock, so the
+// badge fired on most listings instead of signaling real scarcity. Raise
+// this back once the catalog/threshold combo makes it meaningful again.
+export const LOW_STOCK_THRESHOLD = 0;
+
 export const BALANCE_CATEGORIES = [
   { value: "shopee_payout", label: "Shopee Payout" },
   { value: "tokopedia_payout", label: "Tokopedia Payout" },

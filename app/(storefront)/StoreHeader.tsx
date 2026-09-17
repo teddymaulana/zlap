@@ -3,14 +3,19 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCart } from "./CartContext";
 import { getCurrentCustomer } from "@/app/actions/customer";
 import { copy } from "@/lib/copy";
+import HeaderSearch from "./HeaderSearch";
 
 export default function StoreHeader({ tagline }: { tagline: string }) {
   const { openCart, totalCount } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const closeMenu = () => setIsMenuOpen(false);
+  // The homepage already has its own full-size search bar in the body —
+  // the header icon would just be a redundant second way to search there.
+  const isHome = usePathname() === "/";
   // Defaults to "Sign In" (the common case for a first-time visitor) until
   // the session check resolves, rather than flashing "Account" for guests.
   const [accountLabel, setAccountLabel] = useState(copy.header.signIn);
@@ -23,7 +28,7 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
 
   return (
     <header className="sticky top-0 z-20 border-b bg-white">
-      <div className="mx-auto grid w-full max-w-5xl grid-cols-3 items-center px-4 py-2">
+      <div className="relative mx-auto grid w-full max-w-5xl grid-cols-3 items-center px-4 py-2">
         <div className="col-start-1 flex items-center gap-2 justify-self-start">
           <button
             type="button"
@@ -72,38 +77,51 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
           >
             {copy.header.trackOrder}
           </Link>
-          <Link
-            href="/account"
-            className="hidden text-sm text-gray-600 hover:text-black sm:inline"
-          >
-            {accountLabel}
-          </Link>
-          <button
-            type="button"
-            onClick={openCart}
-            aria-label={copy.header.openCart}
-            className="relative rounded-full p-2 hover:bg-gray-100"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6"
+          <div className="flex items-center gap-0">
+            {!isHome && <HeaderSearch />}
+            <Link
+              href="/account"
+              aria-label={accountLabel}
+              className="hidden rounded-full p-2 text-black hover:bg-gray-100 sm:inline-flex"
             >
-              <circle cx="9" cy="21" r="1" />
-              <circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-            </svg>
-            {totalCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">
-                {totalCount}
-              </span>
-            )}
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-6 w-6"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20a8 8 0 0 1 16 0" />
+              </svg>
+            </Link>
+            <button
+              type="button"
+              onClick={openCart}
+              aria-label={copy.header.openCart}
+              className="relative rounded-full p-2 text-black hover:bg-gray-100"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="h-6 w-6"
+              >
+                <path
+                  d="M8 8a4 4 0 0 1 8 0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+                <rect x="4" y="8" width="16" height="12" rx="2" />
+              </svg>
+              {totalCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-semibold text-white">
+                  {totalCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

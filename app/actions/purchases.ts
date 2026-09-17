@@ -42,12 +42,16 @@ export async function updatePurchaseHeader(purchaseId: string, formData: FormDat
 
 export async function addPurchaseLine(purchaseId: string, formData: FormData) {
   const productId = String(formData.get("product_id") ?? "");
-  if (!productId) throw new Error("Pick a product first");
+  const newProductName = String(formData.get("new_product_name") ?? "").trim();
+  if (!productId && !newProductName) {
+    throw new Error("Pick a product or enter a new product name");
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.from("purchase_lines").insert({
     purchase_id: purchaseId,
-    product_id: productId,
+    product_id: productId || null,
+    new_product_name: productId ? null : newProductName,
     qty: Number(formData.get("qty")) || 0,
     unit_cost: Number(formData.get("unit_cost")) || 0,
     exclude_cost: formData.get("exclude_cost") === "on",
@@ -99,8 +103,15 @@ export async function deletePurchaseLine(purchaseId: string, lineId: string) {
 
 // Allocates the purchase's total shipping/handling fees across lines
 // proportionally to unit_cost * qty, then creates one inventory batch per
-// unpushed line. Lines already pushed are left untouched (idempotent).
-export async function pushToInventory(purchaseId: string) {
+// unpushed line. A line with no product_id yet (new_product_name set
+// instead) gets its product created here first, and the line backfilled
+// with the new product_id.
+//
+// Bulk pushes (onlyLineIds omitted) skip lines already pushed. A specific
+// line passed via onlyLineIds is always processed, even if already pushed —
+// that's a deliberate re-push, used when the purchase's fees changed after
+// the first push and the already-created batch's cost needs recalculating.
+async function pushLines(purchaseId: string, onlyLineIds?: string[]) {
   const supabase = await createClient();
 
   const [{ data: purchase, error: purchaseError }, { data: lines, error: linesError }] =
@@ -127,7 +138,12 @@ export async function pushToInventory(purchaseId: string) {
   const acquiredDate = purchase.date ?? new Date().toISOString().slice(0, 10);
 
   for (const line of lines) {
-    if (line.pushed) continue;
+    const isRepush = Boolean(onlyLineIds?.includes(line.id));
+    if (onlyLineIds) {
+      if (!isRepush) continue;
+    } else if (line.pushed) {
+      continue;
+    }
 
     let allocatedFee = 0;
     if (!line.exclude_cost) {
@@ -139,10 +155,30 @@ export async function pushToInventory(purchaseId: string) {
     }
     const cost = line.unit_cost + allocatedFee;
 
+    if (line.pushed && line.inventory_batch_id) {
+      const { error: batchUpdateError } = await supabase
+        .from("inventory_batches")
+        .update({ cost })
+        .eq("id", line.inventory_batch_id);
+      if (batchUpdateError) throw new Error(batchUpdateError.message);
+      continue;
+    }
+
+    let productId = line.product_id as string | null;
+    if (!productId) {
+      const { data: newProduct, error: productError } = await supabase
+        .from("products")
+        .insert({ name: line.new_product_name })
+        .select("id")
+        .single();
+      if (productError) throw new Error(productError.message);
+      productId = newProduct.id;
+    }
+
     const { data: batch, error: batchError } = await supabase
       .from("inventory_batches")
       .insert({
-        product_id: line.product_id,
+        product_id: productId,
         qty: line.qty,
         cost,
         acquired_date: acquiredDate,
@@ -154,11 +190,19 @@ export async function pushToInventory(purchaseId: string) {
 
     const { error: lineUpdateError } = await supabase
       .from("purchase_lines")
-      .update({ pushed: true, inventory_batch_id: batch.id })
+      .update({ product_id: productId, pushed: true, inventory_batch_id: batch.id })
       .eq("id", line.id);
     if (lineUpdateError) throw new Error(lineUpdateError.message);
   }
 
   revalidatePath(`/zlap-adm/purchases/${purchaseId}`);
   revalidatePath("/zlap-adm/products");
+}
+
+export async function pushToInventory(purchaseId: string) {
+  await pushLines(purchaseId);
+}
+
+export async function pushPurchaseLine(purchaseId: string, lineId: string) {
+  await pushLines(purchaseId, [lineId]);
 }
