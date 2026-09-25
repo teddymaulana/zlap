@@ -192,6 +192,20 @@ export default function GuestOrderLookupPage() {
               </div>
             </div>
 
+            {/* Paid but not handed to the courier yet — without this the page shows
+                nothing about shipping at all. updateOrderAwb emails the customer
+                (sendShippedEmail) once an AWB is added. */}
+            {order.payment_status === "paid" &&
+              !order.awb &&
+              order.status === "pending" &&
+              !order.cancellation_requested_at && (
+                <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 text-sm">
+                  <div className="mb-1 font-medium">Your order is being packed</div>
+                  <p className="text-gray-600">
+                    We&apos;ll email you the tracking number as soon as it&apos;s handed to the courier.
+                  </p>
+                </div>
+              )}
             {order.awb && (
               <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 text-sm">
                 <div className="mb-1 text-gray-500">Tracking (AWB)</div>
