@@ -467,6 +467,7 @@ export type CustomerOrderDetail = {
     deeplink_url?: string;
     payment_code?: string;
     store?: string;
+    redirect_url?: string;
   } | null;
   awb: string | null;
   customer_name: string | null;

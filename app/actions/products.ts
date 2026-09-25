@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { StorefrontSettings, StorefrontShortcutBadge } from "@/lib/types";
+import type { PaymentGateway, StorefrontSettings, StorefrontShortcutBadge } from "@/lib/types";
 
 // Batch changes live in a separate table, so they don't trip the products
 // table's set_updated_at trigger on their own — touch the parent row so the
@@ -286,6 +286,17 @@ export async function updateStorefrontSettings(headerTagline: string, announceme
   // "layout" since the header/announcement bar render from the shared
   // / layout, not just the / homepage.
   revalidatePath("/", "layout");
+}
+
+// Which payment gateway new checkouts are charged through — read live by
+// the checkout page itself (getActivePaymentGateway in app/actions/checkout.ts),
+// so this doesn't need a storefront revalidatePath, only the admin page.
+export async function updatePaymentGateway(gateway: PaymentGateway) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("storefront_settings").update({ payment_gateway: gateway }).eq("id", 1);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/zlap-adm/storefront");
 }
 
 export async function addPopularKeyword(keyword: string) {

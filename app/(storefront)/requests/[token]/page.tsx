@@ -12,6 +12,8 @@ import { getCurrentCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import AddressRegionSelect from "../../AddressRegionSelect";
 import PaymentMethodPicker, { type PaymentSelection } from "../../checkout/PaymentMethodPicker";
+import { useActivePaymentGateway } from "../../checkout/useActivePaymentGateway";
+import { copy } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -31,6 +33,7 @@ export default function CardRequestCheckoutPage() {
   const [region, setRegion] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection | null>(null);
+  const gateway = useActivePaymentGateway();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
@@ -73,7 +76,7 @@ export default function CardRequestCheckoutPage() {
       setSubmitError("Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos");
       return;
     }
-    if (!paymentSelection) {
+    if (gateway === "midtrans" && !paymentSelection) {
       setSubmitError("Please select a payment method");
       return;
     }
@@ -83,8 +86,8 @@ export default function CardRequestCheckoutPage() {
       const res = await createCardRequestOrderAndCharge(
         token,
         { name, phone, address: `${address}, ${region}`, email },
-        paymentSelection.method,
-        paymentSelection.bank
+        gateway === "doku" ? "doku_checkout" : paymentSelection!.method,
+        gateway === "doku" ? undefined : paymentSelection!.bank
       );
       if ("error" in res) {
         setSubmitError(res.error);
@@ -95,6 +98,12 @@ export default function CardRequestCheckoutPage() {
       // order is already charged at this point, so the customer needs a
       // way forward rather than a frozen form.
       setCreatedOrderId(res.orderId);
+      // DOKU: straight to its hosted payment page — its callback_url brings
+      // the customer back to /checkout?order=… afterwards.
+      if (res.redirectUrl) {
+        window.location.href = res.redirectUrl;
+        return;
+      }
       router.replace(`/checkout?order=${encodeURIComponent(res.orderId)}`);
     } finally {
       setIsSubmitting(false);
@@ -206,7 +215,11 @@ export default function CardRequestCheckoutPage() {
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
 
-          <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
+          {gateway === "midtrans" ? (
+            <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
+          ) : (
+            <p className="text-sm text-gray-500">{copy.checkout.paymentMethodOnDoku}</p>
+          )}
 
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 

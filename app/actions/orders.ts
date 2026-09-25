@@ -149,16 +149,19 @@ export async function removeOrderLine(orderId: string, lineId: string) {
 }
 
 // Approving a cancellation attempts a Midtrans refund when the order was
-// paid. bank_transfer (VA) can't be refunded through the API — Midtrans
-// rejects it — so that case falls back to payment_status='refund_pending'
-// for staff to wire the money back manually and confirm with
-// markRefundComplete below.
+// paid via Midtrans. bank_transfer (VA) can't be refunded through the API —
+// Midtrans rejects it — so that case falls back to
+// payment_status='refund_pending' for staff to wire the money back manually
+// and confirm with markRefundComplete below. DOKU Checkout orders always
+// fall back to manual too — DOKU doesn't publish a confirmed refund API for
+// its hosted Checkout product (see lib/doku.ts), so there's no automated
+// path to even attempt.
 export async function approveCancellation(orderId: string) {
   const supabase = await createClient();
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, order_id, payment_status, customer_email")
+    .select("id, order_id, payment_status, payment_method, customer_email")
     .eq("id", orderId)
     .maybeSingle();
   if (orderError) throw new Error(orderError.message);
@@ -174,12 +177,16 @@ export async function approveCancellation(orderId: string) {
     if (linesError) throw new Error(linesError.message);
     const total = (lines ?? []).reduce((sum, l) => sum + (l.price ?? 0), 0);
 
-    try {
-      await refundMidtrans(order.order_id, Math.round(total), "Customer requested cancellation");
-      paymentStatus = "refunded";
-    } catch {
-      // Expected for bank_transfer (VA) — no API refund path exists.
+    if (order.payment_method === "doku_checkout") {
       paymentStatus = "refund_pending";
+    } else {
+      try {
+        await refundMidtrans(order.order_id, Math.round(total), "Customer requested cancellation");
+        paymentStatus = "refunded";
+      } catch {
+        // Expected for bank_transfer (VA) — no API refund path exists.
+        paymentStatus = "refund_pending";
+      }
     }
   }
 

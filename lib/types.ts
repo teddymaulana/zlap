@@ -83,10 +83,13 @@ export type StorefrontSection = {
   title: string;
 };
 
+export type PaymentGateway = "midtrans" | "doku";
+
 export type StorefrontSettings = {
   id: number;
   header_tagline: string;
   announcement_messages: string[];
+  payment_gateway: PaymentGateway;
   updated_at: string;
 };
 

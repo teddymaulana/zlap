@@ -3,7 +3,10 @@
 import { headers } from "next/headers";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { chargeMidtrans, type MidtransChargeRequest } from "@/lib/midtrans";
+import { chargeDoku } from "@/lib/doku";
+import type { PaymentGateway } from "@/lib/types";
 import { getCurrentCustomerId } from "@/lib/customerAuth";
+import { createClient } from "@/lib/supabase/server";
 import { sendOrderConfirmationEmail, type OrderConfirmationLine } from "@/lib/email";
 import { ALL_GIFT_TAGS, computeEarnedGifts, giftRoleForTags, isGiftProduct, type GiftRole } from "@/lib/gwp";
 import { getActiveDiscounts } from "@/app/actions/discounts";
@@ -21,7 +24,11 @@ function serviceClient() {
 
 export type CheckoutItem = { productId: string; qty: number };
 
-export type CheckoutPaymentMethod = "bank_transfer" | "qris" | "gopay" | "shopeepay" | "cstore";
+// "doku_checkout" is a stand-in for however DOKU's hosted page ends up
+// charging the customer — unlike the other values (all Midtrans Core API
+// payment types the customer picks on our own site), the actual channel is
+// chosen on DOKU's page, not ours.
+export type CheckoutPaymentMethod = "bank_transfer" | "qris" | "gopay" | "shopeepay" | "cstore" | "doku_checkout";
 export type CheckoutBank = "bca" | "bni" | "bri" | "permata";
 
 export type CheckoutResult =
@@ -36,9 +43,34 @@ export type CheckoutResult =
       deeplinkUrl?: string;
       paymentCode?: string;
       store?: string;
+      // DOKU Checkout only — the hosted payment page the customer must be
+      // sent to in order to actually pay.
+      redirectUrl?: string;
     };
 
 export type CheckoutSuccess = Exclude<CheckoutResult, { error: string }>;
+
+// Lets the checkout page decide, before the customer submits, whether to
+// show the Midtrans payment-method picker or DOKU's "you'll choose on the
+// next screen" copy — see app/(storefront)/checkout/page.tsx.
+export async function getActivePaymentGateway(): Promise<PaymentGateway> {
+  const service = serviceClient();
+  const { data } = await service.from("storefront_settings").select("payment_gateway").eq("id", 1).maybeSingle();
+  return data?.payment_gateway === "doku" ? "doku" : "midtrans";
+}
+
+// Cart checkout is admin-only while the payment gateway is being tested —
+// a Supabase Auth session only ever exists for admin (storefront customers
+// use customer_sessions, and the Google sign-in callback signs Supabase Auth
+// straight back out). Existing order lookups (`/checkout?order=`) and the
+// admin-issued pay/offer/request links aren't gated by this.
+export async function canPlaceOrders(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return !!user;
+}
 
 export async function getOrderPaymentStatus(orderCode: string) {
   const service = serviceClient();
@@ -70,6 +102,7 @@ export async function getOrderPaymentDetails(orderCode: string): Promise<Checkou
     deeplink_url?: string;
     payment_code?: string;
     store?: string;
+    redirect_url?: string;
   };
 
   return {
@@ -82,6 +115,7 @@ export async function getOrderPaymentDetails(orderCode: string): Promise<Checkou
     deeplinkUrl: details.deeplink_url,
     paymentCode: details.payment_code,
     store: details.store,
+    redirectUrl: details.redirect_url,
   };
 }
 
@@ -110,15 +144,16 @@ export async function chargeExistingOrder(params: {
 }): Promise<CheckoutResult> {
   const { service, orderInternalId, orderCode, lines, grossAmount, customer, paymentMethod, bankCode, buildEmailLines } =
     params;
-  const { name, phone, email } = customer;
+  const { name, phone, address, email } = customer;
 
   try {
     // Group per-unit order lines into per-(product, price) quantities for
-    // Midtrans' item_details — without this the transaction shows only the
-    // total amount, with no line-item breakdown in the Midtrans dashboard.
-    // Keyed by product+price (not product alone) since an ERP-built order
-    // can have two lines on the same product at two different admin-set
-    // prices — grouping by product alone would silently drop one price.
+    // the gateway's item breakdown — without this the transaction shows
+    // only the total amount, with no line-item detail in the gateway's own
+    // dashboard. Keyed by product+price (not product alone) since an
+    // ERP-built order can have two lines on the same product at two
+    // different admin-set prices — grouping by product alone would silently
+    // drop one price.
     const qtyAndPriceByKey = new Map<string, { productId: string; price: number; quantity: number }>();
     for (const line of lines) {
       const key = `${line.product_id}:${line.price}`;
@@ -135,9 +170,70 @@ export async function chargeExistingOrder(params: {
       id: key,
       price: Math.round(v.price),
       quantity: v.quantity,
-      // Midtrans caps item name at 50 characters.
+      // Midtrans caps item name at 50 characters; harmless to apply for DOKU too.
       name: (productNameById.get(v.productId) ?? "Item").slice(0, 50),
     }));
+
+    // gross_amount must equal the sum of item_details exactly (both
+    // gateways reject the charge otherwise for several payment types) —
+    // derive it from the rounded item prices rather than rounding the raw total.
+    const itemDetailsTotal = itemDetails.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+    // Never trust the client's claimed payment method for which gateway to
+    // charge through — re-derive the active gateway from admin settings and
+    // ignore/reject anything inconsistent with it.
+    const { data: settings } = await service
+      .from("storefront_settings")
+      .select("payment_gateway")
+      .eq("id", 1)
+      .maybeSingle();
+    const gateway = settings?.payment_gateway === "doku" ? "doku" : "midtrans";
+
+    if (gateway === "doku") {
+      const headersList = await headers();
+      const host = headersList.get("host") ?? "localhost:3000";
+      const protocol = host.startsWith("localhost") ? "http" : "https";
+      const resultUrl = `${protocol}://${host}/checkout?order=${encodeURIComponent(orderCode)}`;
+
+      const charge = await chargeDoku({
+        order: {
+          amount: itemDetailsTotal,
+          invoice_number: orderCode,
+          currency: "IDR",
+          callback_url: resultUrl,
+          callback_url_result: resultUrl,
+          line_items: itemDetails.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity })),
+        },
+        payment: { payment_due_date: 60 },
+        customer: { name, email, phone, address, country: "ID" },
+      });
+
+      const redirectUrl = charge.response.payment.url;
+
+      await service
+        .from("orders")
+        .update({
+          payment_method: "doku_checkout",
+          payment_status: "pending",
+          payment_details: { redirect_url: redirectUrl, token_id: charge.response.payment.token_id },
+        })
+        .eq("id", orderInternalId);
+
+      await sendOrderConfirmationEmail({
+        to: email,
+        orderCode,
+        lines: await buildEmailLines(),
+        total: grossAmount,
+        paymentMethod: "doku_checkout",
+        redirectUrl,
+      });
+
+      return { orderId: orderCode, paymentMethod: "doku_checkout", redirectUrl };
+    }
+
+    if (paymentMethod === "doku_checkout") {
+      return { error: "Payment method is no longer available — please reload and try again" };
+    }
 
     let extra: Partial<MidtransChargeRequest> = {};
     if (paymentMethod === "bank_transfer") {
@@ -152,11 +248,6 @@ export async function chargeExistingOrder(params: {
     } else if (paymentMethod === "cstore") {
       extra = { cstore: { store: "indomaret", message: `Zlap order ${orderCode}` } };
     }
-
-    // gross_amount must equal the sum of item_details exactly (Midtrans
-    // rejects the charge otherwise for several payment types) — derive it
-    // from the rounded item prices rather than rounding the raw total.
-    const itemDetailsTotal = itemDetails.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
     const charge = await chargeMidtrans({
       payment_type: paymentMethod,
@@ -296,6 +387,7 @@ export async function createOrderAndCharge(
     return { error: "Name, phone, email, and address are required" };
   }
   if (items.length === 0) return { error: "Your cart is empty" };
+  if (!(await canPlaceOrders())) return { error: "Checkout isn't available yet" };
 
   const service = serviceClient();
 

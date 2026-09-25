@@ -50,7 +50,9 @@ export default function CancellationPanel({ order }: { order: Order }) {
       <div className="mb-6 rounded border border-red-300 bg-red-50 p-4 text-sm">
         <div className="mb-1 font-medium text-red-900">Manual refund needed</div>
         <p className="mb-2 text-red-800">
-          This was paid by bank transfer — Midtrans can&apos;t refund a VA payment automatically.
+          {order.payment_method === "doku_checkout"
+            ? "This was paid via DOKU — DOKU Checkout refunds aren't automated here."
+            : "This was paid by bank transfer — Midtrans can't refund a VA payment automatically."}{" "}
           Transfer the money back to the customer manually, then confirm below.
         </p>
         <button

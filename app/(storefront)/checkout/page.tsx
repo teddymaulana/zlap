@@ -7,6 +7,7 @@ import ButtonSpinner from "@/app/ButtonSpinner";
 import PageSpinner from "@/app/PageSpinner";
 import { useCart } from "../CartContext";
 import {
+  canPlaceOrders,
   createOrderAndCharge,
   getOrderPaymentDetails,
   getOrderPaymentStatus,
@@ -17,6 +18,7 @@ import QrPayment from "../QrPayment";
 import AddressRegionSelect from "../AddressRegionSelect";
 import FloatingLabelInput from "../FloatingLabelInput";
 import FloatingLabelTextarea from "../FloatingLabelTextarea";
+import { useActivePaymentGateway } from "./useActivePaymentGateway";
 import PaymentMethodPicker, { type PaymentSelection } from "./PaymentMethodPicker";
 import { isGradedOrSingleProduct } from "@/lib/productCategory";
 import { CARD_SET_LANGUAGES } from "@/lib/constants";
@@ -30,11 +32,6 @@ function setLanguageLabel(item: { tags: string[]; name: string; setLanguage?: "e
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
 }
-
-// Checkout is paused while the payment gateway integration is finished —
-// flip this back on to re-enable placing new orders. Existing order status
-// lookups (the `?order=` flow above) stay working either way.
-const CHECKOUT_ENABLED = false;
 
 // Device-local only — deliberately never sent to the server. The customers
 // table intentionally doesn't store addresses server-side (see the comment
@@ -73,8 +70,18 @@ export default function CheckoutPage() {
   const [saveShipping, setSaveShipping] = useState(false);
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Placing new orders is admin-only while the payment gateway is being
+  // tested (see canPlaceOrders) — everyone else gets the coming-soon notice.
+  // Existing order status lookups (the `?order=` flow) stay working either way.
+  const [checkoutEnabled, setCheckoutEnabled] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckoutSuccess | null>(null);
+  const gateway = useActivePaymentGateway();
+  // True only for the order this tab itself just created — distinguishes a
+  // fresh DOKU checkout (which should auto-redirect to DOKU's payment page)
+  // from resuming one via a reload or the `?order=` bounce-back link DOKU
+  // itself sends the customer to, where auto-redirecting again would loop.
+  const [justSubmitted, setJustSubmitted] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   // Read reactively (not a one-time useState initializer): this route can be
   // reached via router.replace() from the card-request quote checkout, and
@@ -150,6 +157,21 @@ export default function CheckoutPage() {
     }
   }, [result, paymentStatus]);
 
+  // Fresh DOKU checkout only — send the customer straight to DOKU's hosted
+  // payment page. A resumed order (page reload, or the bounce-back DOKU
+  // itself sends the customer to) is excluded via `justSubmitted`, since
+  // `result.redirectUrl` is still set at that point and would otherwise
+  // send them right back to DOKU in a loop.
+  useEffect(() => {
+    if (justSubmitted && result?.paymentMethod === "doku_checkout" && result.redirectUrl) {
+      window.location.href = result.redirectUrl;
+    }
+  }, [justSubmitted, result]);
+
+  useEffect(() => {
+    canPlaceOrders().then(setCheckoutEnabled);
+  }, []);
+
   useEffect(() => {
     getCurrentCustomer().then((customer) => {
       if (!customer) return;
@@ -190,7 +212,7 @@ export default function CheckoutPage() {
       setError(copy.checkout.missingRegion);
       return;
     }
-    if (!paymentSelection) {
+    if (gateway === "midtrans" && !paymentSelection) {
       setError(copy.checkout.missingPaymentMethod);
       return;
     }
@@ -206,8 +228,8 @@ export default function CheckoutPage() {
         // and filter out on its own.
         items.filter((i) => !i.isGift).map((i) => ({ productId: i.id, qty: i.qty })),
         { name, phone, address: `${address}, ${region}`, email },
-        paymentSelection.method,
-        paymentSelection.bank,
+        gateway === "doku" ? "doku_checkout" : paymentSelection!.method,
+        gateway === "doku" ? undefined : paymentSelection!.bank,
         appliedCode ?? undefined
       );
       if ("error" in res) {
@@ -215,6 +237,7 @@ export default function CheckoutPage() {
         return;
       }
       setResult(res);
+      setJustSubmitted(true);
       window.history.replaceState(null, "", `/checkout?order=${encodeURIComponent(res.orderId)}`);
       clearCart();
       // The form can be long enough that the Pay button sits well below the
@@ -286,6 +309,23 @@ export default function CheckoutPage() {
                   </p>
                 </div>
               )}
+              {result.paymentMethod === "doku_checkout" &&
+                (justSubmitted ? (
+                  <div className="flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-6 text-center">
+                    <PageSpinner label={copy.checkout.redirectingToDoku} />
+                  </div>
+                ) : (
+                  result.redirectUrl && (
+                    <a
+                      href={result.redirectUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-lg bg-black px-4 py-3 text-center text-sm font-medium text-white hover:bg-gray-800"
+                    >
+                      {copy.checkout.continueToPayment}
+                    </a>
+                  )
+                ))}
               <div className="mt-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400" />
@@ -372,7 +412,17 @@ export default function CheckoutPage() {
     );
   }
 
-  if (!CHECKOUT_ENABLED) {
+  if (checkoutEnabled === null) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto w-full max-w-md px-4 py-10">
+          <PageSpinner />
+        </div>
+      </div>
+    );
+  }
+
+  if (!checkoutEnabled) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="mx-auto w-full max-w-md px-4 py-10">
@@ -496,7 +546,11 @@ export default function CheckoutPage() {
           </label>
 
           <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentMethodHeading}</h2>
-          <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
+          {gateway === "midtrans" ? (
+            <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
+          ) : (
+            <p className="text-sm text-gray-500">{copy.checkout.paymentMethodOnDoku}</p>
+          )}
 
           <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentSummary}</h2>
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">

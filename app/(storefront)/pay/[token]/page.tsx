@@ -6,6 +6,8 @@ import { getOrderByToken, payOrderByToken, type OrderCheckoutInfo } from "@/app/
 import { getCurrentCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import PaymentMethodPicker, { type PaymentSelection } from "../../checkout/PaymentMethodPicker";
+import { useActivePaymentGateway } from "../../checkout/useActivePaymentGateway";
+import { copy } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -24,6 +26,7 @@ export default function OrderPayPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection | null>(null);
+  const gateway = useActivePaymentGateway();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -54,7 +57,7 @@ export default function OrderPayPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentSelection) {
+    if (gateway === "midtrans" && !paymentSelection) {
       setSubmitError("Please select a payment method");
       return;
     }
@@ -64,11 +67,17 @@ export default function OrderPayPage() {
       const res = await payOrderByToken(
         token,
         { name, phone, address, email },
-        paymentSelection.method,
-        paymentSelection.bank
+        gateway === "doku" ? "doku_checkout" : paymentSelection!.method,
+        gateway === "doku" ? undefined : paymentSelection!.bank
       );
       if ("error" in res) {
         setSubmitError(res.error);
+        return;
+      }
+      // DOKU: straight to its hosted payment page — its callback_url brings
+      // the customer back to /checkout?order=… afterwards.
+      if (res.redirectUrl) {
+        window.location.href = res.redirectUrl;
         return;
       }
       router.replace(`/checkout?order=${encodeURIComponent(res.orderId)}`);
@@ -161,7 +170,11 @@ export default function OrderPayPage() {
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
 
-          <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
+          {gateway === "midtrans" ? (
+            <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
+          ) : (
+            <p className="text-sm text-gray-500">{copy.checkout.paymentMethodOnDoku}</p>
+          )}
 
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 

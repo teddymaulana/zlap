@@ -88,7 +88,7 @@
       },
       {
         "heading": "5. Pembayaran",
-        "body": "Pembayaran diproses melalui Midtrans, payment gateway berizin di Indonesia. Metode pembayaran yang tersedia meliputi transfer virtual account bank, QRIS, GoPay, ShopeePay, dan kode pembayaran di gerai ritel, sesuai yang ditampilkan di halaman checkout. Kami tidak menerima transfer manual di luar metode yang tercantum tersebut."
+        "body": "Pembayaran diproses melalui Midtrans atau DOKU, payment gateway berizin di Indonesia. Metode pembayaran yang tersedia meliputi transfer virtual account bank, QRIS, e-wallet, dan kode pembayaran di gerai ritel, sesuai yang ditampilkan di halaman checkout. Kami tidak menerima transfer manual di luar metode yang tercantum tersebut."
       },
       {
         "heading": "6. Pengembalian Dana & Pembatalan",
@@ -131,10 +131,10 @@
     "cancellationHeading": "Pembatalan Pesanan",
     "cancellationBody": "Permohonan refund hanya bisa dilakukan sebelum kami menyerahkan pesanan ke pihak kurir pengiriman. Ajukan permohonan pembatalan dengan menghubungi kami melalui WhatsApp atau email — permohonan tidak dapat diajukan melalui cara lain. Setelah pesanan diserahkan ke kurir, pembatalan tidak lagi dapat diajukan.",
     "processHeading": "Proses Pengembalian Dana",
-    "processIntro": "Setelah permintaan pembatalan Anda disetujui, kami memproses pengembalian dana melalui Midtrans sesuai metode pembayaran yang Anda gunakan:",
+    "processIntro": "Setelah permintaan pembatalan Anda disetujui, kami memproses pengembalian dana sesuai payment gateway dan metode pembayaran yang Anda gunakan:",
     "processItems": [
-      "QRIS, GoPay, ShopeePay, dan kode pembayaran gerai ritel dikembalikan secara otomatis melalui Midtrans.",
-      "Pembayaran transfer bank (virtual account) memerlukan pengembalian dana secara manual oleh tim kami, karena Midtrans tidak mendukung refund otomatis untuk metode ini."
+      "QRIS, GoPay, ShopeePay, dan kode pembayaran gerai ritel yang dibayar melalui Midtrans dikembalikan secara otomatis.",
+      "Pembayaran transfer bank (virtual account) melalui Midtrans, serta seluruh pembayaran melalui DOKU, memerlukan pengembalian dana secara manual oleh tim kami."
     ],
     "stockHeading": "Stok Tidak Tersedia",
     "stockBody": "Dalam kasus yang jarang terjadi di mana produk yang Anda pesan ternyata tidak tersedia setelah pesanan dibuat, kami akan menghubungi Anda dan memproses pengembalian dana penuh.",
@@ -270,6 +270,9 @@
     "orLookupSuffix": "kapan saja dengan kode pesanan dan email Anda untuk melihat statusnya.",
     "missingRegion": "Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos",
     "missingPaymentMethod": "Please select a payment method",
+    "paymentMethodOnDoku": "You'll choose how to pay (bank transfer, QRIS, e-wallet, etc.) on the next screen.",
+    "redirectingToDoku": "Redirecting you to complete your payment…",
+    "continueToPayment": "Continue to payment",
     "loadingOrder": "Loading your order…",
     "emptyCart": "Your cart is empty.",
     "orderNotFound": "Kami tidak dapat menemukan pesanan tersebut. Tautan mungkin salah atau pesanan sudah tidak ada.",

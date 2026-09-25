@@ -610,6 +610,14 @@ create table if not exists storefront_settings (
 
 insert into storefront_settings (id) values (1) on conflict (id) do nothing;
 
+-- Which payment gateway processes new checkouts — Midtrans is mid-review
+-- with the bank, so admin can switch to DOKU in the meantime (see
+-- lib/doku.ts, lib/midtrans.ts, and the branch in chargeExistingOrder).
+alter table storefront_settings add column if not exists payment_gateway text not null default 'midtrans';
+alter table storefront_settings drop constraint if exists storefront_settings_payment_gateway_check;
+alter table storefront_settings add constraint storefront_settings_payment_gateway_check
+  check (payment_gateway in ('midtrans', 'doku'));
+
 -- Indonesia's official administrative regions (province -> city/regency ->
 -- kecamatan -> kelurahan/desa), sourced from cahyadsn/wilayah (Kepmendagri
 -- codes) via scripts/import-regions.ts. Powers the cascading address

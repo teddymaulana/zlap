@@ -3,9 +3,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Everything outside "/zlap-adm" is the public storefront — it has its own
 // dev password gate (see app/(storefront)/layout.tsx), not the admin app's
-// Supabase auth. "/api/midtrans" is Midtrans's server-to-server webhook — it
-// has no Supabase session and verifies itself via signature_key instead (see
-// app/api/midtrans/notification/route.ts).
+// Supabase auth. "/api/midtrans" and "/api/doku" are the gateways' own
+// server-to-server webhooks — neither has a Supabase session, and each
+// verifies itself via its own request signature instead (see
+// app/api/midtrans/notification/route.ts and app/api/doku/notification/route.ts).
 const ADMIN_PREFIX = "/zlap-adm";
 const ADMIN_LOGIN_PATH = "/zlap-adm/login";
 

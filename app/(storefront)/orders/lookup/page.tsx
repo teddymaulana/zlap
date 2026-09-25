@@ -136,6 +136,18 @@ export default function GuestOrderLookupPage() {
                 </a>
               )}
             {order.payment_status === "pending" &&
+              order.payment_method === "doku_checkout" &&
+              order.payment_details?.redirect_url && (
+                <a
+                  href={order.payment_details.redirect_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-6 block rounded-lg bg-black px-4 py-3 text-center text-sm font-medium text-white hover:bg-gray-800"
+                >
+                  Continue to payment
+                </a>
+              )}
+            {order.payment_status === "pending" &&
               order.payment_method === "cstore" &&
               order.payment_details?.payment_code && (
                 <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">

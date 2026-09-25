@@ -115,6 +115,7 @@ export async function sendOrderConfirmationEmail(params: {
   bank?: string;
   paymentCode?: string;
   store?: string;
+  redirectUrl?: string;
 }) {
   const itemRowsHtml = params.lines
     .map(
@@ -149,13 +150,17 @@ export async function sendOrderConfirmationEmail(params: {
           ? "ShopeePay"
           : params.paymentMethod === "qris"
             ? "QRIS"
-            : params.paymentMethod;
+            : params.paymentMethod === "doku_checkout"
+              ? "DOKU"
+              : params.paymentMethod;
 
   let paymentHtml = "";
   if (params.vaNumber) {
     paymentHtml = `<p>Pay via <strong>${(params.bank ?? "").toUpperCase()} Virtual Account</strong>: <strong>${params.vaNumber}</strong></p>`;
   } else if (params.paymentCode) {
     paymentHtml = `<p>Pay in-store at <strong>${params.store}</strong> with code: <strong>${params.paymentCode}</strong></p>`;
+  } else if (params.redirectUrl) {
+    paymentHtml = `<p><a href="${params.redirectUrl}">Complete your payment on DOKU</a> to confirm this order.</p>`;
   } else {
     paymentHtml = `<p>Complete your ${params.paymentMethod} payment to confirm this order.</p>`;
   }
