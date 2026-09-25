@@ -15,7 +15,11 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
   const closeMenu = () => setIsMenuOpen(false);
   // The homepage already has its own full-size search bar in the body —
   // the header icon would just be a redundant second way to search there.
-  const isHome = usePathname() === "/";
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+  // Checkout is a focused flow — no nav links, search, account or cart icons
+  // on the right, so nothing pulls the customer away mid-payment.
+  const isCheckout = pathname === "/checkout";
   // Defaults to "Sign In" (the common case for a first-time visitor) until
   // the session check resolves, rather than flashing "Account" for guests.
   const [accountLabel, setAccountLabel] = useState(copy.header.signIn);
@@ -59,70 +63,74 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
               priority
             />
           </Link>
-          <span className="hidden text-xs font-normal text-gray-600 sm:inline">{tagline}</span>
+          <span className="hidden text-xs font-normal text-gray-600 sm:inline">
+            {tagline}
+          </span>
         </div>
         <span className="col-start-2 justify-self-start text-left text-xs font-normal text-gray-600 sm:hidden">
           {tagline}
         </span>
-        <div className="col-start-3 flex items-center gap-3 justify-self-end">
-          <Link
-            href="/request"
-            className="hidden text-sm text-gray-600 hover:text-black sm:inline"
-          >
-            {copy.header.requestCard}
-          </Link>
-          <Link
-            href="/track"
-            className="hidden text-sm text-gray-600 hover:text-black sm:inline"
-          >
-            {copy.header.trackOrder}
-          </Link>
-          <div className="flex items-center gap-0">
-            {!isHome && <HeaderSearch />}
+        {!isCheckout && (
+          <div className="col-start-3 flex items-center gap-3 justify-self-end">
             <Link
-              href="/account"
-              aria-label={accountLabel}
-              className="hidden rounded-full p-2 text-black hover:bg-gray-100 sm:inline-flex"
+              href="/request"
+              className="hidden text-sm text-gray-600 hover:text-black sm:inline"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="h-6 w-6"
-              >
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20a8 8 0 0 1 16 0" />
-              </svg>
+              {copy.header.requestCard}
             </Link>
-            <button
-              type="button"
-              onClick={openCart}
-              aria-label={copy.header.openCart}
-              className="relative rounded-full p-2 text-black hover:bg-gray-100"
+            <Link
+              href="/track"
+              className="hidden text-sm text-gray-600 hover:text-black sm:inline"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="h-6 w-6"
+              {copy.header.trackOrder}
+            </Link>
+            <div className="flex items-center gap-0">
+              {!isHome && <HeaderSearch />}
+              <Link
+                href="/account"
+                aria-label={accountLabel}
+                className="hidden rounded-full p-2 text-black hover:bg-gray-100 sm:inline-flex"
               >
-                <path
-                  d="M8 8a4 4 0 0 1 8 0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-                <rect x="4" y="8" width="16" height="12" rx="2" />
-              </svg>
-              {totalCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-semibold text-white">
-                  {totalCount}
-                </span>
-              )}
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-6 w-6"
+                >
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20a8 8 0 0 1 16 0" />
+                </svg>
+              </Link>
+              <button
+                type="button"
+                onClick={openCart}
+                aria-label={copy.header.openCart}
+                className="relative rounded-full p-2 text-black hover:bg-gray-100"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-6 w-6"
+                >
+                  <path
+                    d="M8 8a4 4 0 0 1 8 0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                  <rect x="4" y="8" width="16" height="12" rx="2" />
+                </svg>
+                {totalCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-semibold text-white">
+                    {totalCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div
@@ -140,7 +148,9 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
         }`}
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <span className="text-lg font-bold tracking-wide">{copy.common.brandName}</span>
+          <span className="text-lg font-bold tracking-wide">
+            {copy.common.brandName}
+          </span>
           <button
             type="button"
             onClick={closeMenu}

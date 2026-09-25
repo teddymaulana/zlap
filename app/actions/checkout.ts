@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { chargeMidtrans, type MidtransChargeRequest } from "@/lib/midtrans";
-import { applyDokuStatus, chargeDoku, getDokuTransactionStatus } from "@/lib/doku";
+import { applyDokuStatus, chargeDoku, dokuSafeText, getDokuTransactionStatus } from "@/lib/doku";
 import type { PaymentGateway } from "@/lib/types";
 import { getCurrentCustomerId } from "@/lib/customerAuth";
 import { createClient } from "@/lib/supabase/server";
@@ -224,10 +224,14 @@ export async function chargeExistingOrder(params: {
           currency: "IDR",
           callback_url: resultUrl,
           callback_url_result: resultUrl,
-          line_items: itemDetails.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity })),
+          line_items: itemDetails.map((i) => ({
+            name: dokuSafeText(i.name) || "Item",
+            price: i.price,
+            quantity: i.quantity,
+          })),
         },
         payment: { payment_due_date: 60 },
-        customer: { name, email, phone, address, country: "ID" },
+        customer: { name: dokuSafeText(name), email, phone, address: dokuSafeText(address), country: "ID" },
       });
 
       const redirectUrl = charge.response.payment.url;

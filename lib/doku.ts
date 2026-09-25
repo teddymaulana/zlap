@@ -68,6 +68,23 @@ function requestTimestamp() {
   return new Date().toISOString().replace(/\.\d+Z$/, "Z");
 }
 
+// DOKU rejects free-text fields (line item names, customer name/address)
+// containing anything outside a-z A-Z 0-9 space . - / + , = _ : ' @ % ( )
+// with a 400 "Invalid character" — card names routinely break that
+// ("Pokémon", "&", "#", "–", "!"). Accents are folded to plain letters and
+// anything else still disallowed becomes a space.
+export function dokuSafeText(text: string) {
+  return text
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[‘’`]/g, "'")
+    .replace(/[–—]/g, "-")
+    .replace(/[^a-zA-Z0-9 .\-/+,=_:'@%()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function chargeDoku(body: DokuChargeRequest): Promise<DokuChargeResponse> {
   const clientId = process.env.DOKU_CLIENT_ID;
   const secretKey = process.env.DOKU_SECRET_KEY;
@@ -98,11 +115,17 @@ export async function chargeDoku(body: DokuChargeRequest): Promise<DokuChargeRes
     body: json,
   });
 
-  const data = (await res.json()) as DokuChargeResponse & { error_messages?: string[] };
-  if (!res.ok) {
-    throw new Error(data.error_messages?.[0] || "Payment could not be started");
+  // Errors come back as { message: ["INVOICE ALREADY USED"] } — the same
+  // `message` array a success uses for ["SUCCESS"].
+  const data = (await res.json().catch(() => ({}))) as Partial<DokuChargeResponse> & {
+    error?: { message?: string };
+  };
+  if (!res.ok || !data.response?.payment?.url) {
+    const reason = data.message?.[0] || data.error?.message;
+    console.error("[doku] charge rejected", { status: res.status, reason, invoice: body.order.invoice_number });
+    throw new Error(reason ? `Payment could not be started: ${reason}` : "Payment could not be started");
   }
-  return data;
+  return data as DokuChargeResponse;
 }
 
 // Verifies the Signature header on DOKU's HTTP notification (webhook) —

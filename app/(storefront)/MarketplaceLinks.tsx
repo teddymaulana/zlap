@@ -1,6 +1,13 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { copy } from "@/lib/copy";
 
 export default function MarketplaceLinks() {
+  // Hidden on checkout — sending a customer off to Shopee/Tokopedia
+  // mid-payment is exactly the wrong nudge.
+  if (usePathname() === "/checkout") return null;
+
   return (
     <div className="border-t bg-gray-50">
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-4 px-4 py-8">
