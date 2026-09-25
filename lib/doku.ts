@@ -7,6 +7,8 @@
 // and samples; still run one sandbox payment end to end (DOKU's "Simulate
 // payment and Notification" tool) before switching production over.
 import { createHash, createHmac, randomUUID } from "crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendPaymentConfirmedEmail } from "@/lib/email";
 
 const BASE_URL =
   process.env.DOKU_IS_PRODUCTION === "true" ? "https://api.doku.com" : "https://api-sandbox.doku.com";
@@ -45,7 +47,9 @@ function computeSignature(params: {
   requestId: string;
   timestamp: string;
   target: string;
-  digest: string;
+  // Omitted for GET requests (e.g. Check Status), which have no body — see
+  // https://developers.doku.com/get-started-with-doku-api/signature-component/non-snap/signature-from-api-get-method
+  digest?: string;
   secretKey: string;
 }) {
   const raw = [
@@ -53,7 +57,7 @@ function computeSignature(params: {
     `Request-Id:${params.requestId}`,
     `Request-Timestamp:${params.timestamp}`,
     `Request-Target:${params.target}`,
-    `Digest:${params.digest}`,
+    ...(params.digest !== undefined ? [`Digest:${params.digest}`] : []),
   ].join("\n");
   return `HMACSHA256=${createHmac("sha256", params.secretKey).update(raw).digest("base64")}`;
 }
@@ -126,4 +130,96 @@ export function verifyDokuNotification(params: {
     secretKey,
   });
   return expected === params.signatureHeader;
+}
+
+// DOKU's own transaction statuses (shared by the HTTP notification and the
+// Check Status API) — see
+// https://developers.doku.com/get-started-with-doku-api/check-status-api/non-snap
+export type DokuTransactionStatus =
+  | "PENDING"
+  | "SUCCESS"
+  | "FAILED"
+  | "EXPIRED"
+  | "REFUNDED"
+  | "TIMEOUT"
+  | "REDIRECT"
+  | (string & {});
+
+// Asks DOKU directly for an order's current status — the fallback for when
+// the HTTP notification is delayed, dropped, or never configured. Returns
+// null when DOKU has no transaction for it yet (e.g. the customer hasn't
+// picked a channel on the hosted page) or the lookup fails.
+export async function getDokuTransactionStatus(invoiceNumber: string): Promise<DokuTransactionStatus | null> {
+  const clientId = process.env.DOKU_CLIENT_ID;
+  const secretKey = process.env.DOKU_SECRET_KEY;
+  if (!clientId || !secretKey) return null;
+
+  const target = `/orders/v1/status/${encodeURIComponent(invoiceNumber)}`;
+  const requestId = randomUUID();
+  const timestamp = requestTimestamp();
+  const signature = computeSignature({ clientId, requestId, timestamp, target, secretKey });
+
+  try {
+    const res = await fetch(`${BASE_URL}${target}`, {
+      headers: {
+        "Client-Id": clientId,
+        "Request-Id": requestId,
+        "Request-Timestamp": timestamp,
+        Signature: signature,
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { transaction?: { status?: string } };
+    return data.transaction?.status ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Maps a DOKU status onto our payment_status and applies it — shared by the
+// notification webhook and the Check Status fallback so both behave the
+// same. FAILED/TIMEOUT/REDIRECT are ignored: per DOKU's Checkout guidance a
+// failed attempt just means the customer can retry another channel on the
+// same hosted page. Never moves an order backwards out of "paid" (e.g. a
+// late PENDING redelivery) except to "refunded", and only emails on the
+// actual transition into "paid".
+export async function applyDokuStatus(
+  service: SupabaseClient,
+  invoiceNumber: string,
+  dokuStatus: DokuTransactionStatus
+): Promise<{ error?: string }> {
+  const newStatus =
+    dokuStatus === "SUCCESS"
+      ? "paid"
+      : dokuStatus === "PENDING"
+        ? "pending"
+        : dokuStatus === "EXPIRED"
+          ? "expired"
+          : dokuStatus === "REFUNDED"
+            ? "refunded"
+            : null;
+  if (!newStatus) return {};
+
+  const { data: existing } = await service
+    .from("orders")
+    .select("id, customer_email, payment_status")
+    .eq("order_id", invoiceNumber)
+    .maybeSingle();
+  if (!existing) return { error: "Order not found" };
+  if (existing.payment_status === newStatus) return {};
+  if (
+    ["paid", "refund_pending", "refunded"].includes(existing.payment_status) &&
+    newStatus !== "refunded"
+  ) {
+    return {};
+  }
+
+  const { error } = await service.from("orders").update({ payment_status: newStatus }).eq("id", existing.id);
+  if (error) return { error: error.message };
+
+  if (newStatus === "paid" && existing.customer_email) {
+    await sendPaymentConfirmedEmail({ to: existing.customer_email, orderCode: invoiceNumber });
+  }
+  return {};
 }

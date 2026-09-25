@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { chargeMidtrans, type MidtransChargeRequest } from "@/lib/midtrans";
-import { chargeDoku } from "@/lib/doku";
+import { applyDokuStatus, chargeDoku, getDokuTransactionStatus } from "@/lib/doku";
 import type { PaymentGateway } from "@/lib/types";
 import { getCurrentCustomerId } from "@/lib/customerAuth";
 import { createClient } from "@/lib/supabase/server";
@@ -72,14 +72,36 @@ export async function canPlaceOrders(): Promise<boolean> {
   return !!user;
 }
 
-export async function getOrderPaymentStatus(orderCode: string) {
+// `askGateway` additionally asks DOKU directly for a still-unpaid DOKU order
+// (Check Status API) instead of relying only on its notification webhook —
+// Midtrans orders are unaffected and always read straight from the DB.
+export async function getOrderPaymentStatus(orderCode: string, askGateway = false) {
   const service = serviceClient();
   const { data } = await service
     .from("orders")
-    .select("payment_status")
+    .select("payment_status, payment_method")
     .eq("order_id", orderCode)
     .maybeSingle();
-  return data?.payment_status ?? null;
+  if (!data) return null;
+
+  if (
+    askGateway &&
+    data.payment_method === "doku_checkout" &&
+    (data.payment_status === "pending" || data.payment_status === "unpaid")
+  ) {
+    const dokuStatus = await getDokuTransactionStatus(orderCode);
+    if (dokuStatus) {
+      await applyDokuStatus(service, orderCode, dokuStatus);
+      const { data: refreshed } = await service
+        .from("orders")
+        .select("payment_status")
+        .eq("order_id", orderCode)
+        .maybeSingle();
+      return refreshed?.payment_status ?? data.payment_status;
+    }
+  }
+
+  return data.payment_status;
 }
 
 // Reconstructs the "Complete your payment" screen after a page reload, since

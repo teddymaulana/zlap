@@ -125,9 +125,14 @@ export default function CheckoutPage() {
     if (!result) return;
 
     let cancelled = false;
+    let tick = 0;
 
     const check = async () => {
-      const status = await getOrderPaymentStatus(result.orderId);
+      // DOKU orders also ask DOKU itself on the first check and every ~16s
+      // after, in case its notification webhook is slow or never arrives —
+      // the in-between ticks just read our own DB.
+      const askGateway = tick++ % 4 === 0;
+      const status = await getOrderPaymentStatus(result.orderId, askGateway);
       if (cancelled) return;
       setPaymentStatus(status);
       if (isTerminalStatus(status)) {
@@ -150,7 +155,7 @@ export default function CheckoutPage() {
     if (!result || isTerminalStatus(paymentStatus)) return;
     setIsCheckingStatus(true);
     try {
-      const status = await getOrderPaymentStatus(result.orderId);
+      const status = await getOrderPaymentStatus(result.orderId, true);
       setPaymentStatus(status);
     } finally {
       setIsCheckingStatus(false);
