@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import type { Order } from "@/lib/types";
-import { formatStatus } from "@/lib/format";
 
 // Read once per server process rather than per PDF render.
 const logoBuffer = readFileSync(join(process.cwd(), "public", "zlap-logo.png"));
@@ -33,7 +32,18 @@ const styles = StyleSheet.create({
   },
   brand: { fontSize: 12, fontFamily: "Helvetica-Bold" },
   channel: { fontSize: 9, color: "#333333" },
-  orderId: { fontSize: 16, fontFamily: "Helvetica-Bold", marginBottom: 2 },
+  orderId: {
+    fontSize: 16,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 4,
+    // Hug the text instead of stretching the box across the whole label.
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    borderRadius: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
   awb: { fontSize: 10, color: "#333333", marginBottom: 10 },
   sectionLabel: {
     fontSize: 8,
@@ -42,8 +52,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
   },
-  name: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   line: { fontSize: 10, marginBottom: 2, lineHeight: 1.3 },
+  // Recipient block is what the courier reads — sized up from the sender's.
+  recipientLabel: { fontSize: 10 },
+  recipientName: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 4 },
+  recipientLine: { fontSize: 13, marginBottom: 3, lineHeight: 1.3 },
   sender: { marginTop: 50 },
   footer: {
     position: "absolute",
@@ -72,17 +85,17 @@ export function OrderLabelDocument({ order, itemCount }: { order: Order; itemCou
     <Document>
       <Page size={[LABEL_WIDTH_PT, LABEL_HEIGHT_PT]} style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.brand}>ZLAP CARD</Text>
+          <Text style={styles.brand}>ZLPC</Text>
           {order.channel && <Text style={styles.channel}>{channelLabel(order.channel)}</Text>}
         </View>
 
         <Text style={styles.orderId}>{order.order_id}</Text>
         {order.awb && <Text style={styles.awb}>AWB: {order.awb}</Text>}
 
-        <Text style={styles.sectionLabel}>Dikirim ke</Text>
-        <Text style={styles.name}>{order.customer_name || "-"}</Text>
-        {order.customer_phone && <Text style={styles.line}>{order.customer_phone}</Text>}
-        {order.customer_address && <Text style={styles.line}>{order.customer_address}</Text>}
+        <Text style={[styles.sectionLabel, styles.recipientLabel]}>Dikirim ke</Text>
+        <Text style={styles.recipientName}>{order.customer_name || "-"}</Text>
+        {order.customer_phone && <Text style={styles.recipientLine}>{order.customer_phone}</Text>}
+        {order.customer_address && <Text style={styles.recipientLine}>{order.customer_address}</Text>}
 
         <View style={styles.sender}>
           <Text style={[styles.sectionLabel, { marginTop: 0 }]}>Pengirim</Text>
@@ -95,7 +108,7 @@ export function OrderLabelDocument({ order, itemCount }: { order: Order; itemCou
           <Text>
             {itemCount} item{itemCount === 1 ? "" : "s"}
           </Text>
-          <Text>{formatStatus(order.payment_status)}</Text>
+          <Text>Ready to ship!</Text>
         </View>
       </Page>
     </Document>
