@@ -72,6 +72,27 @@ export async function updateOrderDate(orderId: string, date: string) {
   revalidatePath("/zlap-adm/orders");
 }
 
+// Saved independently of the checkout link so a direct order (paid off-site,
+// no link ever sent) can still get a shipping label with the address on it.
+export async function updateOrderCustomer(
+  orderId: string,
+  customer: { name: string; email: string; phone: string; address: string }
+) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      customer_name: customer.name.trim() || null,
+      customer_email: customer.email.trim() || null,
+      customer_phone: customer.phone.trim() || null,
+      customer_address: customer.address.trim() || null,
+    })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/zlap-adm/orders/${orderId}`);
+  revalidatePath("/zlap-adm/orders");
+}
+
 export async function updateOrderAwb(orderId: string, awb: string) {
   const trimmed = awb.trim();
   const supabase = await createClient();
@@ -260,22 +281,19 @@ export async function markRefundComplete(orderId: string) {
 // shipping address and pay via Midtrans — same checkout_token/token_expires_at
 // pattern as offers/card_requests, but reusing this order's own row instead
 // of minting a new one at payment time (see chargeExistingOrder).
-export async function generateOrderCheckoutLink(
-  orderId: string,
-  contact: { name: string; email: string; phone: string }
-): Promise<{ url: string }> {
-  const email = contact.email.trim();
-  if (!email) throw new Error("Customer email is required");
-
+// Sends to the contact saved on the order (see updateOrderCustomer).
+export async function generateOrderCheckoutLink(orderId: string): Promise<{ url: string }> {
   const supabase = await createClient();
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, order_id, payment_status")
+    .select("id, order_id, payment_status, customer_email")
     .eq("id", orderId)
     .maybeSingle();
   if (orderError) throw new Error(orderError.message);
   if (!order) throw new Error("Order not found");
+  const email = order.customer_email;
+  if (!email) throw new Error("Save a customer email before generating a checkout link");
   if (order.payment_status === "paid" || order.payment_status === "pending") {
     throw new Error("This order is already paid or has a payment in progress");
   }
@@ -295,9 +313,6 @@ export async function generateOrderCheckoutLink(
   const { error } = await supabase
     .from("orders")
     .update({
-      customer_name: contact.name.trim() || null,
-      customer_email: email,
-      customer_phone: contact.phone.trim() || null,
       checkout_token: token,
       token_expires_at: expiresAt,
     })

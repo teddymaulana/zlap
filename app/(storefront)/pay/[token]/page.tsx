@@ -41,6 +41,7 @@ export default function OrderPayPage() {
         setName((prev) => prev || res.customerName || "");
         setEmail((prev) => prev || res.customerEmail || "");
         setPhone((prev) => prev || res.customerPhone || "");
+        setAddress((prev) => prev || res.customerAddress || "");
       }
       setIsLoading(false);
     });

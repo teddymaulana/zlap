@@ -24,7 +24,7 @@ function serviceClient() {
 async function loadPayableOrder(service: ReturnType<typeof serviceClient>, token: string) {
   const { data: order } = await service
     .from("orders")
-    .select("id, order_id, payment_status, token_expires_at, customer_name, customer_email, customer_phone")
+    .select("id, order_id, payment_status, token_expires_at, customer_name, customer_email, customer_phone, customer_address")
     .eq("checkout_token", token)
     .maybeSingle();
   if (!order) return { order: null, error: null };
@@ -47,6 +47,7 @@ export type OrderCheckoutInfo = {
   customerName: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
+  customerAddress: string | null;
 };
 
 export async function getOrderByToken(token: string): Promise<OrderCheckoutInfo | { error: string } | null> {
@@ -81,6 +82,7 @@ export async function getOrderByToken(token: string): Promise<OrderCheckoutInfo 
     customerName: order.customer_name,
     customerEmail: order.customer_email,
     customerPhone: order.customer_phone,
+    customerAddress: order.customer_address,
   };
 }
 
