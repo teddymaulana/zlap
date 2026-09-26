@@ -4,8 +4,8 @@ import type { Balance, InventoryBatchAvailability, MarketplaceBalances } from "@
 import Pagination from "@/app/Pagination";
 import MarketplaceBalanceForm from "./MarketplaceBalanceForm";
 
-const SALES_PAGE_SIZE = 10;
-const INVENTORY_PAGE_SIZE = 10;
+const SALES_PAGE_SIZE = 20;
+const INVENTORY_PAGE_SIZE = 20;
 const FETCH_BATCH_SIZE = 1000;
 
 function formatMoney(amount: number) {
@@ -294,7 +294,7 @@ export default async function DashboardPage({
 
   const sales = [...salesByProduct.values()]
     .filter((s) => s.soldQty > 0)
-    .sort((a, b) => b.revenue - a.revenue);
+    .sort((a, b) => b.revenue - b.cost - (a.revenue - a.cost));
   const pagedSales = sales.slice((page - 1) * SALES_PAGE_SIZE, page * SALES_PAGE_SIZE);
 
   const inventoryByProduct = new Map<string, { available: number; totalValue: number }>();
@@ -559,7 +559,7 @@ export default async function DashboardPage({
               <thead>
                 <tr className="border-b bg-gray-50 text-left text-gray-500">
                   <th className="max-w-[200px] py-2 pr-0 pl-4 font-medium">Product</th>
-                  <th className="max-w-[20px] px-4 py-2 font-medium text-right">Sold qty</th>
+                  <th className="max-w-[20px] px-4 py-2 font-medium text-right">Sold</th>
                   <th className="px-4 py-2 font-medium text-right">Revenue</th>
                   <th className="px-4 py-2 font-medium text-right">Cost</th>
                   <th className="px-4 py-2 font-medium text-right">Net</th>
