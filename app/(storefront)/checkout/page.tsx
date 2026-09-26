@@ -127,24 +127,42 @@ export default function CheckoutPage() {
     let cancelled = false;
     let tick = 0;
 
-    const check = async () => {
-      // DOKU orders also ask DOKU itself on the first check and every ~16s
-      // after, in case its notification webhook is slow or never arrives —
-      // the in-between ticks just read our own DB.
-      const askGateway = tick++ % 4 === 0;
+    let done = false;
+
+    const check = async (forceGateway = false) => {
+      if (done) return;
+      // DOKU orders also ask DOKU itself, in case its notification webhook is
+      // slow or never arrives: every tick for the first minute (landing back
+      // from DOKU's "back to merchant" usually beats DOKU's own status update
+      // by a few seconds), then every ~16s — the in-between ticks just read
+      // our own DB.
+      const t = tick++;
+      const askGateway = forceGateway || t < 15 || t % 4 === 0;
       const status = await getOrderPaymentStatus(result.orderId, askGateway);
       if (cancelled) return;
       setPaymentStatus(status);
       if (isTerminalStatus(status)) {
+        done = true;
         clearInterval(interval);
       }
     };
 
+    // Re-check straight away when the customer returns to this tab (e.g.
+    // after paying in a DOKU tab or banking app) or it's restored from the
+    // back/forward cache.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check(true);
+    };
+
     check();
     const interval = setInterval(check, 4000);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
     };
   }, [result]);
 
