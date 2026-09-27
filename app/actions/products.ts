@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { PaymentGateway, StorefrontSettings, StorefrontShortcutBadge } from "@/lib/types";
+import { normalizeSnkrdunkUrl } from "@/lib/snkrdunk";
+import { computePoPrice, PO_MIN_MARKUP_PERCENT, type PoMarkupType } from "@/lib/preorder";
 
 // Batch changes live in a separate table, so they don't trip the products
 // table's set_updated_at trigger on their own — touch the parent row so the
@@ -52,8 +54,30 @@ export async function updateProduct(productId: string, formData: FormData) {
   const showWhenOos = formData.get("show_when_oos") === "on";
   const restockEtaDate = String(formData.get("restock_eta_date") || "") || null;
   const storefrontEnabled = formData.get("storefront_enabled") === "on";
+  const snkrdunkUrl = normalizeSnkrdunkUrl(String(formData.get("snkrdunk_url") ?? ""));
+  const poEnabled = formData.get("po_enabled") === "on";
+  const poMarkupType: PoMarkupType = formData.get("po_markup_type") === "fixed" ? "fixed" : "percent";
+  // Negative is allowed (below-market test pricing) — percent is floored at
+  // PO_MIN_MARKUP_PERCENT, and computePoPrice floors the final price.
+  const rawMarkup = Number(formData.get("po_markup_value")) || 0;
+  const poMarkupValue = poMarkupType === "percent" ? Math.max(PO_MIN_MARKUP_PERCENT, rawMarkup) : rawMarkup;
+  const poOpenLimit = Math.max(0, Math.floor(Number(formData.get("po_open_limit")) || 0));
 
   const supabase = await createClient();
+
+  // A markup change reprices straight away from the saved market snapshot —
+  // no need to wait for the next SNKRDUNK refresh. po_price_updated_at is
+  // left alone: it tracks how fresh the market data is, not the markup.
+  const { data: snapshot } = await supabase
+    .from("products")
+    .select("po_base_jpy, po_fx_rate")
+    .eq("id", productId)
+    .maybeSingle();
+  const poPrice =
+    snapshot?.po_base_jpy && snapshot.po_fx_rate
+      ? computePoPrice(Number(snapshot.po_base_jpy), Number(snapshot.po_fx_rate), poMarkupType, poMarkupValue)
+      : undefined;
+
   const { error } = await supabase
     .from("products")
     .update({
@@ -67,6 +91,12 @@ export async function updateProduct(productId: string, formData: FormData) {
       show_when_oos: showWhenOos,
       restock_eta_date: restockEtaDate,
       storefront_enabled: storefrontEnabled,
+      snkrdunk_url: snkrdunkUrl,
+      po_enabled: poEnabled,
+      po_markup_type: poMarkupType,
+      po_markup_value: poMarkupValue,
+      po_open_limit: poOpenLimit,
+      ...(poPrice !== undefined ? { po_price: poPrice } : {}),
     })
     .eq("id", productId);
 

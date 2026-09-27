@@ -12,6 +12,7 @@ import { ALL_GIFT_TAGS, computeEarnedGifts, giftRoleForTags, isGiftProduct, type
 import { getActiveDiscounts } from "@/lib/activeDiscounts";
 import { priceWithDiscounts, computeEarnedBogoFreebies, applyCodeToCart, findDiscountByCode } from "@/lib/discounts";
 import { isGradedOrSingleProduct } from "@/lib/productCategory";
+import { activePoPrice, poSlotsLeft, PO_MAX_QTY_PER_ORDER } from "@/lib/preorder";
 
 const DEFAULT_DIRECT_PRICE_PCT = 1.15;
 
@@ -22,7 +23,9 @@ function serviceClient() {
   );
 }
 
-export type CheckoutItem = { productId: string; qty: number };
+// `preorder` marks a Japan-sourced pre-order line (lib/preorder.ts), priced
+// from products.po_price instead of an inventory batch.
+export type CheckoutItem = { productId: string; qty: number; preorder?: boolean };
 
 // "doku_checkout" is a stand-in for however DOKU's hosted page ends up
 // charging the customer — unlike the other values (all Midtrans Core API
@@ -339,7 +342,7 @@ export async function chargeExistingOrder(params: {
 // before the checkout attempt.
 export async function chargeAndCreateOrder(params: {
   service: ReturnType<typeof serviceClient>;
-  lines: { product_id: string; inventory_batch_id: string | null; price: number }[];
+  lines: { product_id: string; inventory_batch_id: string | null; price: number; is_po?: boolean }[];
   grossAmount: number;
   customer: { name: string; phone: string; address: string; email: string };
   paymentMethod: CheckoutPaymentMethod;
@@ -469,8 +472,9 @@ export async function createOrderAndCharge(
   // sent for them is dropped here; the real quantities are recomputed from
   // scratch below so a tampered request can't claim extra (or unearned) free
   // gifts.
-  const regularItems = items.filter((i) => !isGiftProduct(productById.get(i.productId)?.tags));
-  if (regularItems.length === 0) return { error: "Your cart is empty" };
+  const preorderItems = items.filter((i) => i.preorder);
+  const regularItems = items.filter((i) => !i.preorder && !isGiftProduct(productById.get(i.productId)?.tags));
+  if (regularItems.length === 0 && preorderItems.length === 0) return { error: "Your cart is empty" };
 
   const earnedGifts = computeEarnedGifts(
     regularItems.map((i) => ({ tags: productById.get(i.productId)?.tags, qty: i.qty }))
@@ -534,8 +538,8 @@ export async function createOrderAndCharge(
     redeemedCode
   );
 
-  const lines: { product_id: string; inventory_batch_id: string; price: number }[] = [];
-  const finalItems: { productId: string; qty: number; price: number }[] = [];
+  const lines: { product_id: string; inventory_batch_id: string | null; price: number; is_po?: boolean }[] = [];
+  const finalItems: { productId: string; qty: number; price: number; isPreorder?: boolean }[] = [];
   let grossAmount = 0;
   for (const item of regularItems) {
     const batch = batchByProduct.get(item.productId);
@@ -553,6 +557,56 @@ export async function createOrderAndCharge(
   // A whole-cart code's own cut isn't reflected in any line price — see
   // applyCodeToCart — so it comes off the total here instead.
   grossAmount = Math.max(0, grossAmount - cartDiscountAmount);
+
+  // Pre-order lines: priced from the product's saved pre-order price (never
+  // the client's), never discounted, no stock to check — capped per order
+  // instead. No inventory batch until the purchase that buys them arrives.
+  if (preorderItems.length > 0) {
+    const qtyByProduct = new Map<string, number>();
+    for (const i of preorderItems) qtyByProduct.set(i.productId, (qtyByProduct.get(i.productId) ?? 0) + i.qty);
+    const [{ data: poProducts, error: poError }, { data: openRows, error: openError }] = await Promise.all([
+      service
+        .from("products")
+        .select("id, name, storefront_enabled, po_enabled, po_price, po_price_updated_at, po_open_limit")
+        .in("id", [...qtyByProduct.keys()]),
+      service
+        .from("product_po_open")
+        .select("product_id, open_count")
+        .in("product_id", [...qtyByProduct.keys()]),
+    ]);
+    if (poError) return { error: poError.message };
+    if (openError) return { error: openError.message };
+    const poProductById = new Map((poProducts ?? []).map((p) => [p.id, p]));
+    const openCountById = new Map((openRows ?? []).map((r) => [r.product_id, Number(r.open_count)]));
+
+    for (const [productId, qty] of qtyByProduct) {
+      const product = poProductById.get(productId);
+      const price = product?.storefront_enabled ? activePoPrice(product) : null;
+      if (!product || price === null) {
+        return { error: `Pre-order for ${product?.name ?? "one of your items"} isn't available right now` };
+      }
+      if (!Number.isInteger(qty) || qty < 1 || qty > PO_MAX_QTY_PER_ORDER) {
+        return { error: `You can pre-order up to ${PO_MAX_QTY_PER_ORDER} of each item per order` };
+      }
+      // Friendly early check — the order_lines trigger enforces the same
+      // open limit atomically, so two simultaneous checkouts can't both
+      // take the last slot.
+      const slotsLeft = poSlotsLeft(product.po_open_limit, openCountById.get(productId) ?? 0);
+      if (qty > slotsLeft) {
+        return {
+          error:
+            slotsLeft === 0
+              ? `Pre-orders for ${product.name} are full right now`
+              : `Only ${slotsLeft} pre-order spot${slotsLeft === 1 ? "" : "s"} left for ${product.name}`,
+        };
+      }
+      grossAmount += price * qty;
+      finalItems.push({ productId, qty, price, isPreorder: true });
+      for (let i = 0; i < qty; i++) {
+        lines.push({ product_id: productId, inventory_batch_id: null, price, is_po: true });
+      }
+    }
+  }
 
   // Free items are priced at 0 regardless of the product's own cost, and
   // fulfilled from whichever of its batches currently has the most stock —
@@ -608,7 +662,7 @@ export async function createOrderAndCharge(
       finalItems.map((i) => {
         const p = productById.get(i.productId);
         return {
-          name: p?.name ?? "Item",
+          name: `${p?.name ?? "Item"}${i.isPreorder ? " (Pre-order)" : ""}`,
           qty: i.qty,
           price: i.price,
           imageUrl: p?.image_url,

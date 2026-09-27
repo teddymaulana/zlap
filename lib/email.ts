@@ -400,3 +400,29 @@ export async function sendCardRequestRejectedEmail(params: { to: string; cardNam
   );
   await send(params.to, `About your request — ${params.cardName}`, html);
 }
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Pre-order progress updates (bought in Japan, shipped from Japan, delays,
+// arrived) — sent by app/actions/preorders.ts to every customer with a
+// pre-order line in the purchase that moved. `message` is plain text (it can
+// include a staff-typed delay reason), so it's escaped here.
+export async function sendPreorderUpdateEmail(params: {
+  to: string;
+  orderCode: string;
+  heading: string;
+  message: string;
+}) {
+  const html = wrapEmail(
+    params.heading,
+    `<p>Order <strong>${params.orderCode}</strong>: ${escapeHtml(params.message)}</p>
+     ${orderLookupLink(params.orderCode)}`
+  );
+  await send(params.to, `${params.heading} — ${params.orderCode}`, html);
+}

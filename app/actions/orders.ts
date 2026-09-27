@@ -94,24 +94,39 @@ export async function updateOrderCustomer(
   revalidatePath("/zlap-adm/orders");
 }
 
-export async function updateOrderAwb(orderId: string, awb: string, courier: Courier) {
+// `shipment` picks which of the order's two shipments this is: its in-stock
+// items (awb/courier) or its Japan-sourced pre-order items (po_awb/
+// po_courier), which ship separately once they arrive.
+export async function updateOrderAwb(
+  orderId: string,
+  awb: string,
+  courier: Courier,
+  shipment: "stock" | "preorder" = "stock"
+) {
   if (!isCourier(courier)) throw new Error("Unknown courier");
   const trimmed = awb.trim();
   const supabase = await createClient();
-  const { error } = await supabase.from("orders").update({ awb: trimmed || null, courier }).eq("id", orderId);
+  const { error } = await supabase
+    .from("orders")
+    .update(
+      shipment === "preorder" ? { po_awb: trimmed || null, po_courier: courier } : { awb: trimmed || null, courier }
+    )
+    .eq("id", orderId);
   if (error) throw new Error(error.message);
 
   if (trimmed) {
-    const { data: order } = await supabase
-      .from("orders")
-      .select("order_id, customer_email, status")
-      .eq("id", orderId)
-      .maybeSingle();
+    const [{ data: order }, { data: lines }] = await Promise.all([
+      supabase.from("orders").select("order_id, customer_email, status, awb, po_awb").eq("id", orderId).maybeSingle(),
+      supabase.from("order_lines").select("is_po").eq("order_id", orderId),
+    ]);
 
-    // Saving an AWB means the order shipped — mark it fulfilled too, unless
-    // it was cancelled (don't reopen a cancelled order just because staff
-    // recorded a resi number on it after the fact).
-    if (order && order.status === "pending") {
+    // The order is fulfilled once every part of it has shipped — its
+    // in-stock items (if any) and its pre-order items (if any). Never
+    // reopens a cancelled order just because staff recorded a resi on it.
+    const hasStock = (lines ?? []).some((l) => !l.is_po);
+    const hasPreorder = (lines ?? []).some((l) => l.is_po);
+    const allShipped = (!hasStock || Boolean(order?.awb)) && (!hasPreorder || Boolean(order?.po_awb));
+    if (order && order.status === "pending" && allShipped) {
       await supabase.from("orders").update({ status: "completed" }).eq("id", orderId);
     }
 

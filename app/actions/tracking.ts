@@ -3,6 +3,8 @@
 import { unstable_cache } from "next/cache";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { courierName, DEFAULT_COURIER, type Courier } from "@/lib/couriers";
+import type { PoProgress } from "@/lib/preorder";
+import { loadPoProgress } from "@/lib/preorderProgress";
 
 export type TrackingEvent = {
   date: string;
@@ -79,6 +81,10 @@ export type OrderTrace = {
   status: string;
   paymentStatus: string;
   channel: string | null;
+  // Whether the order has in-stock items, and its pre-order progress (null
+  // when it has no pre-order items) — see lib/preorderProgress.ts.
+  hasStockItems: boolean;
+  poProgress: PoProgress | null;
 };
 
 export type TrackLookup = {
@@ -106,15 +112,30 @@ async function findOrder(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  const columns = "order_id, date, status, payment_status, channel, awb, courier";
+  const columns = "id, order_id, date, status, payment_status, channel, awb, courier, po_awb, po_courier";
 
   const { data: byId } = await service.from("orders").select(columns).in("order_id", [bare, `#${bare}`]);
   let row = byId?.find((o) => o.order_id === typed) ?? byId?.[0];
   if (!row) {
-    const { data: byAwb } = await service.from("orders").select(columns).eq("awb", typed).limit(1);
-    row = byAwb?.[0];
+    // Two plain lookups rather than one .or() — the input is customer-typed
+    // and an .or() filter string would let it inject extra conditions.
+    const [{ data: byAwb }, { data: byPoAwb }] = await Promise.all([
+      service.from("orders").select(columns).eq("awb", typed).limit(1),
+      service.from("orders").select(columns).eq("po_awb", typed).limit(1),
+    ]);
+    row = byAwb?.[0] ?? byPoAwb?.[0];
   }
   if (!row) return null;
+
+  // Which of the order's two shipments to follow: the pre-order one if
+  // that's the resi typed in, or if it's the only one shipped so far (an
+  // order of only pre-order items has no in-stock awb at all).
+  const followPreorder = row.po_awb === typed || (!row.awb && Boolean(row.po_awb));
+
+  const { data: lines } = await service.from("order_lines").select("is_po, po_purchase_id").eq("order_id", row.id);
+  const poLines = (lines ?? []).filter((l) => l.is_po);
+  const poProgress =
+    poLines.length > 0 ? await loadPoProgress(service, row, poLines.map((l) => l.po_purchase_id)) : null;
 
   return {
     trace: {
@@ -123,9 +144,11 @@ async function findOrder(
       status: row.status,
       paymentStatus: row.payment_status,
       channel: row.channel,
+      hasStockItems: (lines ?? []).length === 0 || (lines ?? []).some((l) => !l.is_po),
+      poProgress,
     },
-    awb: row.awb,
-    courier: row.courier,
+    awb: followPreorder ? row.po_awb : row.awb,
+    courier: followPreorder ? row.po_courier : row.courier,
   };
 }
 

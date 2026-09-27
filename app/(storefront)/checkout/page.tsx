@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import PageSpinner from "@/app/PageSpinner";
-import { useCart } from "../CartContext";
+import { cartProductId, useCart } from "../CartContext";
 import {
   canPlaceOrders,
   createOrderAndCharge,
@@ -249,7 +249,9 @@ export default function CheckoutPage() {
         // the old gift-with-purchase items) a BOGO free product isn't
         // necessarily tagged in a way the server would otherwise recognize
         // and filter out on its own.
-        items.filter((i) => !i.isGift).map((i) => ({ productId: i.id, qty: i.qty })),
+        items
+          .filter((i) => !i.isGift)
+          .map((i) => ({ productId: cartProductId(i), qty: i.qty, preorder: Boolean(i.isPreorder) })),
         { name, phone, address: `${address}, ${region}`, email },
         gateway === "doku" ? "doku_checkout" : paymentSelection!.method,
         gateway === "doku" ? undefined : paymentSelection!.bank,
@@ -502,6 +504,9 @@ export default function CheckoutPage() {
                 <span className="min-w-0 flex-1 truncate">
                   {item.name} × {item.qty}
                   {item.isGift && <span className="ml-1 text-xs font-medium text-green-600">(Free gift)</span>}
+                  {item.isPreorder && (
+                    <span className="ml-1 text-xs font-medium text-blue-700">({copy.product.preorderBadge})</span>
+                  )}
                   {setLanguageLabel(item) && (
                     <span className="ml-1 text-xs text-gray-500">({setLanguageLabel(item)})</span>
                   )}

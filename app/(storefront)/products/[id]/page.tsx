@@ -18,6 +18,7 @@ import SalesChart from "./SalesChart";
 import ProductCard from "../../ProductCard";
 import WhatsAppProductAnnouncer from "../../WhatsAppProductAnnouncer";
 import { copy, fillCopy, formatShortDate } from "@/lib/copy";
+import { PO_ESTIMATE_WEEKS } from "@/lib/preorder";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -53,6 +54,7 @@ export default async function StorefrontProductDetailPage({
   const { id } = await params;
   const product = await getStorefrontProductDetail(id);
   if (!product) notFound();
+  const preorderOnly = product.poPrice !== null && (product.inStock === false || product.price === null);
 
   // None of these depend on each other (or on anything but the id/product
   // we already have), so they were previously firing as a sequential
@@ -155,16 +157,31 @@ export default async function StorefrontProductDetailPage({
             </div>
           )}
 
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-semibold tabular-nums">
-              {product.price !== null ? formatMoney(product.price) : copy.common.priceUnavailable}
-            </span>
-            {product.originalPrice !== null && (
-              <span className="text-sm text-gray-400 line-through tabular-nums">
-                {formatMoney(product.originalPrice)}
+          {/* Pre-order only (nothing in stock to sell): the pre-order price is
+              the price. When both exist, ProductDetailActions offers both as
+              options and this stays the in-stock price. */}
+          {preorderOnly ? (
+            <div className="mt-2 flex flex-col gap-1">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-semibold tabular-nums">{formatMoney(product.poPrice!)}</span>
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                  {copy.product.preorderBadge}
+                </span>
+              </div>
+              <div className="text-sm text-blue-700">{fillCopy(copy.product.preorderEta, PO_ESTIMATE_WEEKS)}</div>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tabular-nums">
+                {product.price !== null ? formatMoney(product.price) : copy.common.priceUnavailable}
               </span>
-            )}
-          </div>
+              {product.originalPrice !== null && (
+                <span className="text-sm text-gray-400 line-through tabular-nums">
+                  {formatMoney(product.originalPrice)}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="mt-2">
             <ProductDetailActions product={product} />

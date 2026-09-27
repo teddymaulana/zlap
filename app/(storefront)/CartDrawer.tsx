@@ -7,6 +7,7 @@ import { getStorefrontAvailability } from "@/app/actions/storefront";
 import { isGradedOrSingleProduct } from "@/lib/productCategory";
 import { CARD_SET_LANGUAGES } from "@/lib/constants";
 import { copy, fillCopy } from "@/lib/copy";
+import { PO_ESTIMATE_WEEKS, PO_MAX_QTY_PER_ORDER } from "@/lib/preorder";
 
 function setLanguageLabel(item: { tags: string[]; name: string; setLanguage?: "en" | "jp" | "id" | null }) {
   if (!item.setLanguage || !isGradedOrSingleProduct(item)) return null;
@@ -51,7 +52,12 @@ export default function CartDrawer() {
     }
   };
 
-  const itemIds = items.map((i) => i.id).join(",");
+  // In-stock lines only — a pre-order line's id isn't a product id, and it
+  // has no stock to cap against (PO_MAX_QTY_PER_ORDER applies instead).
+  const itemIds = items
+    .filter((i) => !i.isPreorder)
+    .map((i) => i.id)
+    .join(",");
   useEffect(() => {
     if (!itemIds) return;
     getStorefrontAvailability(itemIds.split(",")).then((rows) => {
@@ -116,6 +122,11 @@ export default function CartDrawer() {
                     {setLanguageLabel(item) && (
                       <div className="text-xs text-gray-500">{setLanguageLabel(item)}</div>
                     )}
+                    {item.isPreorder && (
+                      <div className="text-xs text-blue-700">
+                        {copy.product.preorderBadge} · {fillCopy(copy.product.preorderEta, PO_ESTIMATE_WEEKS)}
+                      </div>
+                    )}
                     {item.isGift ? (
                       <div className="mt-0.5 text-xs font-medium text-green-600">Free gift</div>
                     ) : (
@@ -143,8 +154,9 @@ export default function CartDrawer() {
                           type="button"
                           onClick={() => updateQty(item.id, item.qty + 1)}
                           disabled={
-                            typeof availability[item.id] === "number" &&
-                            item.qty >= availability[item.id]
+                            item.isPreorder
+                              ? item.qty >= (item.poMaxQty ?? PO_MAX_QTY_PER_ORDER)
+                              : typeof availability[item.id] === "number" && item.qty >= availability[item.id]
                           }
                           className="rounded border px-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                         >

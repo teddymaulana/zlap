@@ -4,6 +4,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getWishlistProductIds } from "@/app/actions/customer";
 import { getActiveDiscounts } from "@/lib/activeDiscounts";
+import { activePoPrice, poSlotsLeft } from "@/lib/preorder";
 import { priceWithDiscounts, badgesByProduct } from "@/lib/discounts";
 import { isSlabProduct, isBoosterBoxProduct } from "@/lib/productCategory";
 import type { StorefrontShortcut } from "@/lib/types";
@@ -25,6 +26,13 @@ export type StorefrontProduct = {
   // badgeText — null shows nothing. See lib/discounts.ts badgesByProduct.
   badge: string | null;
   preorder: StorefrontPreorder | null;
+  // Japan-sourced pre-order price (lib/preorder.ts) — null unless the
+  // product is open for pre-order with a fresh price and slots left under
+  // its open limit. Never discounted.
+  poPrice: number | null;
+  // Pre-order units still available under the product's open limit (caps
+  // the cart) — null whenever poPrice is.
+  poSlotsLeft: number | null;
   tags: string[];
   setName: string | null;
   setLanguage: "en" | "jp" | "id" | null;
@@ -63,6 +71,8 @@ type BatchInfo = {
   originalPrice: number | null;
   badge: string | null;
   preorder: StorefrontPreorder | null;
+  poPrice: number | null;
+  poSlotsLeft: number | null;
 };
 
 function batchInfo(b: {
@@ -71,7 +81,7 @@ function batchInfo(b: {
   is_preorder: boolean;
   preorder_duration_days: number | null;
   preorder_arrival_date: string | null;
-}): Omit<BatchInfo, "originalPrice" | "badge"> {
+}): Omit<BatchInfo, "originalPrice" | "badge" | "poPrice" | "poSlotsLeft"> {
   return {
     // An explicit direct_price of 0 means no real price has been set for
     // this batch (a placeholder, not a free item) — treat it as unpriced
@@ -87,7 +97,11 @@ function batchInfo(b: {
 // top of its base batch price — a second, independent server-role lookup
 // alongside the batch price itself, same "never trust anything but the final
 // computed number" reasoning as batchInfo above.
-async function applyDiscounts(base: Map<string, Omit<BatchInfo, "originalPrice" | "badge">>): Promise<Map<string, BatchInfo>> {
+type PoFields = "poPrice" | "poSlotsLeft";
+
+async function applyDiscounts(
+  base: Map<string, Omit<BatchInfo, "originalPrice" | "badge" | PoFields>>
+): Promise<Map<string, Omit<BatchInfo, PoFields>>> {
   const discounts = await getActiveDiscounts();
   // Unpriced batches (price null) skip discounting entirely — there's no
   // base price to discount off of.
@@ -98,7 +112,7 @@ async function applyDiscounts(base: Map<string, Omit<BatchInfo, "originalPrice" 
   const discounted = priceWithDiscounts(basePrices, discounts);
   const badges = badgesByProduct(discounts);
 
-  const infos = new Map<string, BatchInfo>();
+  const infos = new Map<string, Omit<BatchInfo, PoFields>>();
   for (const [id, info] of base) {
     if (info.price === null) {
       infos.set(id, { price: null, originalPrice: null, badge: null, preorder: info.preorder });
@@ -120,18 +134,75 @@ async function priceByProductId(productIds: string[]): Promise<Map<string, Batch
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  const { data, error } = await service
-    .from("inventory_batches")
-    .select("product_id, cost, direct_price, is_preorder, preorder_duration_days, preorder_arrival_date")
-    .in("product_id", productIds)
-    .eq("is_storefront_price", true);
+  const [{ data, error }, { data: poRows, error: poError }] = await Promise.all([
+    service
+      .from("inventory_batches")
+      .select("product_id, cost, direct_price, is_preorder, preorder_duration_days, preorder_arrival_date")
+      .in("product_id", productIds)
+      .eq("is_storefront_price", true),
+    service
+      .from("products")
+      .select("id, po_enabled, po_price, po_price_updated_at, po_open_limit")
+      .in("id", productIds)
+      .eq("po_enabled", true),
+  ]);
   if (error) throw new Error(error.message);
+  if (poError) throw new Error(poError.message);
 
-  const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge">>();
+  const openCountById = new Map<string, number>();
+  if ((poRows ?? []).length > 0) {
+    const { data: openRows, error: openError } = await service
+      .from("product_po_open")
+      .select("product_id, open_count")
+      .in(
+        "product_id",
+        (poRows ?? []).map((p) => p.id)
+      );
+    if (openError) throw new Error(openError.message);
+    for (const r of openRows ?? []) openCountById.set(r.product_id, Number(r.open_count));
+  }
+
+  const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge" | PoFields>>();
   for (const b of data ?? []) {
     base.set(b.product_id, batchInfo(b));
   }
-  return applyDiscounts(base);
+  const withDiscounts = await applyDiscounts(base);
+  return withPoPrices(
+    withDiscounts,
+    (poRows ?? []).map((p) => ({ ...p, slotsLeft: poSlotsLeft(p.po_open_limit, openCountById.get(p.id) ?? 0) }))
+  );
+}
+
+// Merges each product's active pre-order price into its price info. A
+// product open for pre-order but with no storefront-priced batch still gets
+// an entry (in-stock price null), so it's listed and sellable as pre-order
+// only instead of being dropped as "not sellable".
+// A product at its open-pre-order limit has no pre-order price at all —
+// it's simply not open for pre-order until slots free up.
+function withPoPrices(
+  infos: Map<string, Omit<BatchInfo, PoFields>>,
+  poRows: {
+    id: string;
+    po_enabled: boolean;
+    po_price: number | null;
+    po_price_updated_at: string | null;
+    slotsLeft: number;
+  }[]
+): Map<string, BatchInfo> {
+  const poById = new Map<string, { poPrice: number; poSlotsLeft: number }>();
+  for (const p of poRows) {
+    const price = activePoPrice(p);
+    if (price !== null && p.slotsLeft > 0) poById.set(p.id, { poPrice: price, poSlotsLeft: p.slotsLeft });
+  }
+  const merged = new Map<string, BatchInfo>();
+  for (const [id, info] of infos) {
+    const po = poById.get(id);
+    merged.set(id, { ...info, poPrice: po?.poPrice ?? null, poSlotsLeft: po?.poSlotsLeft ?? null });
+  }
+  for (const [id, po] of poById) {
+    if (!merged.has(id)) merged.set(id, { price: null, originalPrice: null, badge: null, preorder: null, ...po });
+  }
+  return merged;
 }
 
 export type StorefrontCategory = "booster_boxes" | "singles" | "slabs" | "other";
@@ -285,8 +356,10 @@ export async function searchStorefrontProducts(
   // Out-of-stock products are hidden by default; show_when_oos opts a
   // specific product back in, sorted after every in-stock result (both
   // groups keep the name-ascending order from the query above).
-  const inStock = withStock.filter((p) => p.inStock);
-  const oosShown = withStock.filter((p) => !p.inStock && showWhenOosByProduct.get(p.id));
+  // A product open for pre-order is buyable even with no stock, so it's
+  // listed with the in-stock results rather than hidden as out of stock.
+  const inStock = withStock.filter((p) => p.inStock || p.poPrice !== null);
+  const oosShown = withStock.filter((p) => !p.inStock && p.poPrice === null && showWhenOosByProduct.get(p.id));
 
   return [...inStock, ...oosShown].slice(0, 24);
 }
@@ -308,11 +381,12 @@ export async function getRecommendedProducts(limit = 8): Promise<StorefrontProdu
 
   const randomPick = [...batches].sort(() => Math.random() - 0.5).slice(0, limit);
   const stockByProduct = new Map(randomPick.map((b) => [b.product_id, b.storefront_available]));
-  const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge">>();
+  const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge" | PoFields>>();
   for (const b of randomPick) {
     base.set(b.product_id, batchInfo(b));
   }
-  const infos = await applyDiscounts(base);
+  // In-stock picks only — a pre-order price isn't looked up here.
+  const infos = withPoPrices(await applyDiscounts(base), []);
 
   const supabase = await createClient();
   const { data: products, error } = await supabase
@@ -411,6 +485,8 @@ async function productsByIds(ids: string[]): Promise<StorefrontProduct[]> {
     originalPrice: infos.get(p.id)?.originalPrice ?? null,
     badge: infos.get(p.id)?.badge ?? null,
     preorder: infos.get(p.id)?.preorder ?? null,
+    poPrice: infos.get(p.id)?.poPrice ?? null,
+    poSlotsLeft: infos.get(p.id)?.poSlotsLeft ?? null,
   }));
 }
 

@@ -6,6 +6,7 @@ import { getGuestOrderDetail, type CustomerOrderDetail } from "@/app/actions/cus
 import { formatStatus } from "@/lib/format";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import QrPayment from "../../QrPayment";
+import PreorderProgress from "../../PreorderProgress";
 import { CARD_SET_LANGUAGES } from "@/lib/constants";
 import { courierName } from "@/lib/couriers";
 
@@ -162,7 +163,7 @@ export default function GuestOrderLookupPage() {
 
             <div className="mb-6 divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
               {order.lines.map((l) => (
-                <div key={l.product_id} className="flex items-center gap-3 px-4 py-3">
+                <div key={`${l.product_id}:${l.isPreorder}`} className="flex items-center gap-3 px-4 py-3">
                   {l.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -177,6 +178,7 @@ export default function GuestOrderLookupPage() {
                   )}
                   <div className="min-w-0 flex-1 text-sm">
                     <div className="truncate font-medium">{l.name}</div>
+                    {l.isPreorder && <div className="text-xs font-medium text-blue-700">Pre-order</div>}
                     {l.setLanguage && (
                       <div className="text-gray-500">
                         {CARD_SET_LANGUAGES.find((lang) => lang.value === l.setLanguage)?.label}
@@ -197,6 +199,7 @@ export default function GuestOrderLookupPage() {
                 nothing about shipping at all. updateOrderAwb emails the customer
                 (sendShippedEmail) once an AWB is added. */}
             {order.payment_status === "paid" &&
+              order.lines.some((l) => !l.isPreorder) &&
               !order.awb &&
               order.status === "pending" &&
               !order.cancellation_requested_at && (
@@ -217,6 +220,9 @@ export default function GuestOrderLookupPage() {
                   </Link>
                 </div>
               </div>
+            )}
+            {order.poProgress && order.payment_status === "paid" && order.status !== "cancelled" && (
+              <PreorderProgress progress={order.poProgress} />
             )}
 
             {(order.customer_name || order.customer_phone || order.customer_address) && (

@@ -140,6 +140,11 @@ export default function OrderLines({
                   )}
                 </div>
                 <div className="text-xs text-gray-500">
+                  {line.is_po && (
+                    <span className="mr-1 rounded bg-blue-50 px-1.5 py-0.5 font-medium text-blue-700">
+                      Pre-order{line.po_purchase_id ? "" : " · waiting to be bought"}
+                    </span>
+                  )}
                   {batch && `cost ${formatMoney(batch.cost)} · `}
                   net profit {formatMoney((line.price ?? 0) - (batch?.cost ?? 0))}
                 </div>

@@ -4,6 +4,7 @@ import { getCustomerOrderDetail } from "@/app/actions/customer";
 import CancelOrderButton from "../../CancelOrderButton";
 import BuyAgainButton from "../../BuyAgainButton";
 import QrPayment from "../../../QrPayment";
+import PreorderProgress from "../../../PreorderProgress";
 import { formatStatus } from "@/lib/format";
 import { CARD_SET_LANGUAGES } from "@/lib/constants";
 import { courierName } from "@/lib/couriers";
@@ -27,6 +28,7 @@ export default async function CustomerOrderDetailPage({
   const { id } = await params;
   const order = await getCustomerOrderDetail(id);
   if (!order) notFound();
+  const hasStockItems = order.lines.some((l) => !l.isPreorder);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
@@ -108,7 +110,7 @@ export default async function CustomerOrderDetailPage({
 
       <div className="mb-6 divide-y rounded border">
         {order.lines.map((l) => (
-          <div key={l.product_id} className="flex items-center gap-3 px-4 py-3">
+          <div key={`${l.product_id}:${l.isPreorder}`} className="flex items-center gap-3 px-4 py-3">
             {l.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={l.image_url} alt={l.name} className="h-12 w-12 shrink-0 rounded border object-cover" />
@@ -119,6 +121,7 @@ export default async function CustomerOrderDetailPage({
             )}
             <div className="min-w-0 flex-1 text-sm">
               <div className="truncate font-medium">{l.name}</div>
+              {l.isPreorder && <div className="text-xs font-medium text-blue-700">Pre-order</div>}
               {l.setLanguage && (
                 <div className="text-gray-500">
                   {CARD_SET_LANGUAGES.find((lang) => lang.value === l.setLanguage)?.label}
@@ -143,6 +146,7 @@ export default async function CustomerOrderDetailPage({
           nothing about shipping at all. updateOrderAwb emails the customer
           (sendShippedEmail) once an AWB is added. */}
       {order.payment_status === "paid" &&
+        hasStockItems &&
         !order.awb &&
         order.status === "pending" &&
         !order.cancellation_requested_at && (
@@ -163,6 +167,9 @@ export default async function CustomerOrderDetailPage({
             </Link>
           </div>
         </div>
+      )}
+      {order.poProgress && order.payment_status === "paid" && order.status !== "cancelled" && (
+        <PreorderProgress progress={order.poProgress} />
       )}
 
       {(order.customer_name || order.customer_phone || order.customer_address) && (

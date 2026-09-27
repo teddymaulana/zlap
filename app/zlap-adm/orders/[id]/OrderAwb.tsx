@@ -6,21 +6,25 @@ import ButtonSpinner from "@/app/ButtonSpinner";
 import { COURIERS, type Courier } from "@/lib/couriers";
 import type { Order } from "@/lib/types";
 
-export default function OrderAwb({ order }: { order: Order }) {
-  const [value, setValue] = useState(order.awb ?? "");
-  const [courier, setCourier] = useState<Courier>(order.courier);
+// One of the order's shipments: its in-stock items ("stock", awb/courier)
+// or its pre-order items ("preorder", po_awb/po_courier).
+export default function OrderAwb({ order, shipment = "stock" }: { order: Order; shipment?: "stock" | "preorder" }) {
+  const isPreorder = shipment === "preorder";
+  const [value, setValue] = useState((isPreorder ? order.po_awb : order.awb) ?? "");
+  const [courier, setCourier] = useState<Courier>(isPreorder ? order.po_courier : order.courier);
   const [isPending, startTransition] = useTransition();
+  const inputId = isPreorder ? "po_awb" : "awb";
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        startTransition(() => updateOrderAwb(order.id, value, courier));
+        startTransition(() => updateOrderAwb(order.id, value, courier, shipment));
       }}
       className="flex items-center gap-2"
     >
-      <label htmlFor="awb" className="text-sm text-gray-500">
-        AWB
+      <label htmlFor={inputId} className="text-sm text-gray-500">
+        {isPreorder ? "Pre-order AWB" : "AWB"}
       </label>
       <select
         aria-label="Courier"
@@ -35,7 +39,7 @@ export default function OrderAwb({ order }: { order: Order }) {
         ))}
       </select>
       <input
-        id="awb"
+        id={inputId}
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}

@@ -28,6 +28,20 @@ export type Product = {
   // while the product is actually out of stock.
   restock_eta_date: string | null;
   storefront_enabled: boolean;
+  // Staff-only SNKRDUNK reference link (see lib/snkrdunk.ts).
+  snkrdunk_url: string | null;
+  // Japan-sourced pre-order offer — see lib/preorder.ts.
+  po_enabled: boolean;
+  po_markup_type: "percent" | "fixed";
+  po_markup_value: number;
+  po_base_jpy: number | null;
+  po_fx_rate: number | null;
+  po_price: number | null;
+  po_price_updated_at: string | null;
+  po_open_limit: number;
+  po_price_previous: number | null;
+  po_price_changed_at: string | null;
+  po_price_alert_dismissed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -148,6 +162,13 @@ export type Purchase = {
   other_expense: number;
   deduction: number;
   created_at: string;
+  // Japan-sourced pre-order progress — null for an ordinary stock purchase.
+  // See the "Pre-orders sourced from Japan" block in supabase/schema.sql.
+  po_status: "buying" | "bought" | "shipping" | "arrived" | null;
+  po_bought_at: string | null;
+  po_shipped_at: string | null;
+  po_transit_days: number | null;
+  po_arrived_at: string | null;
 };
 
 export type PurchaseLine = {
@@ -174,6 +195,9 @@ export type Order = {
   status: "pending" | "completed" | "cancelled";
   awb: string | null;
   courier: Courier;
+  // Second shipment for the order's pre-order items, once they arrive.
+  po_awb: string | null;
+  po_courier: Courier;
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
@@ -203,6 +227,9 @@ export type OrderLine = {
   product_id: string;
   inventory_batch_id: string | null;
   price: number | null;
+  // Japan-sourced pre-order line — see lib/preorder.ts.
+  is_po: boolean;
+  po_purchase_id: string | null;
   created_at: string;
 };
 

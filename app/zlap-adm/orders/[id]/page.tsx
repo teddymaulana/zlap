@@ -37,6 +37,9 @@ export default async function OrderDetailPage({
   if (!order) notFound();
 
   const o = order as Order;
+  const orderLines = (lines ?? []) as OrderLine[];
+  const hasPreorder = orderLines.some((l) => l.is_po);
+  const hasStock = orderLines.length === 0 || orderLines.some((l) => !l.is_po);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -56,22 +59,25 @@ export default async function OrderDetailPage({
       <OrderCustomer order={o} />
       <CancellationPanel order={o} />
       <OrderCheckoutLink order={o} lineCount={(lines ?? []).length} />
-      <div className="mb-6 flex items-center justify-between gap-2">
-        <OrderAwb order={o} />
-        <a
-          href={`/api/zlap-adm/orders/${o.id}/label`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
-        >
-          Print shipping label
-        </a>
+      <div className="mb-6 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          {hasStock ? <OrderAwb order={o} /> : <span />}
+          <a
+            href={`/api/zlap-adm/orders/${o.id}/label`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
+          >
+            Print shipping label
+          </a>
+        </div>
+        {hasPreorder && <OrderAwb order={o} shipment="preorder" />}
       </div>
       <OrderLines
         orderId={id}
         products={(products ?? []) as Product[]}
         batches={(batches ?? []) as InventoryBatchAvailability[]}
-        lines={(lines ?? []) as OrderLine[]}
+        lines={orderLines}
       />
     </div>
   );

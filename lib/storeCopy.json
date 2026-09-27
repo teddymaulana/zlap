@@ -216,7 +216,15 @@
     "sendOffer": "Send offer",
     "freeEtbProtector": "Free ETB plastic case protector included",
     "bogoFreeItem": "Buy this, get {name} free",
-    "salesHistoryComingSoon": "Sales history coming soon"
+    "salesHistoryComingSoon": "Sales history coming soon",
+    "preorderBadge": "Pre-order",
+    "preorderEta": "Arrives in about {min}–{max} weeks",
+    "preorderNow": "Pre-order now",
+    "inStockOption": "In stock",
+    "inStockOptionNote": "Ready to ship",
+    "preorderOption": "Pre-order",
+    "preorderOptionNote": "Sourced from Japan for you · arrives in about {min}–{max} weeks",
+    "preorderFullPayment": "Pre-orders are paid in full at checkout. We'll keep you updated on your order page as it's bought, shipped from Japan, and sent to you."
   },
   "payment": {
     "virtualAccount": "Virtual Account",

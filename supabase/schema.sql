@@ -153,6 +153,10 @@ create table if not exists products (
   -- itself (app/actions/storefront.ts) — regardless of stock or pricing.
   -- Distinct from show_when_oos, which only affects out-of-stock visibility.
   storefront_enabled boolean not null default true,
+  -- Staff reference link to this card's SNKRDUNK page, opened from the
+  -- admin product page to check the Japanese market price by hand (see
+  -- lib/snkrdunk.ts — never fetched automatically).
+  snkrdunk_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -163,6 +167,8 @@ alter table products add column if not exists show_when_oos boolean not null def
 alter table products add column if not exists restock_eta_date date;
 -- Existing databases created before the storefront kill switch existed.
 alter table products add column if not exists storefront_enabled boolean not null default true;
+-- Existing databases created before the SNKRDUNK reference link existed.
+alter table products add column if not exists snkrdunk_url text;
 
 create or replace function set_updated_at() returns trigger as $$
 begin
@@ -465,6 +471,92 @@ alter table orders add column if not exists token_expires_at timestamptz;
 alter table orders add column if not exists courier text not null default 'jnt'
   check (courier in ('jnt','jne'));
 
+-- ---------------------------------------------------------------------------
+-- Pre-orders sourced from Japan (PSA 10 slabs). Separate from the older
+-- batch-level pre-order (inventory_batches.is_preorder, stock already bought
+-- but not yet arrived): these have no stock at all — the price comes from
+-- SNKRDUNK's recent PSA 10 sales plus a markup (lib/preorder.ts), the
+-- customer pays in full, and staff then buy the queued lines together in a
+-- purchase whose status the customer follows on their order page.
+-- ---------------------------------------------------------------------------
+
+-- Per-product pre-order offer. po_base_jpy / po_fx_rate / po_price are a
+-- snapshot refreshed daily (app/api/cron/preorder-prices) or from admin —
+-- the storefront only ever reads the saved po_price, never SNKRDUNK itself,
+-- and treats a snapshot older than a few days as unavailable.
+alter table products add column if not exists po_enabled boolean not null default false;
+alter table products add column if not exists po_markup_type text not null default 'percent'
+  check (po_markup_type in ('percent','fixed'));
+-- Percent (25 = +25%) or a fixed IDR amount added, per po_markup_type.
+alter table products add column if not exists po_markup_value numeric not null default 25;
+alter table products add column if not exists po_base_jpy numeric;
+alter table products add column if not exists po_fx_rate numeric;
+alter table products add column if not exists po_price numeric;
+alter table products add column if not exists po_price_updated_at timestamptz;
+-- Most pre-order units of this product we'll commit to at once: "open"
+-- means paid-or-pending pre-order lines not yet received into stock (see
+-- product_po_open below). Enforced at checkout and in the order_lines
+-- trigger; 0 effectively pauses new pre-orders.
+alter table products add column if not exists po_open_limit integer not null default 5
+  check (po_open_limit >= 0);
+-- Staff "pre-order price went up" alert: when a refresh changes po_price,
+-- the old one is kept here with the time; the alert shows while
+-- po_price > po_price_previous and it hasn't been dismissed since.
+alter table products add column if not exists po_price_previous numeric;
+alter table products add column if not exists po_price_changed_at timestamptz;
+alter table products add column if not exists po_price_alert_dismissed_at timestamptz;
+
+-- A pre-order line has no inventory batch until its purchase arrives and
+-- is pushed to inventory (then inventory_batch_id is filled in, so stock
+-- accounting stays right). po_purchase_id is the purchase staff are buying
+-- it in; null while it's still waiting in the admin pre-order queue.
+alter table order_lines add column if not exists is_po boolean not null default false;
+alter table order_lines add column if not exists po_purchase_id uuid references purchases(id) on delete set null;
+create index if not exists order_lines_po_queue_idx on order_lines (po_purchase_id) where is_po;
+
+-- Open pre-order units per product (counted against products.po_open_limit):
+-- pre-order lines on non-cancelled orders that haven't been received into
+-- stock yet (inventory_batch_id is filled in when their purchase arrives).
+-- security_invoker so it respects order_lines' RLS like a table would.
+create or replace view product_po_open with (security_invoker = true) as
+  select ol.product_id, count(*) as open_count
+  from order_lines ol
+  join orders o on o.id = ol.order_id
+  where ol.is_po and ol.inventory_batch_id is null and o.status <> 'cancelled'
+  group by ol.product_id;
+
+-- An order with pre-order lines ships in two parts: awb/courier for the
+-- in-stock items, po_awb/po_courier for the pre-order items once they land.
+alter table orders add column if not exists po_awb text;
+alter table orders add column if not exists po_courier text not null default 'jnt'
+  check (po_courier in ('jnt','jne'));
+
+-- Pre-order progress on a purchase (null = an ordinary stock purchase):
+-- buying -> bought (in Japan) -> shipping (from Japan) -> arrived (in
+-- Indonesia). The customer-facing ETA is po_shipped_at + po_transit_days +
+-- the sum of purchase_po_delays.days.
+alter table purchases add column if not exists po_status text
+  check (po_status in ('buying','bought','shipping','arrived'));
+alter table purchases add column if not exists po_bought_at timestamptz;
+alter table purchases add column if not exists po_shipped_at timestamptz;
+alter table purchases add column if not exists po_transit_days integer;
+alter table purchases add column if not exists po_arrived_at timestamptz;
+
+-- Shipping delays staff add while a pre-order purchase is on its way from
+-- Japan — each one pushes the ETA back and is shown, with its reason, on
+-- the customer's order page.
+create table if not exists purchase_po_delays (
+  id uuid primary key default gen_random_uuid(),
+  purchase_id uuid not null references purchases(id) on delete cascade,
+  days integer not null check (days > 0),
+  reason text not null,
+  created_at timestamptz not null default now()
+);
+alter table purchase_po_delays enable row level security;
+drop policy if exists "authenticated full access" on purchase_po_delays;
+create policy "authenticated full access" on purchase_po_delays for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
 create table if not exists order_lines (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references orders(id) on delete cascade,
@@ -736,8 +828,14 @@ create table if not exists supplier_pricelist (
 -- column added to inventory_batches shifts the ordinal position of columns
 -- listed after it, and `create or replace view` can't rename/reorder an
 -- existing view column (only append past the end), so it errors instead.
+--
+-- security_invoker: without it a view runs with its owner's rights and
+-- skips RLS, which exposed every batch's cost and qty to anyone holding the
+-- public anon key. With it, callers get inventory_batches' own RLS — staff
+-- (authenticated) still see everything; the storefront reads through the
+-- service role, so it's unaffected.
 drop view if exists inventory_batch_availability;
-create view inventory_batch_availability as
+create view inventory_batch_availability with (security_invoker = true) as
   with sold as (
     select
       ol.inventory_batch_id,
@@ -771,9 +869,12 @@ create view inventory_batch_availability as
 --
 -- Only physical stock (`available`) is enforced, not storefront_qty_limit —
 -- free gift lines deliberately draw from any batch regardless of that limit.
+-- Pre-order lines (no batch) are held to their product's po_open_limit the
+-- same way, locking the product row instead of a batch.
 create or replace function enforce_order_line_stock() returns trigger as $$
 declare
   batch record;
+  product record;
 begin
   for batch in
     select b.id, b.qty
@@ -789,6 +890,24 @@ begin
       where ol.inventory_batch_id = batch.id and o.status <> 'cancelled'
     ) then
       raise exception 'Not enough stock left for one of the items in your cart';
+    end if;
+  end loop;
+
+  for product in
+    select p.id, p.po_open_limit
+    from products p
+    where p.id in (select product_id from new_lines where is_po)
+    order by p.id
+    for update
+  loop
+    if product.po_open_limit < (
+      select count(*)
+      from order_lines ol
+      join orders o on o.id = ol.order_id
+      where ol.product_id = product.id and ol.is_po and ol.inventory_batch_id is null
+        and o.status <> 'cancelled'
+    ) then
+      raise exception 'Pre-order limit reached for one of the items in your cart';
     end if;
   end loop;
   return null;

@@ -1,23 +1,33 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { updateProduct, uploadProductImage } from "@/app/actions/products";
 import TagPicker from "@/app/zlap-adm/products/TagPicker";
 import BrandSetPicker from "@/app/zlap-adm/products/BrandSetPicker";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import type { CardSet, Product } from "@/lib/types";
+import { normalizeSnkrdunkUrl, snkrdunkSearchUrl } from "@/lib/snkrdunk";
+import SnkrdunkPsa10 from "./SnkrdunkPsa10";
+import PreorderSettings from "./PreorderSettings";
 
 export default function ProductHeaderForm({
   product,
   allTags,
   sets,
+  poOpenCount,
 }: {
   product: Product;
   allTags: string[];
   sets: CardSet[];
+  poOpenCount: number;
 }) {
   const [isUploadPending, startUploadTransition] = useTransition();
   const [isSavePending, startSaveTransition] = useTransition();
+  const [snkrdunkUrl, setSnkrdunkUrl] = useState(product.snkrdunk_url ?? "");
+  const [snkrdunkError, setSnkrdunkError] = useState<string | null>(null);
+  // Only a real link opens directly — a bare product number is only turned
+  // into a URL on save (normalizeSnkrdunkUrl), so until then search instead.
+  const snkrdunkLink = /^https?:\/\//i.test(snkrdunkUrl.trim()) ? snkrdunkUrl.trim() : null;
 
   return (
     <div className="mb-8 flex flex-col gap-6 sm:flex-row">
@@ -47,7 +57,19 @@ export default function ProductHeaderForm({
       </div>
 
       <form
-        action={(fd) => startSaveTransition(() => updateProduct(product.id, fd))}
+        action={(fd) => {
+          // Checked here too, not just in updateProduct — a server action's
+          // thrown message is hidden in production, and there's no admin
+          // error page to catch it, so a bad link would just break the page.
+          try {
+            normalizeSnkrdunkUrl(snkrdunkUrl);
+          } catch (err) {
+            setSnkrdunkError((err as Error).message);
+            return;
+          }
+          setSnkrdunkError(null);
+          startSaveTransition(() => updateProduct(product.id, fd));
+        }}
         className="flex flex-1 flex-col gap-3"
       >
         <div className="flex flex-col gap-1">
@@ -149,6 +171,38 @@ export default function ProductHeaderForm({
             of stock.
           </p>
         </div>
+        <div className="flex flex-col gap-1 rounded border p-3">
+          <label htmlFor="snkrdunk_url" className="text-sm font-medium">
+            SNKRDUNK link (optional)
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id="snkrdunk_url"
+              name="snkrdunk_url"
+              type="text"
+              value={snkrdunkUrl}
+              onChange={(e) => setSnkrdunkUrl(e.target.value)}
+              placeholder="https://snkrdunk.com/apparels/724996/used"
+              className="min-w-0 flex-1 rounded border px-3 py-2 text-sm"
+            />
+            <a
+              href={snkrdunkLink ?? snkrdunkSearchUrl(product.name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded border px-3 py-2 text-sm whitespace-nowrap hover:bg-gray-50"
+            >
+              {snkrdunkLink ? "Check on SNKRDUNK ↗" : "Search on SNKRDUNK ↗"}
+            </a>
+          </div>
+          {snkrdunkError && <p className="text-xs text-red-600">{snkrdunkError}</p>}
+          <p className="text-xs text-gray-500">
+            Staff-only reference for the Japanese market price — never shown to customers. Paste the
+            card&rsquo;s SNKRDUNK link or just its number (e.g. 724996); without one, the button searches
+            SNKRDUNK for this product&rsquo;s name.
+          </p>
+          <SnkrdunkPsa10 productId={product.id} hasSavedLink={Boolean(product.snkrdunk_url)} />
+        </div>
+        <PreorderSettings product={product} openCount={poOpenCount} />
         <button
           type="submit"
           disabled={isSavePending}

@@ -6,6 +6,7 @@ import { trackShipment, type TrackLookup } from "@/app/actions/tracking";
 import { getRecommendedProducts, type StorefrontProduct } from "@/app/actions/storefront";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import ProductCard from "../ProductCard";
+import PreorderProgress from "../PreorderProgress";
 import { courierName } from "@/lib/couriers";
 
 // Courier timestamps arrive as ISO strings ("2026-09-27T17:12:25+07:00") —
@@ -89,6 +90,11 @@ function describe(lookup: TrackLookup) {
     headline = {
       title: "Shipped",
       detail: lookup.shipmentError ?? `Your package has been handed to ${courier}.`,
+    };
+  } else if (paid && order?.poProgress && !order.hasStockItems) {
+    headline = {
+      title: "Pre-order in progress",
+      detail: "We're sourcing your item from Japan — follow each step below.",
     };
   } else if (paid) {
     headline = {
@@ -322,7 +328,16 @@ export default function TrackPage() {
             {result.error}
           </div>
         ) : result ? (
-          <TrackingResultCard lookup={result} />
+          <>
+            <TrackingResultCard lookup={result} />
+            {result.order?.poProgress &&
+              result.order.paymentStatus === "paid" &&
+              result.order.status !== "cancelled" && (
+                <div className="mt-4">
+                  <PreorderProgress progress={result.order.poProgress} />
+                </div>
+              )}
+          </>
         ) : null}
 
         <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">

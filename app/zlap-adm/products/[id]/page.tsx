@@ -25,17 +25,20 @@ export default async function ProductDetailPage({
     { data: orderLines, error: orderLinesError },
     allTags,
     sets,
+    { data: poOpen, error: poOpenError },
   ] = await Promise.all([
     supabase.from("products").select("*").eq("id", id).maybeSingle(),
     supabase.from("inventory_batch_availability").select("*").eq("product_id", id),
     supabase.from("order_lines").select("price, inventory_batches(cost)").eq("product_id", id),
     getAllUsedTags(supabase),
     getCardSets(),
+    supabase.from("product_po_open").select("open_count").eq("product_id", id).maybeSingle(),
   ]);
 
   if (productError) throw new Error(productError.message);
   if (batchesError) throw new Error(batchesError.message);
   if (orderLinesError) throw new Error(orderLinesError.message);
+  if (poOpenError) throw new Error(poOpenError.message);
   if (!product) notFound();
 
   // Older order lines (from before the Strapi migration — see
@@ -78,7 +81,12 @@ export default async function ProductDetailPage({
         <DeleteProductButton productId={id} productName={product.name} />
       </div>
       <div className="mb-4">
-        <ProductHeaderForm product={product as Product} allTags={allTags} sets={sets} />
+        <ProductHeaderForm
+          product={product as Product}
+          allTags={allTags}
+          sets={sets}
+          poOpenCount={Number(poOpen?.open_count ?? 0)}
+        />
       </div>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Inventory batches</h2>

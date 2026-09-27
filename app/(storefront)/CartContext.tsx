@@ -11,9 +11,21 @@ import {
   type BogoFreeProduct,
 } from "@/app/actions/discounts";
 import { computeEarnedBogoFreebies, applyCodeToCart, type CartCodeLine, type Discount } from "@/lib/discounts";
+import { PO_MAX_QTY_PER_ORDER } from "@/lib/preorder";
 
 export type CartItem = {
+  // Unique per cart line: the product id for an in-stock line, and
+  // `${productId}:po` for a pre-order line (see preorderCartId), so the same
+  // product can sit in the cart both ways at once.
   id: string;
+  // Set on pre-order lines only — the real product id behind `id`. Use
+  // cartProductId() rather than reading either field directly.
+  productId?: string;
+  isPreorder?: boolean;
+  // Pre-order lines only: the most this line can hold — the per-order cap
+  // or the product's remaining open slots, whichever is lower (see
+  // preorderMaxQty). Checkout re-checks both server-side.
+  poMaxQty?: number;
   name: string;
   sku: string | null;
   image_url: string | null;
@@ -62,6 +74,18 @@ type CartContextValue = {
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
+
+export function preorderCartId(productId: string) {
+  return `${productId}:po`;
+}
+
+export function cartProductId(item: Pick<CartItem, "id" | "productId">) {
+  return item.productId ?? item.id;
+}
+
+export function preorderMaxQty(slotsLeft: number | null | undefined) {
+  return Math.min(PO_MAX_QTY_PER_ORDER, slotsLeft ?? PO_MAX_QTY_PER_ORDER);
+}
 
 const STORAGE_KEY = "zlap_cart";
 const CODE_STORAGE_KEY = "zlap_cart_code";
@@ -156,7 +180,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated || !giftDataLoaded) return;
 
-    const qualifying = items.filter((i) => !i.isGift);
+    // Pre-order lines don't earn gifts or BOGO freebies — only in-stock ones.
+    const qualifying = items.filter((i) => !i.isGift && !i.isPreorder);
     const earnedGwp = computeEarnedGifts(qualifying.map((i) => ({ tags: i.tags, qty: i.qty })));
     const earnedBogo = computeEarnedBogoFreebies(
       qualifying.map((i) => ({ productId: i.id, qty: i.qty })),
@@ -207,6 +232,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, giftCatalog, discounts, bogoFreeProducts, giftDataLoaded, hydrated]);
 
   const addItem = async (product: NewCartItem) => {
+    if (product.isPreorder) {
+      // No stock to check — capped per order instead (the server enforces
+      // the same cap at checkout).
+      setItems((prev) => {
+        const existing = prev.find((i) => i.id === product.id);
+        const max = product.poMaxQty ?? PO_MAX_QTY_PER_ORDER;
+        if (existing) {
+          if (existing.qty >= max) return prev;
+          return prev.map((i) => (i.id === product.id ? { ...i, qty: i.qty + 1, poMaxQty: max } : i));
+        }
+        return [...prev, { ...product, tags: product.tags ?? [], isGift: false, qty: 1 }];
+      });
+      setIsOpen(true);
+      return;
+    }
     // Re-fetch live stock right before adding — the same numeric count the
     // cart drawer's "+" stepper caps against — so a product card or PDP
     // can't push a line past what's actually available (the drawer button
@@ -246,11 +286,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeItem(id);
       return;
     }
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, qty } : i)));
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, qty: i.isPreorder ? Math.min(qty, i.poMaxQty ?? PO_MAX_QTY_PER_ORDER) : qty } : i
+      )
+    );
   };
 
+  // Discount codes apply to in-stock lines only; pre-order lines keep their
+  // own price (their ids never appear in codePriceByProduct).
   const codeLines: CartCodeLine[] = items
-    .filter((i) => !i.isGift)
+    .filter((i) => !i.isGift && !i.isPreorder)
     .map((i) => ({
       productId: i.id,
       qty: i.qty,

@@ -13,6 +13,8 @@ import {
 import { getProductsForReorder } from "@/app/actions/storefront";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { isGradedOrSingleProduct } from "@/lib/productCategory";
+import type { PoProgress } from "@/lib/preorder";
+import { loadPoProgress } from "@/lib/preorderProgress";
 
 const SITE_URL = "https://zlapcard.com";
 const RESET_TOKEN_TTL_HOURS = 1;
@@ -450,6 +452,8 @@ export type CustomerOrderLine = {
   // Only set for graded/single items (see isGradedOrSingleProduct) — null
   // for everything else, so views can gate display on a truthy check alone.
   setLanguage: "en" | "jp" | "id" | null;
+  // Japan-sourced pre-order item (ships separately — see poProgress).
+  isPreorder: boolean;
 };
 
 export type CustomerOrderDetail = {
@@ -471,6 +475,8 @@ export type CustomerOrderDetail = {
   } | null;
   awb: string | null;
   courier: string;
+  // Progress of the order's pre-order items, null when it has none.
+  poProgress: PoProgress | null;
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
@@ -486,7 +492,7 @@ async function loadOrderDetail(
 ): Promise<CustomerOrderDetail> {
   const { data: rawLines, error } = await service
     .from("order_lines")
-    .select("product_id, price, products(name, image_url, tags, set_id)")
+    .select("product_id, price, is_po, po_purchase_id, products(name, image_url, tags, set_id)")
     .eq("order_id", order.id);
   if (error) throw new Error(error.message);
 
@@ -509,11 +515,15 @@ async function loadOrderDetail(
   const grouped = new Map<string, CustomerOrderLine>();
   for (const l of rawLines ?? []) {
     const product = productByLine.get(l.product_id) ?? null;
-    const existing = grouped.get(l.product_id);
+    // Keyed by product + pre-order flag, so an in-stock and a pre-order copy
+    // of the same product stay separate lines.
+    const key = `${l.product_id}:${l.is_po ? "po" : "stock"}`;
+    const existing = grouped.get(key);
     if (existing) {
       existing.qty += 1;
     } else {
-      grouped.set(l.product_id, {
+      grouped.set(key, {
+        isPreorder: Boolean(l.is_po),
         product_id: l.product_id,
         name: product?.name ?? "Unknown product",
         image_url: product?.image_url ?? null,
@@ -530,6 +540,12 @@ async function loadOrderDetail(
   const lines = [...grouped.values()];
   const total = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
 
+  const poLines = (rawLines ?? []).filter((l) => l.is_po);
+  const poProgress =
+    poLines.length > 0
+      ? await loadPoProgress(service, order, poLines.map((l) => l.po_purchase_id as string | null))
+      : null;
+
   return {
     id: order.id,
     order_id: order.order_id as string,
@@ -540,6 +556,7 @@ async function loadOrderDetail(
     payment_details: order.payment_details as CustomerOrderDetail["payment_details"],
     awb: order.awb as string | null,
     courier: order.courier as string,
+    poProgress,
     customer_name: order.customer_name as string | null,
     customer_phone: order.customer_phone as string | null,
     customer_address: order.customer_address as string | null,
