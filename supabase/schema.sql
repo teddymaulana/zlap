@@ -754,6 +754,47 @@ create view inventory_batch_availability as
   from inventory_batches b
   left join sold s on s.inventory_batch_id = b.id;
 
+-- Every checkout path (cart, offers, card requests, admin addOrderLine)
+-- checks availability and then inserts order_lines as two separate
+-- requests, so two customers buying the last unit at the same moment could
+-- both pass the check. This closes that race at the database: lock each
+-- touched batch row (in a fixed order, so concurrent inserts can't
+-- deadlock), then re-count after the lock — a plpgsql statement takes a
+-- fresh snapshot, so it sees whatever the transaction we waited on
+-- committed. The loser's insert fails and the app surfaces the message.
+--
+-- Only physical stock (`available`) is enforced, not storefront_qty_limit —
+-- free gift lines deliberately draw from any batch regardless of that limit.
+create or replace function enforce_order_line_stock() returns trigger as $$
+declare
+  batch record;
+begin
+  for batch in
+    select b.id, b.qty
+    from inventory_batches b
+    where b.id in (select inventory_batch_id from new_lines where inventory_batch_id is not null)
+    order by b.id
+    for update
+  loop
+    if batch.qty < (
+      select count(*)
+      from order_lines ol
+      join orders o on o.id = ol.order_id
+      where ol.inventory_batch_id = batch.id and o.status <> 'cancelled'
+    ) then
+      raise exception 'Not enough stock left for one of the items in your cart';
+    end if;
+  end loop;
+  return null;
+end;
+$$ language plpgsql;
+
+drop trigger if exists enforce_order_line_stock on order_lines;
+create trigger enforce_order_line_stock
+  after insert on order_lines
+  referencing new table as new_lines
+  for each statement execute function enforce_order_line_stock();
+
 -- Row Level Security: internal tool, any authenticated user has full access.
 -- Cash / snapshots / supplier_pricelist have no app pages and are meant to be
 -- edited directly in Supabase Studio (which uses the service role and bypasses RLS).
