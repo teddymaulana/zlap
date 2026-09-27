@@ -395,10 +395,12 @@ create table if not exists orders (
   date timestamptz,
   order_url text,
   status text not null default 'pending' check (status in ('pending','completed','cancelled')),
-  -- J&T Express AWB/resi number, entered manually once a package ships.
-  -- Looked up via Biteship on the public /track page to show live
-  -- courier status.
+  -- AWB/resi number, entered manually once a package ships. Looked up via
+  -- Biteship on the public /track page to show live courier status.
   awb text,
+  -- Which courier `awb` belongs to — Biteship's courier_code, see
+  -- lib/couriers.ts (keep this check list in sync with it).
+  courier text not null default 'jnt' check (courier in ('jnt','jne')),
   -- Set on storefront checkout (app/actions/checkout.ts) — orders created
   -- from the ERP directly (Tokopedia/Shopee imports) leave these null.
   customer_name text,
@@ -458,6 +460,10 @@ alter table discount_redemptions enable row level security;
 -- order at payment time.
 alter table orders add column if not exists checkout_token text unique;
 alter table orders add column if not exists token_expires_at timestamptz;
+-- Existing databases created before orders could ship with more than one
+-- courier — every earlier AWB was J&T, so the default backfills them right.
+alter table orders add column if not exists courier text not null default 'jnt'
+  check (courier in ('jnt','jne'));
 
 create table if not exists order_lines (
   id uuid primary key default gen_random_uuid(),

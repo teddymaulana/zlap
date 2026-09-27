@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { courierName } from "@/lib/couriers";
 
 // Transactional order emails via Resend. Every send* function here is
 // best-effort: failures are logged, never thrown — an email hiccup must
@@ -207,11 +208,11 @@ export async function sendPaymentConfirmedEmail(params: { to: string; orderCode:
   await send(params.to, `Payment confirmed — ${params.orderCode}`, html);
 }
 
-export async function sendShippedEmail(params: { to: string; orderCode: string; awb: string }) {
+export async function sendShippedEmail(params: { to: string; orderCode: string; awb: string; courier: string }) {
   const html = wrapEmail(
     "Your order has shipped",
     `<p>Order <strong>${params.orderCode}</strong> is on its way.</p>
-     <p>Tracking (AWB): <strong>${params.awb}</strong></p>
+     <p>Tracking (${courierName(params.courier)} AWB): <strong>${params.awb}</strong></p>
      ${orderLookupLink(params.orderCode)}`
   );
   await send(params.to, `Your order has shipped — ${params.orderCode}`, html);

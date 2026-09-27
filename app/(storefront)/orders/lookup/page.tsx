@@ -7,6 +7,7 @@ import { formatStatus } from "@/lib/format";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import QrPayment from "../../QrPayment";
 import { CARD_SET_LANGUAGES } from "@/lib/constants";
+import { courierName } from "@/lib/couriers";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -208,7 +209,7 @@ export default function GuestOrderLookupPage() {
               )}
             {order.awb && (
               <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 text-sm">
-                <div className="mb-1 text-gray-500">Tracking (AWB)</div>
+                <div className="mb-1 text-gray-500">Tracking ({courierName(order.courier)} AWB)</div>
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{order.awb}</span>
                   <Link href={`/track?awb=${encodeURIComponent(order.awb)}`} className="text-black underline">

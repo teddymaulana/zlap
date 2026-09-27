@@ -1,3 +1,5 @@
+import type { Courier } from "@/lib/couriers";
+
 export type CardSet = {
   id: string;
   name: string;
@@ -171,6 +173,7 @@ export type Order = {
   order_url: string | null;
   status: "pending" | "completed" | "cancelled";
   awb: string | null;
+  courier: Courier;
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;

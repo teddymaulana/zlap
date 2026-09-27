@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import type { Order } from "@/lib/types";
+import { courierName } from "@/lib/couriers";
 
 // Read once per server process rather than per PDF render.
 const logoBuffer = readFileSync(join(process.cwd(), "public", "zlap-logo.png"));
@@ -90,7 +91,11 @@ export function OrderLabelDocument({ order, itemCount }: { order: Order; itemCou
         </View>
 
         <Text style={styles.orderId}>{order.order_id}</Text>
-        {order.awb && <Text style={styles.awb}>AWB: {order.awb}</Text>}
+        {order.awb && (
+          <Text style={styles.awb}>
+            {courierName(order.courier)} AWB: {order.awb}
+          </Text>
+        )}
 
         <Text style={[styles.sectionLabel, styles.recipientLabel]}>Dikirim ke</Text>
         <Text style={styles.recipientName}>{order.customer_name || "-"}</Text>

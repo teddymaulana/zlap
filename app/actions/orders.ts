@@ -12,6 +12,7 @@ import {
   sendRefundCompletedEmail,
   sendOrderCheckoutLinkEmail,
 } from "@/lib/email";
+import { isCourier, type Courier } from "@/lib/couriers";
 
 const CHECKOUT_LINK_TTL_DAYS = 7;
 const SITE_URL = "https://zlapcard.com";
@@ -93,10 +94,11 @@ export async function updateOrderCustomer(
   revalidatePath("/zlap-adm/orders");
 }
 
-export async function updateOrderAwb(orderId: string, awb: string) {
+export async function updateOrderAwb(orderId: string, awb: string, courier: Courier) {
+  if (!isCourier(courier)) throw new Error("Unknown courier");
   const trimmed = awb.trim();
   const supabase = await createClient();
-  const { error } = await supabase.from("orders").update({ awb: trimmed || null }).eq("id", orderId);
+  const { error } = await supabase.from("orders").update({ awb: trimmed || null, courier }).eq("id", orderId);
   if (error) throw new Error(error.message);
 
   if (trimmed) {
@@ -114,7 +116,7 @@ export async function updateOrderAwb(orderId: string, awb: string) {
     }
 
     if (order?.customer_email) {
-      await sendShippedEmail({ to: order.customer_email, orderCode: order.order_id, awb: trimmed });
+      await sendShippedEmail({ to: order.customer_email, orderCode: order.order_id, awb: trimmed, courier });
     }
   }
 

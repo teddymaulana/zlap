@@ -470,6 +470,7 @@ export type CustomerOrderDetail = {
     redirect_url?: string;
   } | null;
   awb: string | null;
+  courier: string;
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
@@ -538,6 +539,7 @@ async function loadOrderDetail(
     payment_method: order.payment_method as string | null,
     payment_details: order.payment_details as CustomerOrderDetail["payment_details"],
     awb: order.awb as string | null,
+    courier: order.courier as string,
     customer_name: order.customer_name as string | null,
     customer_phone: order.customer_phone as string | null,
     customer_address: order.customer_address as string | null,
