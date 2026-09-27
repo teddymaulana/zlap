@@ -22,7 +22,7 @@ function serviceClient() {
 async function currentStorefrontBatch(service: ReturnType<typeof serviceClient>, productId: string) {
   const { data } = await service
     .from("inventory_batch_availability")
-    .select("id, cost, direct_price, available")
+    .select("id, cost, direct_price, storefront_available")
     .eq("product_id", productId)
     .eq("is_storefront_price", true)
     .maybeSingle();
@@ -56,7 +56,7 @@ export async function submitOffer(params: {
 
   const batch = await currentStorefrontBatch(service, params.productId);
   if (!batch) return { error: "This item isn't available right now" };
-  if (qty > batch.available) return { error: "Not enough stock available for that quantity" };
+  if (qty > batch.storefront_available) return { error: "Not enough stock available for that quantity" };
   if (offeredPrice >= batch.price) {
     return { error: "Your offer should be lower than the current price" };
   }
@@ -159,7 +159,7 @@ export async function createOfferOrderAndCharge(
 
   const batch = await currentStorefrontBatch(service, offer.product_id);
   if (!batch) return { error: "This item is no longer available" };
-  if (offer.qty > batch.available) return { error: "Not enough stock left for this offer" };
+  if (offer.qty > batch.storefront_available) return { error: "Not enough stock left for this offer" };
 
   const { data: product } = await service
     .from("products")
