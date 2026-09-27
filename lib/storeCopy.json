@@ -215,7 +215,8 @@
     "yourNamePlaceholder": "Your name",
     "sendOffer": "Send offer",
     "freeEtbProtector": "Free ETB plastic case protector included",
-    "bogoFreeItem": "Buy this, get {name} free"
+    "bogoFreeItem": "Buy this, get {name} free",
+    "salesHistoryComingSoon": "Sales history coming soon"
   },
   "payment": {
     "virtualAccount": "Virtual Account",

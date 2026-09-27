@@ -9,7 +9,7 @@ import { getCurrentCustomerId } from "@/lib/customerAuth";
 import { createClient } from "@/lib/supabase/server";
 import { sendOrderConfirmationEmail, type OrderConfirmationLine } from "@/lib/email";
 import { ALL_GIFT_TAGS, computeEarnedGifts, giftRoleForTags, isGiftProduct, type GiftRole } from "@/lib/gwp";
-import { getActiveDiscounts } from "@/app/actions/discounts";
+import { getActiveDiscounts } from "@/lib/activeDiscounts";
 import { priceWithDiscounts, computeEarnedBogoFreebies, applyCodeToCart, findDiscountByCode } from "@/lib/discounts";
 import { isGradedOrSingleProduct } from "@/lib/productCategory";
 

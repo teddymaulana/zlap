@@ -1,15 +1,16 @@
 import { notFound } from "next/navigation";
 import {
   getStorefrontProductDetail,
-  getStorefrontProductRecentSales,
   getRelatedProducts,
   getSetProducts,
   recordProductView,
+  type SaleEvent,
 } from "@/app/actions/storefront";
 import { getGiftCatalog } from "@/app/actions/gwp";
 import { GIFT_ROLE_TAGS } from "@/lib/gwp";
 import { isEtbProduct } from "@/lib/productCategory";
-import { getActiveDiscounts, getBogoFreeProductCatalog } from "@/app/actions/discounts";
+import { getBogoFreeProductCatalog } from "@/app/actions/discounts";
+import { getActiveDiscounts } from "@/lib/activeDiscounts";
 import { PRODUCT_BRANDS, CARD_SET_LANGUAGES, LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import ProductDetailActions from "./ProductDetailActions";
 import OfferButton from "./OfferButton";
@@ -20,6 +21,20 @@ import { copy, fillCopy, formatShortDate } from "@/lib/copy";
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
+}
+
+// Stand-in data for the blurred "coming soon" sales chart — a made-up
+// gentle wave around the product's own price, NOT real sales. Real sale
+// prices are deliberately never sent to the page while the chart is
+// hidden: a CSS blur only hides them visually, not from the page source.
+function placeholderSales(price: number | null): SaleEvent[] {
+  const base = price ?? 100000;
+  const wave = [0.92, 0.95, 0.94, 0.98, 1.01, 0.99, 1.03, 1.06, 1.02, 1.05, 1.08, 1.04, 1.07, 1.1];
+  const now = Date.now();
+  return wave.map((factor, i) => ({
+    date: new Date(now - (wave.length - 1 - i) * 7 * 24 * 60 * 60 * 1000).toISOString(),
+    price: Math.round(base * factor),
+  }));
 }
 
 function preorderText(preorder: { days?: number; date?: string } | null) {
@@ -44,9 +59,8 @@ export default async function StorefrontProductDetailPage({
   // waterfall — each one waiting on the last — which is most of what made
   // this page feel slow to load. Running them together cuts that to a
   // single round trip.
-  const [, recentSales, setProducts, relatedProductsRaw, activeDiscounts, giftCatalog] = await Promise.all([
+  const [, setProducts, relatedProductsRaw, activeDiscounts, giftCatalog] = await Promise.all([
     recordProductView(id),
-    getStorefrontProductRecentSales(id),
     getSetProducts(id),
     getRelatedProducts(id),
     getActiveDiscounts(),
@@ -201,11 +215,20 @@ export default async function StorefrontProductDetailPage({
             </div>
           )}
 
-          {recentSales.length > 10 && (
-            <div className="mt-4">
-              <SalesChart data={recentSales} />
+          {/* Sales history is a teaser for now — blurred placeholder chart
+              (see placeholderSales) under a "coming soon" label. To bring
+              the real chart back, fetch getStorefrontProductRecentSales(id)
+              again and render <SalesChart data={recentSales} /> unblurred. */}
+          <div className="relative mt-4">
+            <div aria-hidden className="pointer-events-none select-none blur-[3px]">
+              <SalesChart data={placeholderSales(product.price)} />
             </div>
-          )}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="rounded-full bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-gray-200">
+                {copy.product.salesHistoryComingSoon}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -5,44 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCustomerId } from "@/lib/customerAuth";
-import type { Discount, DiscountType } from "@/lib/discounts";
-
-type DiscountRow = {
-  id: string;
-  name: string;
-  type: DiscountType;
-  percentage: number | null;
-  fixed_amount: number | null;
-  free_product_id: string | null;
-  is_active: boolean;
-  code: string | null;
-  stackable: boolean;
-  requires_login: boolean;
-  once_per_customer: boolean;
-  badge_text: string | null;
-  discount_products: { product_id: string }[] | null;
-};
-
-function toDiscount(row: DiscountRow): Discount {
-  return {
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    percentage: row.percentage,
-    fixedAmount: row.fixed_amount,
-    freeProductId: row.free_product_id,
-    isActive: row.is_active,
-    productIds: (row.discount_products ?? []).map((p) => p.product_id),
-    code: row.code,
-    stackable: row.stackable,
-    requiresLogin: row.requires_login,
-    oncePerCustomer: row.once_per_customer,
-    badgeText: row.badge_text,
-  };
-}
-
-const DISCOUNT_SELECT =
-  "id, name, type, percentage, fixed_amount, free_product_id, is_active, code, stackable, requires_login, once_per_customer, badge_text, discount_products(product_id)";
+import { findDiscountByCode, type Discount, type DiscountType } from "@/lib/discounts";
+import { DISCOUNT_SELECT, getActiveDiscounts, toDiscount } from "@/lib/activeDiscounts";
 
 export async function getDiscounts(): Promise<Discount[]> {
   const supabase = await createClient();
@@ -63,35 +27,6 @@ export async function getDiscount(id: string): Promise<Discount | null> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? toDiscount(data) : null;
-}
-
-// Fetches every active discount with its assigned products, for the
-// storefront's price computation (app/actions/storefront.ts) and cart/
-// checkout's BOGO preview (CartContext.tsx, app/actions/checkout.ts). Runs
-// on the service role since it's called from public storefront paths, same
-// reasoning as priceByProductId — a discount's existence/amount isn't
-// sensitive, but nothing here should depend on the visitor's own RLS access.
-//
-// Best-effort, same as getHeaderCopy in app/(storefront)/layout.tsx: a
-// lookup failure here must never take down product browsing or checkout —
-// it just falls back to no discounts rather than throwing, same as a gift
-// silently getting dropped when its stock has run out.
-export async function getActiveDiscounts(): Promise<Discount[]> {
-  try {
-    const service = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    const { data, error } = await service
-      .from("discounts")
-      .select(DISCOUNT_SELECT)
-      .eq("is_active", true);
-    if (error) throw new Error(error.message);
-    return (data ?? []).map(toDiscount);
-  } catch (err) {
-    console.error("getActiveDiscounts failed, treating as no active discounts:", err);
-    return [];
-  }
 }
 
 // Mirrors app/actions/storefront.ts's fallback for batches with no manual
@@ -149,13 +84,27 @@ export async function getBogoFreeProductCatalog(): Promise<BogoFreeProduct[]> {
   }));
 }
 
-// Whether the signed-in customer (if any) has already redeemed this
-// once-per-customer discount — the same check createOrderAndCharge makes
-// authoritatively at checkout, exposed here so the cart can reject an
-// already-used code immediately instead of waiting until payment.
-export async function hasRedeemedDiscount(discountId: string): Promise<boolean> {
+// The cart's copy of the active discounts, for its client-side BOGO preview.
+// Code-gated discounts are left out entirely so their codes never reach the
+// browser — the cart only learns about one through redeemDiscountCode, once
+// the customer has typed the code themselves.
+export async function getStorefrontDiscounts(): Promise<Discount[]> {
+  return (await getActiveDiscounts()).filter((d) => d.code === null);
+}
+
+// Validates a customer-entered code for the cart, with the same login and
+// once-per-customer checks createOrderAndCharge makes authoritatively at
+// checkout, so an unusable code is rejected immediately instead of at payment.
+export async function redeemDiscountCode(
+  rawCode: string
+): Promise<{ discount: Discount } | { error: string }> {
+  const discount = findDiscountByCode(rawCode, await getActiveDiscounts());
+  if (!discount) return { error: "Invalid or expired code" };
+  if (!discount.requiresLogin && !discount.oncePerCustomer) return { discount };
+
   const customerId = await getCurrentCustomerId();
-  if (!customerId) return false;
+  if (!customerId) return { error: "Sign in to use this code" };
+  if (!discount.oncePerCustomer) return { discount };
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -164,11 +113,12 @@ export async function hasRedeemedDiscount(discountId: string): Promise<boolean> 
   const { data, error } = await service
     .from("discount_redemptions")
     .select("id")
-    .eq("discount_id", discountId)
+    .eq("discount_id", discount.id)
     .eq("customer_id", customerId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data !== null;
+  if (error) return { error: error.message };
+  if (data) return { error: "You've already used this code" };
+  return { discount };
 }
 
 function parseDiscountForm(formData: FormData) {

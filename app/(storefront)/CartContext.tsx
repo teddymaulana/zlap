@@ -5,19 +5,12 @@ import { getGiftCatalog, type GiftCatalogItem } from "@/app/actions/gwp";
 import { getStorefrontAvailability } from "@/app/actions/storefront";
 import { computeEarnedGifts, giftRoleForTags, type GiftRole } from "@/lib/gwp";
 import {
-  getActiveDiscounts,
   getBogoFreeProductCatalog,
-  hasRedeemedDiscount,
+  getStorefrontDiscounts,
+  redeemDiscountCode,
   type BogoFreeProduct,
 } from "@/app/actions/discounts";
-import { getCurrentCustomer } from "@/app/actions/customer";
-import {
-  computeEarnedBogoFreebies,
-  applyCodeToCart,
-  findDiscountByCode,
-  type CartCodeLine,
-  type Discount,
-} from "@/lib/discounts";
+import { computeEarnedBogoFreebies, applyCodeToCart, type CartCodeLine, type Discount } from "@/lib/discounts";
 
 export type CartItem = {
   id: string;
@@ -92,6 +85,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [bogoFreeProducts, setBogoFreeProducts] = useState<BogoFreeProduct[]>([]);
   const [giftDataLoaded, setGiftDataLoaded] = useState(false);
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  // The discount behind appliedCode, as returned by redeemDiscountCode — the
+  // cart never holds the full list of code-gated discounts (see
+  // getStorefrontDiscounts), so it can't look a code up locally.
+  const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null);
 
   useEffect(() => {
     // localStorage doesn't exist during SSR, so this has to run post-mount —
@@ -101,7 +98,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setItems(JSON.parse(raw));
       const code = localStorage.getItem(CODE_STORAGE_KEY);
-      if (code) setAppliedCode(code);
+      if (code) {
+        setAppliedCode(code);
+        // Re-validate a code remembered from an earlier visit — it may have
+        // been deactivated (or used up) since; drop it silently if so.
+        redeemDiscountCode(code)
+          .then((result) => {
+            if ("discount" in result) setAppliedDiscount(result.discount);
+            else setAppliedCode(null);
+          })
+          .catch(() => setAppliedCode(null));
+      }
     } catch {
       // ignore malformed/inaccessible storage — cart just starts empty
     }
@@ -128,7 +135,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [appliedCode, hydrated]);
 
   useEffect(() => {
-    Promise.allSettled([getGiftCatalog(), getActiveDiscounts(), getBogoFreeProductCatalog()]).then(
+    Promise.allSettled([getGiftCatalog(), getStorefrontDiscounts(), getBogoFreeProductCatalog()]).then(
       ([gift, discountsResult, bogoProducts]) => {
         // Gift/BOGO preview just won't show up client-side on failure;
         // checkout still recomputes both authoritatively server-side.
@@ -231,6 +238,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = () => {
     setItems([]);
     setAppliedCode(null);
+    setAppliedDiscount(null);
   };
 
   const updateQty = (id: string, qty: number) => {
@@ -241,7 +249,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, qty } : i)));
   };
 
-  const appliedDiscount = appliedCode ? findDiscountByCode(appliedCode, discounts) : null;
   const codeLines: CartCodeLine[] = items
     .filter((i) => !i.isGift)
     .map((i) => ({
@@ -256,21 +263,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const applyDiscountCode = async (rawCode: string): Promise<{ error?: string }> => {
-    const discount = findDiscountByCode(rawCode, discounts);
-    if (!discount) return { error: "Invalid or expired code" };
-    if (discount.requiresLogin || discount.oncePerCustomer) {
-      const customer = await getCurrentCustomer();
-      if (!customer) return { error: "Sign in to use this code" };
-    }
-    if (discount.oncePerCustomer) {
-      const alreadyUsed = await hasRedeemedDiscount(discount.id);
-      if (alreadyUsed) return { error: "You've already used this code" };
-    }
+    const result = await redeemDiscountCode(rawCode);
+    if ("error" in result) return { error: result.error };
     setAppliedCode(rawCode.trim());
+    setAppliedDiscount(result.discount);
     return {};
   };
 
-  const removeDiscountCode = () => setAppliedCode(null);
+  const removeDiscountCode = () => {
+    setAppliedCode(null);
+    setAppliedDiscount(null);
+  };
 
   const totalCount = items.reduce((sum, i) => sum + i.qty, 0);
   const totalPrice =

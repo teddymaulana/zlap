@@ -3,7 +3,7 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getWishlistProductIds } from "@/app/actions/customer";
-import { getActiveDiscounts } from "@/app/actions/discounts";
+import { getActiveDiscounts } from "@/lib/activeDiscounts";
 import { priceWithDiscounts, badgesByProduct } from "@/lib/discounts";
 import { isSlabProduct, isBoosterBoxProduct } from "@/lib/productCategory";
 import type { StorefrontShortcut } from "@/lib/types";
