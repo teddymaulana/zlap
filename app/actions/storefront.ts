@@ -224,8 +224,8 @@ function withPoPrices(
 }
 
 // StorefrontProduct.marketPrice for each listed-anyway out-of-stock PSA 10
-// slab with a SNKRDUNK link and a fresh saved price (kept fresh by the daily
-// cron in app/api/cron/preorder-prices). Service role, same as
+// slab with a SNKRDUNK link and a fresh saved price (kept fresh by the
+// every-3-days cron in app/api/cron/preorder-prices). Service role, same as
 // priceByProductId — only the final marked-up price is returned.
 async function marketPriceByProductId(
   products: { id: string; name: string; tags: string[] | null; show_when_oos: boolean }[]

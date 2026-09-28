@@ -18,8 +18,9 @@ export const PO_MAX_QTY_PER_ORDER = 5;
 // units per product at once.
 export const PO_DEFAULT_OPEN_LIMIT = 5;
 // A saved price older than this is treated as unavailable rather than sold
-// on — the daily refresh keeps it well inside this when it's working.
-export const PO_PRICE_MAX_AGE_DAYS = 3;
+// on — the refresh runs every 3 days (vercel.json), so this leaves a day of
+// slack for a late run before prices are hidden.
+export const PO_PRICE_MAX_AGE_DAYS = 4;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

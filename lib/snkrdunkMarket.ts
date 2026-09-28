@@ -1,7 +1,7 @@
 // Server-only SNKRDUNK market lookups — deliberately NOT a "use server"
 // module, so none of this is a publicly callable endpoint by itself. Used by
 // the admin PSA 10 reference (app/actions/snkrdunk.ts), pre-order pricing
-// (lib/preorderPricing.ts), and the daily pre-order price refresh.
+// (lib/preorderPricing.ts), and the every-3-days pre-order price refresh.
 import { unstable_cache } from "next/cache";
 
 // PSA 10 market figures for a card, read from SNKRDUNK's used-listings

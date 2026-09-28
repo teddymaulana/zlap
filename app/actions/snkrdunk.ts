@@ -39,7 +39,7 @@ export async function getSnkrdunkPsa10(productId: string): Promise<Psa10Referenc
   }
 }
 
-// Admin "Refresh pre-order price now" — same snapshot the daily cron
+// Admin "Refresh pre-order price now" — same snapshot the every-3-days cron
 // (app/api/cron/preorder-prices) writes, on demand.
 export async function refreshPoPrice(productId: string): Promise<{ price: number } | { error: string }> {
   const supabase = await createClient();

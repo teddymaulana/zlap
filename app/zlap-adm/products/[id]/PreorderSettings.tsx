@@ -53,7 +53,7 @@ export default function PreorderSettings({ product, openCount }: { product: Prod
       </label>
       <p className="text-xs text-gray-500">
         Customers can pre-order even when out of stock, pay in full, and get it in about {PO_ESTIMATE_WEEKS.min}–
-        {PO_ESTIMATE_WEEKS.max} weeks. Needs a SNKRDUNK link above; the price is refreshed daily from recent PSA 10
+        {PO_ESTIMATE_WEEKS.max} weeks. Needs a SNKRDUNK link above; the price is refreshed every 3 days from recent PSA 10
         sales.
       </p>
 

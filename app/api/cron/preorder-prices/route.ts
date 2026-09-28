@@ -3,7 +3,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { PO_PRODUCT_COLUMNS, refreshPoPriceSnapshot } from "@/lib/preorderPricing";
 import { isSlabProduct } from "@/lib/productCategory";
 
-// Daily refresh of every pre-order-enabled product's saved price (see
+// Every-3-days refresh of every pre-order-enabled product's saved price (see
 // lib/preorderPricing.ts), plus every storefront PSA 10 slab listed out of
 // stock via show_when_oos with a SNKRDUNK link — the storefront shows that
 // saved price on them, display only (StorefrontProduct.marketPrice).
