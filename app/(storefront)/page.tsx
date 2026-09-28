@@ -37,6 +37,9 @@ function StorePageContent() {
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [results, setResults] = useState<StorefrontSearchResult | null>(null);
+  // The query `results` were fetched for — `query` tracks the input as it's
+  // typed, before the search actually runs.
+  const [resultsQuery, setResultsQuery] = useState("");
   // Lazy-initialized from the URL so a direct load of "/?q=..." renders the
   // searching state on the very first paint — the mount effect below that
   // actually runs the search fires after that paint, so without this, the
@@ -89,6 +92,7 @@ function StorePageContent() {
           page
         )
       );
+      setResultsQuery(trimmed);
     } finally {
       setIsSearching(false);
     }
@@ -325,6 +329,26 @@ function StorePageContent() {
         <p className="text-sm text-gray-500">{copy.home.noProducts}</p>
       ) : (
         <>
+          {resultsQuery.toLowerCase() === "graded" && (
+            <>
+              <Image
+                src="/graded-page-mob.png"
+                alt="Graded PSA slabs, more graded cards coming"
+                width={683}
+                height={333}
+                priority
+                className="mb-6 h-auto w-full rounded sm:hidden"
+              />
+              <Image
+                src="/graded-page.png"
+                alt="Graded PSA slabs, more graded cards coming"
+                width={2000}
+                height={275}
+                priority
+                className="mb-6 hidden h-auto w-full rounded sm:block"
+              />
+            </>
+          )}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {results.products.map((p) => (
               <ProductCard key={p.id} product={p} />
