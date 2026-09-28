@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { StorefrontProductDetail } from "@/app/actions/storefront";
 import { preorderCartId, preorderMaxQty, useCart } from "../../CartContext";
 import { useWishlist } from "../../WishlistContext";
@@ -60,7 +61,14 @@ export default function ProductDetailActions({ product }: { product: StorefrontP
           })}
         </div>
       )}
-      {buyPreorder && <p className="text-xs text-gray-500">{copy.product.preorderFullPayment}</p>}
+      {buyPreorder && (
+        <p className="text-xs text-gray-500">
+          {copy.product.preorderFullPayment} {copy.product.preorderRefund}{" "}
+          <Link href="/refund" className="underline hover:text-gray-700">
+            {copy.product.refundPolicyLink}
+          </Link>
+        </p>
+      )}
 
       <div className="flex gap-2">
         {buyPreorder ? (

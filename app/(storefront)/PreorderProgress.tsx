@@ -12,10 +12,10 @@ function formatDate(date: string | Date) {
 }
 
 const STEPS: { stage: PoStage; title: string }[] = [
-  { stage: "buying", title: "Buying in Japan" },
-  { stage: "bought", title: "Bought in Japan" },
-  { stage: "shipping", title: "Shipping to Indonesia" },
-  { stage: "arrived", title: "Arrived in Indonesia" },
+  { stage: "buying", title: "Sourcing your item" },
+  { stage: "bought", title: "Item secured" },
+  { stage: "shipping", title: "Shipping to us" },
+  { stage: "arrived", title: "Arrived with us" },
   { stage: "shipped_to_customer", title: "On its way to you" },
 ];
 const ORDER: PoStage[] = ["ordered", "buying", "bought", "shipping", "arrived", "shipped_to_customer"];
@@ -39,13 +39,13 @@ export default function PreorderProgress({ progress }: { progress: PoProgress })
   if (progress.stage === "shipped_to_customer") {
     headline = "Your pre-order is on its way to you.";
   } else if (progress.stage === "arrived") {
-    headline = "Your pre-order has arrived in Indonesia — we're packing it now.";
+    headline = "Your pre-order has arrived with us — we're packing it now.";
   } else if (progress.stage === "shipping" && eta) {
     const left = daysUntil(eta);
     headline =
       left > 0
-        ? `Arriving in Indonesia in about ${left} day${left === 1 ? "" : "s"} (est. ${formatDate(eta)}).`
-        : `Due in Indonesia any day now (est. ${formatDate(eta)}).`;
+        ? `Arriving with us in about ${left} day${left === 1 ? "" : "s"} (est. ${formatDate(eta)}).`
+        : `Due with us any day now (est. ${formatDate(eta)}).`;
   } else if (progress.orderedAt) {
     headline = `Estimated arrival: ${formatDate(addDays(progress.orderedAt, PO_ESTIMATE_WEEKS.min * 7))} – ${formatDate(
       addDays(progress.orderedAt, PO_ESTIMATE_WEEKS.max * 7)

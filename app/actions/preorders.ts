@@ -127,8 +127,8 @@ async function markPoBoughtImpl(purchaseId: string) {
   await notifyCustomers(
     db,
     purchaseId,
-    "Your pre-order has been bought",
-    "we've bought your pre-order item in Japan. We'll let you know as soon as it ships to Indonesia."
+    "Your pre-order item is secured",
+    "we've secured your pre-order item. We'll let you know as soon as it ships to us."
   );
   refresh(purchaseId);
 }
@@ -150,8 +150,8 @@ async function markPoShippedImpl(purchaseId: string, transitDays: number) {
   await notifyCustomers(
     db,
     purchaseId,
-    "Your pre-order is on its way from Japan",
-    `your pre-order item has shipped from Japan. Estimated arrival in Indonesia: ${formatDate(addDays(shippedAt, days))}.`
+    "Your pre-order is on its way from our supplier",
+    `your pre-order item has shipped from our supplier. Estimated arrival with us: ${formatDate(addDays(shippedAt, days))}.`
   );
   refresh(purchaseId);
 }
@@ -180,7 +180,7 @@ async function addPoDelayImpl(purchaseId: string, days: number, reason: string) 
     db,
     purchaseId,
     "Update on your pre-order delivery",
-    `your pre-order is delayed by ${extraDays} day${extraDays === 1 ? "" : "s"} (${trimmedReason}). New estimated arrival in Indonesia: ${formatDate(eta)}.`
+    `your pre-order is delayed by ${extraDays} day${extraDays === 1 ? "" : "s"} (${trimmedReason}). New estimated arrival with us: ${formatDate(eta)}.`
   );
   refresh(purchaseId);
 }
@@ -205,8 +205,8 @@ async function markPoArrivedImpl(purchaseId: string) {
   await notifyCustomers(
     db,
     purchaseId,
-    "Your pre-order has arrived in Indonesia",
-    "your pre-order item has arrived at our place in Indonesia. We're packing it now and will email you the tracking number once it ships."
+    "Your pre-order has arrived with us",
+    "your pre-order item has arrived with us. We're packing it now and will email you the tracking number once it ships."
   );
   refresh(purchaseId);
 }

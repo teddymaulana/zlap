@@ -531,6 +531,14 @@ export default function CheckoutPage() {
             );
           })}
         </div>
+        {items.some((item) => item.isPreorder) && (
+          <p className="-mt-4 mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
+            {copy.checkout.preorderRefundNote}{" "}
+            <Link href="/refund" className="underline hover:text-blue-900">
+              {copy.product.refundPolicyLink}
+            </Link>
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <h2 className="mb-1 text-lg font-bold text-black">{copy.checkout.shippingAddress}</h2>

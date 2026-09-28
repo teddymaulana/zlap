@@ -17,6 +17,9 @@ export default function RefundPage() {
         ))}
       </ul>
 
+      <h2 className="mb-2 text-sm font-semibold text-black">{copy.refund.preorderHeading}</h2>
+      <p className="mb-8 text-sm text-gray-600">{copy.refund.preorderBody}</p>
+
       <h2 className="mb-2 text-sm font-semibold text-black">{copy.refund.stockHeading}</h2>
       <p className="mb-8 text-sm text-gray-600">{copy.refund.stockBody}</p>
 

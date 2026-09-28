@@ -68,7 +68,7 @@
   },
   "terms": {
     "pageTitle": "Syarat & Ketentuan",
-    "lastUpdated": "Terakhir diperbarui: 3 September 2026",
+    "lastUpdated": "Terakhir diperbarui: 28 September 2026",
     "sections": [
       {
         "heading": "1. Tentang Zlap Card",
@@ -87,23 +87,27 @@
         "body": "Pesanan dilakukan dengan menambahkan produk ke keranjang, mengisi data pengiriman, lalu menyelesaikan pembayaran melalui metode yang tersedia di halaman checkout. Pesanan akan kami proses dan kirimkan setelah pembayaran diterima dan dikonfirmasi, disertai nomor resi untuk pelacakan pengiriman. Untuk permintaan kartu khusus (card request), kami akan mencarikan dan memberikan penawaran harga melalui email; pesanan baru diproses setelah Anda menyelesaikan pembayaran melalui tautan checkout yang kami kirimkan."
       },
       {
-        "heading": "5. Pembayaran",
-        "body": "Pembayaran diproses melalui Midtrans atau DOKU, payment gateway berizin di Indonesia. Metode pembayaran yang tersedia meliputi transfer virtual account bank, QRIS, e-wallet, dan kode pembayaran di gerai ritel, sesuai yang ditampilkan di halaman checkout. Kami tidak menerima transfer manual di luar metode yang tercantum tersebut."
+        "heading": "5. Pre-order",
+        "body": "Produk pre-order belum tersedia di stok kami dan akan kami carikan melalui supplier kami setelah Anda memesan. Pesanan pre-order dibayar penuh saat checkout, dan perkiraan waktu kedatangan yang ditampilkan merupakan estimasi. Apabila kami tidak berhasil mendapatkan produk yang Anda pesan, kami akan mengembalikan 100% dana yang telah Anda bayarkan — secara otomatis melalui payment gateway ke metode pembayaran yang Anda gunakan, atau tim kami akan menghubungi Anda untuk memproses pengembalian dana apabila metode pembayaran Anda tidak mendukung refund otomatis."
       },
       {
-        "heading": "6. Pengembalian Dana & Pembatalan",
+        "heading": "6. Pembayaran",
+        "body": "Pembayaran diproses melalui payment gateway berizin di Indonesia. Metode pembayaran yang tersedia meliputi transfer virtual account bank, QRIS, e-wallet, dan kode pembayaran di gerai ritel, sesuai yang ditampilkan di halaman checkout. Kami tidak menerima transfer manual di luar metode yang tercantum tersebut."
+      },
+      {
+        "heading": "7. Pengembalian Dana & Pembatalan",
         "body": "Ketentuan lengkap mengenai pengembalian dana dan pembatalan pesanan dapat dilihat pada halaman Kebijakan Refund kami."
       },
       {
-        "heading": "7. Kondisi Produk",
+        "heading": "8. Kondisi Produk",
         "body": "Booster box dan produk tersegel kami kirim dalam kondisi segel pabrik asli; kami tidak pernah membuka atau menyegel ulang produk. Graded cards (slab, misalnya PSA) dikirim dalam holder aslinya. Foto produk pada katalog bersifat representatif."
       },
       {
-        "heading": "8. Kekayaan Intelektual",
+        "heading": "9. Kekayaan Intelektual",
         "body": "Seluruh merek dagang (Pokemon, One Piece, dan lainnya) adalah milik pemegang hak masing-masing. Zlap Card bukan distributor resmi dan tidak berafiliasi dengan The Pokemon Company, Bandai, atau entitas terkait lainnya."
       },
       {
-        "heading": "9. Batasan Tanggung Jawab",
+        "heading": "10. Batasan Tanggung Jawab",
         "items": [
           {
             "title": "Penggunaan Platform",
@@ -114,10 +118,6 @@
             "body": "Pengguna setuju untuk membebaskan Zlap Card dari segala klaim, kerugian, tanggung jawab, atau biaya yang timbul akibat penggunaan platform atau pelanggaran terhadap Syarat & Ketentuan ini."
           }
         ]
-      },
-      {
-        "heading": "10. Hukum yang Berlaku",
-        "body": "Syarat & Ketentuan ini tunduk pada hukum Republik Indonesia. Apabila terjadi perselisihan, kami akan mengutamakan penyelesaian secara musyawarah; jika tidak tercapai kesepakatan, penyelesaian akan dilakukan melalui Pengadilan Negeri yang berwenang."
       },
       {
         "heading": "11. Perubahan Ketentuan",
@@ -133,9 +133,11 @@
     "processHeading": "Proses Pengembalian Dana",
     "processIntro": "Setelah permintaan pembatalan Anda disetujui, kami memproses pengembalian dana sesuai payment gateway dan metode pembayaran yang Anda gunakan:",
     "processItems": [
-      "QRIS, GoPay, ShopeePay, dan kode pembayaran gerai ritel yang dibayar melalui Midtrans dikembalikan secara otomatis.",
-      "Pembayaran transfer bank (virtual account) melalui Midtrans, serta seluruh pembayaran melalui DOKU, memerlukan pengembalian dana secara manual oleh tim kami."
+      "Untuk sebagian metode pembayaran, seperti QRIS dan e-wallet, pengembalian dana dapat diproses secara otomatis melalui payment gateway ke metode pembayaran yang Anda gunakan.",
+      "Metode pembayaran lainnya, seperti transfer bank (virtual account), memerlukan pengembalian dana secara manual — tim kami akan menghubungi Anda untuk memprosesnya."
     ],
+    "preorderHeading": "Pre-order Tidak Berhasil Didapatkan",
+    "preorderBody": "Apabila kami tidak berhasil mendapatkan produk pre-order yang Anda pesan, kami akan mengembalikan 100% dana yang telah Anda bayarkan. Pengembalian dana dilakukan secara otomatis melalui payment gateway ke metode pembayaran yang Anda gunakan, atau tim kami akan menghubungi Anda melalui WhatsApp atau email untuk memprosesnya apabila metode pembayaran Anda tidak mendukung refund otomatis.",
     "stockHeading": "Stok Tidak Tersedia",
     "stockBody": "Dalam kasus yang jarang terjadi di mana produk yang Anda pesan ternyata tidak tersedia setelah pesanan dibuat, kami akan menghubungi Anda dan memproses pengembalian dana penuh.",
     "contactNote": "Untuk pertanyaan seputar pesanan atau pengembalian dana Anda, silakan hubungi kami di info@zlapcard.com atau WhatsApp di +62 851-2136-9155."
@@ -223,8 +225,10 @@
     "inStockOption": "In stock",
     "inStockOptionNote": "Ready to ship",
     "preorderOption": "Pre-order",
-    "preorderOptionNote": "Sourced from Japan for you · arrives in about {min}–{max} weeks",
-    "preorderFullPayment": "Pre-orders are paid in full at checkout. We'll keep you updated on your order page as it's bought, shipped from Japan, and sent to you."
+    "preorderOptionNote": "Sourced from our supplier for you · arrives in about {min}–{max} weeks",
+    "preorderFullPayment": "Pre-order dibayar penuh saat checkout. Kami akan terus memberi kabar di halaman pesanan Anda — saat produk dibeli dari supplier, tiba di tempat kami, hingga dikirim ke Anda.",
+    "preorderRefund": "Jika kami tidak berhasil mendapatkannya, dana Anda dikembalikan 100% — otomatis ke metode pembayaran yang Anda gunakan, atau tim kami akan menghubungi Anda untuk memprosesnya.",
+    "refundPolicyLink": "Kebijakan Refund"
   },
   "payment": {
     "virtualAccount": "Virtual Account",
@@ -280,6 +284,7 @@
     "missingRegion": "Please complete your Provinsi, Kota, Kecamatan, Kelurahan, and Kode Pos",
     "missingPaymentMethod": "Please select a payment method",
     "paymentMethodOnDoku": "You'll choose how to pay (bank transfer, QRIS, e-wallet, etc.) on the next screen.",
+    "preorderRefundNote": "Produk pre-order dibayar penuh sekarang. Jika kami tidak berhasil mendapatkannya, dana Anda dikembalikan 100% — otomatis ke metode pembayaran yang Anda gunakan, atau tim kami akan menghubungi Anda untuk memprosesnya.",
     "redirectingToDoku": "Redirecting you to complete your payment…",
     "continueToPayment": "Continue to payment",
     "loadingOrder": "Loading your order…",

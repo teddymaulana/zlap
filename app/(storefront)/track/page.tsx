@@ -94,7 +94,7 @@ function describe(lookup: TrackLookup) {
   } else if (paid && order?.poProgress && !order.hasStockItems) {
     headline = {
       title: "Pre-order in progress",
-      detail: "We're sourcing your item from Japan — follow each step below.",
+      detail: "We're sourcing your item from our supplier — follow each step below.",
     };
   } else if (paid) {
     headline = {

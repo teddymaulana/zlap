@@ -152,7 +152,7 @@ export async function sendOrderConfirmationEmail(params: {
           : params.paymentMethod === "qris"
             ? "QRIS"
             : params.paymentMethod === "doku_checkout"
-              ? "DOKU"
+              ? "Online payment"
               : params.paymentMethod;
 
   let paymentHtml = "";
@@ -161,7 +161,7 @@ export async function sendOrderConfirmationEmail(params: {
   } else if (params.paymentCode) {
     paymentHtml = `<p>Pay in-store at <strong>${params.store}</strong> with code: <strong>${params.paymentCode}</strong></p>`;
   } else if (params.redirectUrl) {
-    paymentHtml = `<p><a href="${params.redirectUrl}">Complete your payment on DOKU</a> to confirm this order.</p>`;
+    paymentHtml = `<p><a href="${params.redirectUrl}">Complete your payment</a> to confirm this order.</p>`;
   } else {
     paymentHtml = `<p>Complete your ${params.paymentMethod} payment to confirm this order.</p>`;
   }
@@ -409,7 +409,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// Pre-order progress updates (bought in Japan, shipped from Japan, delays,
+// Pre-order progress updates (bought from the supplier, shipped, delays,
 // arrived) — sent by app/actions/preorders.ts to every customer with a
 // pre-order line in the purchase that moved. `message` is plain text (it can
 // include a staff-typed delay reason), so it's escaped here.
