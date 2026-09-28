@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { submitCardRequest } from "@/app/actions/cardRequests";
+import { isAllowedReferenceLink, MAX_REQUEST_QTY, REFERENCE_LINK_ERROR } from "@/lib/cardRequests";
 import { getCurrentCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
 
@@ -22,6 +23,10 @@ export default function RequestCardPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  // Anti-spam (see submitCardRequest): a hidden field only bots fill in, and
+  // when the form appeared.
+  const [website, setWebsite] = useState("");
+  const [startedAt] = useState(() => Date.now());
 
   useEffect(() => {
     getCurrentCustomer().then((customer) => {
@@ -35,6 +40,10 @@ export default function RequestCardPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!isAllowedReferenceLink(referenceUrl)) {
+      setError(REFERENCE_LINK_ERROR);
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await submitCardRequest({
@@ -47,6 +56,8 @@ export default function RequestCardPage() {
         name,
         email,
         phone: whatsappOk ? phone : "",
+        website,
+        startedAt,
       });
       if (res.error) {
         setError(res.error);
@@ -84,6 +95,19 @@ export default function RequestCardPage() {
         it.
       </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+          <label>
+            Website
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </label>
+        </div>
         <input
           type="text"
           value={cardName}
@@ -119,9 +143,12 @@ export default function RequestCardPage() {
           type="url"
           value={referenceUrl}
           onChange={(e) => setReferenceUrl(e.target.value)}
-          placeholder="Reference link or photo URL (optional)"
+          placeholder="Reference link (optional)"
           className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
         />
+        <p className="-mt-1 text-xs text-gray-500">
+          A link to the card on PriceCharting, SNKRDUNK, TCGplayer, Cardmarket, eBay or a similar card site.
+        </p>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -137,9 +164,10 @@ export default function RequestCardPage() {
             id="request-qty"
             type="number"
             min="1"
+            max={MAX_REQUEST_QTY}
             step="1"
             value={qty}
-            onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+            onChange={(e) => setQty(Math.min(MAX_REQUEST_QTY, Math.max(1, Number(e.target.value) || 1)))}
             className="w-20 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
           />
         </div>

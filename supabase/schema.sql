@@ -941,6 +941,14 @@ alter table order_lines enable row level security;
 alter table offers enable row level security;
 -- Same pattern as offers: customer submission and checkout-token lookup go
 -- through the service-role client, staff quote/reject through the policy below.
+-- Anti-spam (app/actions/cardRequests.ts): who submitted, for per-IP limits,
+-- and the normalized email (Gmail dots / +tags stripped), for per-email
+-- limits that dotted address variants can't dodge.
+alter table card_requests add column if not exists submitter_ip text;
+alter table card_requests add column if not exists email_key text;
+create index if not exists card_requests_submitter_ip_idx on card_requests (submitter_ip, created_at);
+create index if not exists card_requests_email_key_idx on card_requests (email_key, created_at);
+
 alter table card_requests enable row level security;
 alter table cash enable row level security;
 alter table snapshots enable row level security;
