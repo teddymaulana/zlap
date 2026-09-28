@@ -57,7 +57,14 @@ export default function ProductHeaderForm({
       </div>
 
       <form
-        action={(fd) => {
+        // onSubmit, not action={...}: React resets a form after its action
+        // runs, which snaps controlled fields (the pre-order checkbox,
+        // markup, open limit) back to their page-load values on screen while
+        // their state keeps the saved ones — so the form showed stale values
+        // and a second Save would have sent them.
+        onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
           // Checked here too, not just in updateProduct — a server action's
           // thrown message is hidden in production, and there's no admin
           // error page to catch it, so a bad link would just break the page.
