@@ -237,16 +237,29 @@ function matchesCategory(p: { tags: string[] | null; name: string }, category: S
   return !isBooster && !isSingle && !isSlab;
 }
 
+// Storefront search results per page.
+const SEARCH_PAGE_SIZE = 30;
+
+export type StorefrontSearchResult = {
+  products: StorefrontProduct[];
+  // Matching products across every page.
+  total: number;
+  // 1-based, clamped to the last page.
+  page: number;
+  pageSize: number;
+};
+
 export async function searchStorefrontProducts(
   query: string,
-  filters: StorefrontFilters = {}
-): Promise<StorefrontProduct[]> {
+  filters: StorefrontFilters = {},
+  page = 1
+): Promise<StorefrontSearchResult> {
   // Strip characters that are syntax in PostgREST's .or() filter string
   // (commas separate conditions, parens group them) so a search term
   // containing them can't break or alter the query.
   const trimmed = query.trim().replace(/[,()]/g, "");
   const hasFilters = Boolean(filters.brand || filters.setId || filters.category);
-  if (!trimmed && !hasFilters) return [];
+  if (!trimmed && !hasFilters) return { products: [], total: 0, page: 1, pageSize: SEARCH_PAGE_SIZE };
 
   const supabase = await createClient();
 
@@ -270,7 +283,9 @@ export async function searchStorefrontProducts(
   if (filters.brand) builder = builder.eq("brand", filters.brand);
   if (filters.setId) builder = builder.eq("set_id", filters.setId);
 
-  const { data, error } = await builder.order("name", { ascending: true }).limit(200);
+  // 1000 is PostgREST's own per-request cap — every match is fetched so
+  // pagination below counts and pages the full result set.
+  const { data, error } = await builder.order("name", { ascending: true }).limit(1000);
   if (error) throw new Error(error.message);
   let products = data ?? [];
 
@@ -375,7 +390,17 @@ export async function searchStorefrontProducts(
   const inStock = withStock.filter((p) => p.inStock || p.poPrice !== null);
   const oosShown = withStock.filter((p) => !p.inStock && p.poPrice === null && showWhenOosByProduct.get(p.id));
 
-  return [...inStock, ...oosShown].slice(0, 24);
+  // Paged only after all the filtering above, so the total and each page
+  // reflect what's actually listable.
+  const all = [...inStock, ...oosShown];
+  const lastPage = Math.max(1, Math.ceil(all.length / SEARCH_PAGE_SIZE));
+  const current = Math.min(Math.max(1, Math.floor(page) || 1), lastPage);
+  return {
+    products: all.slice((current - 1) * SEARCH_PAGE_SIZE, current * SEARCH_PAGE_SIZE),
+    total: all.length,
+    page: current,
+    pageSize: SEARCH_PAGE_SIZE,
+  };
 }
 
 export async function getRecommendedProducts(limit = 8): Promise<StorefrontProduct[]> {

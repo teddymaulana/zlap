@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() ?? "";
 
-  const products = q ? await searchStorefrontProducts(q) : await getRecommendedProducts(24);
+  // First page only — the app has no paging yet.
+  const products = q ? (await searchStorefrontProducts(q)).products : await getRecommendedProducts(24);
   return NextResponse.json({ products });
 }

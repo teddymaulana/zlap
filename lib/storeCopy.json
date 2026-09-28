@@ -161,7 +161,11 @@
     "clearSearchAria": "Clear search",
     "searching": "Searching…",
     "loadingProducts": "Loading products…",
-    "noProducts": "No products found."
+    "noProducts": "No products found.",
+    "resultsRange": "Showing {from}–{to} of {total}",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "paginationAria": "Search results pages"
   },
   "carousel": {
     "scrollLeftAria": "Scroll left",

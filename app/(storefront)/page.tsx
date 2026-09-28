@@ -10,6 +10,7 @@ import {
   getPopularKeywords,
   getStorefrontShortcuts,
   type StorefrontProduct,
+  type StorefrontSearchResult,
 } from "@/app/actions/storefront";
 import { getCardSetsInStock } from "@/app/actions/sets";
 import type { CardSet, StorefrontShortcut } from "@/lib/types";
@@ -21,6 +22,7 @@ import FeaturedCarousel from "./FeaturedCarousel";
 import CategoryShortcuts from "./CategoryShortcuts";
 import FilterToolbar, { type StorefrontFilterValue } from "./FilterToolbar";
 import ShopBySetCTAs from "./ShopBySetCTAs";
+import SearchPagination from "./SearchPagination";
 
 const EMPTY_FILTERS: StorefrontFilterValue = { brand: "", setId: "", category: "" };
 
@@ -34,7 +36,7 @@ function StorePageContent() {
   const searchParams = useSearchParams();
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
-  const [results, setResults] = useState<StorefrontProduct[] | null>(null);
+  const [results, setResults] = useState<StorefrontSearchResult | null>(null);
   // Lazy-initialized from the URL so a direct load of "/?q=..." renders the
   // searching state on the very first paint — the mount effect below that
   // actually runs the search fires after that paint, so without this, the
@@ -63,7 +65,7 @@ function StorePageContent() {
   }));
   const [filterSyncToken, setFilterSyncToken] = useState(0);
 
-  const runSearch = async (q: string, f: StorefrontFilterValue) => {
+  const runSearch = async (q: string, f: StorefrontFilterValue, page = 1) => {
     const trimmed = q.trim();
     if (!trimmed && !f.brand && !f.setId && !f.category) {
       setResults(null);
@@ -72,16 +74,20 @@ function StorePageContent() {
     setIsSearching(true);
     try {
       setResults(
-        await searchStorefrontProducts(trimmed, {
-          brand: (f.brand || undefined) as "pokemon" | "one_piece" | undefined,
-          setId: f.setId || undefined,
-          category: (f.category || undefined) as
-            | "booster_boxes"
-            | "singles"
-            | "slabs"
-            | "other"
-            | undefined,
-        })
+        await searchStorefrontProducts(
+          trimmed,
+          {
+            brand: (f.brand || undefined) as "pokemon" | "one_piece" | undefined,
+            setId: f.setId || undefined,
+            category: (f.category || undefined) as
+              | "booster_boxes"
+              | "singles"
+              | "slabs"
+              | "other"
+              | undefined,
+          },
+          page
+        )
       );
     } finally {
       setIsSearching(false);
@@ -119,7 +125,7 @@ function StorePageContent() {
     setFilters(next);
     setFilterSyncToken((t) => t + 1);
     if (q.trim() || next.brand || next.setId || next.category) {
-      runSearch(q, next);
+      runSearch(q, next, Number(searchParams.get("page")) || 1);
     } else {
       setResults(null);
     }
@@ -159,6 +165,19 @@ function StorePageContent() {
     if (query.trim()) params.set("q", query.trim());
     return params.toString();
   })();
+
+  // Keeps the current query/filters in the URL and just swaps the page
+  // param (dropped for page 1), so a reload or shared link lands on the
+  // same page of results.
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(window.location.search);
+    if (page > 1) params.set("page", String(page));
+    else params.delete("page");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `/?${qs}` : "/");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    runSearch(query, filters, page);
+  };
 
   const handleFiltersChange = (next: StorefrontFilterValue) => {
     setFilters(next);
@@ -302,14 +321,22 @@ function StorePageContent() {
             </>
           )}
         </>
-      ) : results.length === 0 ? (
+      ) : results.products.length === 0 ? (
         <p className="text-sm text-gray-500">{copy.home.noProducts}</p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {results.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {results.products.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+          <SearchPagination
+            page={results.page}
+            pageSize={results.pageSize}
+            total={results.total}
+            onPageChange={handlePageChange}
+          />
+        </>
       )}
     </div>
   );
