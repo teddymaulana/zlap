@@ -75,6 +75,18 @@ type BatchInfo = {
   poSlotsLeft: number | null;
 };
 
+// Price info for a product with nothing sellable (no storefront-priced batch,
+// not open for pre-order) that staff still chose to list via show_when_oos —
+// it renders as out of stock with "Price unavailable".
+const UNPRICED_INFO: BatchInfo = {
+  price: null,
+  originalPrice: null,
+  badge: null,
+  preorder: null,
+  poPrice: null,
+  poSlotsLeft: null,
+};
+
 function batchInfo(b: {
   cost: number;
   direct_price: number | null;
@@ -333,11 +345,13 @@ export async function searchStorefrontProducts(
   const availableByProduct = new Map(availability.map((a) => [a.productId, a.available]));
   const showWhenOosByProduct = new Map(products.map((p) => [p.id, p.show_when_oos]));
 
-  // Only show products that have a batch selected for storefront pricing.
+  // Only show products that have a batch selected for storefront pricing or
+  // are open for pre-order — plus any show_when_oos product without either,
+  // listed as out of stock with no price.
   const withStock: StorefrontProduct[] = products
-    .filter((p) => infos.has(p.id))
+    .filter((p) => infos.has(p.id) || p.show_when_oos)
     .map((p) => {
-      const info = infos.get(p.id)!;
+      const info = infos.get(p.id) ?? UNPRICED_INFO;
       return {
         id: p.id,
         name: p.name,
@@ -513,7 +527,9 @@ export async function getStorefrontProductDetail(
   const supabase = await createClient();
   const { data: product, error } = await supabase
     .from("products")
-    .select("id, name, sku, image_url, tags, brand, set_id, offers_enabled, restock_eta_date, storefront_enabled")
+    .select(
+      "id, name, sku, image_url, tags, brand, set_id, offers_enabled, restock_eta_date, storefront_enabled, show_when_oos"
+    )
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -525,8 +541,11 @@ export async function getStorefrontProductDetail(
   if (setError) throw new Error(setError.message);
 
   const infos = await priceByProductId([product.id]);
-  const info = infos.get(product.id);
-  if (!info) return null; // not sellable on the storefront (no storefront price set)
+  // Not sellable on the storefront (no storefront price set, not open for
+  // pre-order) — unless it's listed anyway via show_when_oos, in which case
+  // its page shows it out of stock with no price.
+  const info = infos.get(product.id) ?? (product.show_when_oos ? UNPRICED_INFO : null);
+  if (!info) return null;
 
   const availability = await getStorefrontAvailability([product.id]);
   const stockCount = availability[0]?.available ?? 0;
