@@ -4,7 +4,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getWishlistProductIds } from "@/app/actions/customer";
 import { getActiveDiscounts } from "@/lib/activeDiscounts";
-import { activePoPrice, poSlotsLeft } from "@/lib/preorder";
+import { activePoPrice, isPoPriceFresh, poSlotsLeft } from "@/lib/preorder";
 import { priceWithDiscounts, badgesByProduct } from "@/lib/discounts";
 import { isSlabProduct, isBoosterBoxProduct } from "@/lib/productCategory";
 import type { StorefrontShortcut } from "@/lib/types";
@@ -50,6 +50,12 @@ export type StorefrontProduct = {
   // populated where inStock is a real computed value, since it's only
   // ever shown while a product is actually out of stock.
   restockEtaDate?: string | null;
+  // Display-only price for an out-of-stock PSA 10 slab listed via
+  // show_when_oos: its saved SNKRDUNK-based price (products.po_price), shown
+  // in place of "Price unavailable". Never buyable — the product stays out
+  // of stock unless pre-order is actually open (poPrice). Populated only by
+  // searchStorefrontProducts and getStorefrontProductDetail.
+  marketPrice?: number | null;
 };
 
 // Batch-resolves set_id -> {name, language} for a list of products in one
@@ -217,7 +223,34 @@ function withPoPrices(
   return merged;
 }
 
-export type StorefrontCategory = "booster_boxes" | "singles" | "slabs" | "other";
+// StorefrontProduct.marketPrice for each listed-anyway out-of-stock PSA 10
+// slab with a SNKRDUNK link and a fresh saved price (kept fresh by the daily
+// cron in app/api/cron/preorder-prices). Service role, same as
+// priceByProductId — only the final marked-up price is returned.
+async function marketPriceByProductId(
+  products: { id: string; name: string; tags: string[] | null; show_when_oos: boolean }[]
+): Promise<Map<string, number>> {
+  const ids = products.filter((p) => p.show_when_oos && isSlabProduct(p)).map((p) => p.id);
+  if (ids.length === 0) return new Map();
+
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { data, error } = await service
+    .from("products")
+    .select("id, po_price, po_price_updated_at")
+    .in("id", ids)
+    .not("snkrdunk_url", "is", null)
+    .not("po_price", "is", null);
+  if (error) throw new Error(error.message);
+
+  return new Map(
+    (data ?? []).filter((p) => isPoPriceFresh(p.po_price_updated_at)).map((p) => [p.id, Number(p.po_price)])
+  );
+}
+
+export type StorefrontCategory ="booster_boxes" | "singles" | "slabs" | "other";
 
 export type StorefrontFilters = {
   brand?: "pokemon" | "one_piece";
@@ -389,6 +422,11 @@ export async function searchStorefrontProducts(
   // listed with the in-stock results rather than hidden as out of stock.
   const inStock = withStock.filter((p) => p.inStock || p.poPrice !== null);
   const oosShown = withStock.filter((p) => !p.inStock && p.poPrice === null && showWhenOosByProduct.get(p.id));
+  // Listed out of stock with no price of its own — a PSA 10 slab among these
+  // can still show its SNKRDUNK-based price, display only.
+  const unpricedOosIds = new Set(oosShown.filter((p) => p.price === null).map((p) => p.id));
+  const marketPrices = await marketPriceByProductId(products.filter((p) => unpricedOosIds.has(p.id)));
+  for (const p of oosShown) p.marketPrice = marketPrices.get(p.id) ?? null;
 
   // Paged only after all the filtering above, so the total and each page
   // reflect what's actually listable.
@@ -575,6 +613,10 @@ export async function getStorefrontProductDetail(
   const availability = await getStorefrontAvailability([product.id]);
   const stockCount = availability[0]?.available ?? 0;
   const inStock = stockCount > 0;
+  const marketPrice =
+    !inStock && info.price === null && info.poPrice === null
+      ? ((await marketPriceByProductId([product])).get(product.id) ?? null)
+      : null;
 
   return {
     id: product.id,
@@ -590,6 +632,7 @@ export async function getStorefrontProductDetail(
     stockCount,
     restockEtaDate: product.restock_eta_date,
     ...info,
+    marketPrice,
   };
 }
 

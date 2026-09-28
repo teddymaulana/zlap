@@ -133,7 +133,9 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
               ? formatMoney(product.poPrice!)
               : product.price !== null
                 ? formatMoney(product.price)
-                : copy.common.priceUnavailable}
+                : product.marketPrice
+                  ? formatMoney(product.marketPrice)
+                  : copy.common.priceUnavailable}
           </span>
           {product.originalPrice !== null && (
             <span className="text-xs text-gray-400 line-through tabular-nums">

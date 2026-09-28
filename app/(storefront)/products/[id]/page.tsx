@@ -173,7 +173,11 @@ export default async function StorefrontProductDetailPage({
           ) : (
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-semibold tabular-nums">
-                {product.price !== null ? formatMoney(product.price) : copy.common.priceUnavailable}
+                {product.price !== null
+                  ? formatMoney(product.price)
+                  : product.marketPrice
+                    ? formatMoney(product.marketPrice)
+                    : copy.common.priceUnavailable}
               </span>
               {product.originalPrice !== null && (
                 <span className="text-sm text-gray-400 line-through tabular-nums">
