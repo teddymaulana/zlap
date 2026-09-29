@@ -36,10 +36,10 @@ export type StorefrontProduct = {
   tags: string[];
   setName: string | null;
   setLanguage: "en" | "jp" | "id" | null;
-  // Only populated by searchStorefrontProducts (the one listing that's
-  // stock-aware) — undefined everywhere else (featured carousels, related
-  // products, etc.), where it's treated as "in stock" since those don't
-  // filter by quantity.
+  // Set by every listing built on priceByProductId (search, featured,
+  // related, same-set, wishlist, product detail) from the storefront batch's
+  // real stock. Undefined only for getRecommendedProducts, which already
+  // picks in-stock batches only — treated as "in stock" there.
   inStock?: boolean;
   // Real numeric stock count, populated only where it's already fetched
   // (searchStorefrontProducts, getStorefrontProductDetail,
@@ -144,8 +144,12 @@ async function applyDiscounts(
 
 // Batch cost/pricing data is internal — looked up here with the service
 // role (server-only, never sent to the client) so only the final computed
-// price is ever returned, never the underlying cost.
-async function priceByProductId(productIds: string[]): Promise<Map<string, BatchInfo>> {
+// price is ever returned, never the underlying cost. Also returns each
+// product's storefront stock, so every listing's card knows whether to
+// offer "Add to cart" (0 for pre-order-only products with no batch).
+type PricedInfo = BatchInfo & { inStock: boolean; stockCount: number };
+
+async function priceByProductId(productIds: string[]): Promise<Map<string, PricedInfo>> {
   if (productIds.length === 0) return new Map();
 
   const service = createServiceClient(
@@ -154,8 +158,10 @@ async function priceByProductId(productIds: string[]): Promise<Map<string, Batch
   );
   const [{ data, error }, { data: poRows, error: poError }] = await Promise.all([
     service
-      .from("inventory_batches")
-      .select("product_id, cost, direct_price, is_preorder, preorder_duration_days, preorder_arrival_date")
+      .from("inventory_batch_availability")
+      .select(
+        "product_id, cost, direct_price, is_preorder, preorder_duration_days, preorder_arrival_date, storefront_available"
+      )
       .in("product_id", productIds)
       .eq("is_storefront_price", true),
     service
@@ -181,14 +187,22 @@ async function priceByProductId(productIds: string[]): Promise<Map<string, Batch
   }
 
   const base = new Map<string, Omit<BatchInfo, "originalPrice" | "badge" | PoFields>>();
+  const stockById = new Map<string, number>();
   for (const b of data ?? []) {
     base.set(b.product_id, batchInfo(b));
+    stockById.set(b.product_id, Math.max(0, b.storefront_available));
   }
   const withDiscounts = await applyDiscounts(base);
-  return withPoPrices(
+  const infos = withPoPrices(
     withDiscounts,
     (poRows ?? []).map((p) => ({ ...p, slotsLeft: poSlotsLeft(p.po_open_limit, openCountById.get(p.id) ?? 0) }))
   );
+  const priced = new Map<string, PricedInfo>();
+  for (const [id, info] of infos) {
+    const stockCount = stockById.get(id) ?? 0;
+    priced.set(id, { ...info, inStock: stockCount > 0, stockCount });
+  }
+  return priced;
 }
 
 // Merges each product's active pre-order price into its price info. A
@@ -564,6 +578,8 @@ async function productsByIds(ids: string[]): Promise<StorefrontProduct[]> {
     preorder: infos.get(p.id)?.preorder ?? null,
     poPrice: infos.get(p.id)?.poPrice ?? null,
     poSlotsLeft: infos.get(p.id)?.poSlotsLeft ?? null,
+    inStock: infos.get(p.id)?.inStock ?? false,
+    stockCount: infos.get(p.id)?.stockCount ?? 0,
   }));
 }
 
@@ -628,10 +644,10 @@ export async function getStorefrontProductDetail(
     setName: set?.name ?? null,
     setLanguage: set?.language ?? null,
     offersEnabled: product.offers_enabled,
+    ...info,
     inStock,
     stockCount,
     restockEtaDate: product.restock_eta_date,
-    ...info,
     marketPrice,
   };
 }
