@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { createClient } from "@/lib/supabase/server";
 import { copy } from "@/lib/copy";
 import { CartProvider } from "./CartContext";
@@ -57,6 +58,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
           <StoreFooter />
           <CartDrawer />
           <WhatsAppFloatingButton />
+          <Analytics />
         </WhatsAppProvider>
       </WishlistProvider>
     </CartProvider>

@@ -2,7 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PreorderQueue, { type QueueGroup } from "./PreorderQueue";
 import PriceAlertDismiss from "./PriceAlertDismiss";
+import RefreshAllPrices from "./RefreshAllPrices";
 import { hasPoPriceIncrease } from "@/lib/preorder";
+
+// Raised for the "Refresh all prices" server action, which walks every
+// pre-order product one at a time.
+export const maxDuration = 300;
 
 function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
@@ -72,7 +77,10 @@ export default async function PreordersPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <h1 className="mb-1 text-xl font-semibold">Pre-order queue</h1>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Pre-order queue</h1>
+        <RefreshAllPrices />
+      </div>
       <p className="mb-6 text-sm text-gray-500">
         Paid pre-order items waiting to be bought in Japan. Select the ones you&apos;re buying together and create a
         purchase — customers follow its progress on their order page.

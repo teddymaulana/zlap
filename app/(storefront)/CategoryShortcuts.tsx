@@ -6,16 +6,37 @@ import { copy } from "@/lib/copy";
 
 export default function CategoryShortcuts({
   shortcuts,
+  isLoading = false,
   onFilterShortcut,
   activeSearch,
 }: {
   shortcuts: StorefrontShortcut[];
+  // Placeholder chips while the shortcuts are being fetched, so the row
+  // doesn't pop in and push the page down once they arrive.
+  isLoading?: boolean;
   onFilterShortcut: (params: URLSearchParams) => void;
   // Canonical query string (from the page's currently applied query/filters)
   // to compare each filter-shortcut's own params against, so the shortcut
   // that produced the current results can be highlighted.
   activeSearch?: string;
 }) {
+  if (isLoading) {
+    return (
+      <div className="mb-6 flex gap-3 overflow-hidden px-1 pt-4 pb-1" aria-busy="true">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div
+            key={i}
+            className="flex w-20 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-gray-200 bg-white px-2 py-3"
+          >
+            <div className="zl-shimmer h-10 w-10 rounded" />
+            <div className="zl-shimmer h-2.5 w-12 rounded" />
+            <div className="zl-shimmer h-2.5 w-8 rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (shortcuts.length === 0) return null;
 
   return (

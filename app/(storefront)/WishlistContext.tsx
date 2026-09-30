@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { track } from "@vercel/analytics";
 import { toggleWishlist, getWishlistProductIds } from "@/app/actions/customer";
 
 type WishlistContextValue = {
@@ -20,6 +21,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggle = (productId: string) => {
+    if (!productIds.has(productId)) track("Wishlist Add", { productId });
     // Optimistic update — reconciled with the server result below.
     setProductIds((prev) => {
       const next = new Set(prev);

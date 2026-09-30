@@ -60,6 +60,7 @@ function StorePageContent() {
   });
   const [popularKeywords, setPopularKeywords] = useState<string[]>([]);
   const [shortcuts, setShortcuts] = useState<StorefrontShortcut[]>([]);
+  const [isLoadingShortcuts, setIsLoadingShortcuts] = useState(true);
   const [sets, setSets] = useState<CardSet[]>([]);
   const [filters, setFilters] = useState<StorefrontFilterValue>(() => ({
     brand: searchParams.get("brand") ?? "",
@@ -106,7 +107,9 @@ function StorePageContent() {
     ]).finally(() => setIsLoadingFeatured(false));
     getStorefrontSectionTitles().then(setSectionTitles);
     getPopularKeywords().then(setPopularKeywords);
-    getStorefrontShortcuts().then(setShortcuts);
+    getStorefrontShortcuts()
+      .then(setShortcuts)
+      .finally(() => setIsLoadingShortcuts(false));
     getCardSetsInStock().then(setSets);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -254,6 +257,7 @@ function StorePageContent() {
       <div className="mt-5">
         <CategoryShortcuts
           shortcuts={shortcuts}
+          isLoading={isLoadingShortcuts}
           onFilterShortcut={handleShortcutFilter}
           activeSearch={activeSearch}
         />

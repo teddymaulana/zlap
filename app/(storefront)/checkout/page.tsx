@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { track } from "@vercel/analytics";
 import { useSearchParams } from "next/navigation";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import PageSpinner from "@/app/PageSpinner";
@@ -261,6 +262,7 @@ export default function CheckoutPage() {
         setError(res.error);
         return;
       }
+      track("Order Placed", { value: totalPrice, paymentMethod: res.paymentMethod });
       setResult(res);
       setJustSubmitted(true);
       window.history.replaceState(null, "", `/checkout?order=${encodeURIComponent(res.orderId)}`);
@@ -481,169 +483,176 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto w-full max-w-md px-4 py-10">
+      <div className="mx-auto w-full max-w-md px-4 py-10 lg:max-w-5xl">
         <h1 className="mb-6 text-lg font-semibold">{copy.checkout.title}</h1>
 
-        <div className="mb-6 divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
-          {items.map((item) => {
-            const trueBasePrice = item.originalPrice ?? item.price ?? 0;
-            const effectivePrice = codePriceByProduct.get(item.id) ?? item.price ?? 0;
-            const isDiscounted = !item.isGift && trueBasePrice > effectivePrice;
-            return (
-              <div key={item.id} className="flex items-center gap-3 px-4 py-2 text-sm">
-                {item.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.image_url}
-                    alt={item.name}
-                    className="h-10 w-10 shrink-0 rounded border border-gray-200 object-cover"
-                  />
-                ) : (
-                  <div className="h-10 w-10 shrink-0 rounded border border-gray-200 bg-gray-50" />
-                )}
-                <span className="min-w-0 flex-1 truncate">
-                  {item.name} × {item.qty}
-                  {item.isGift && <span className="ml-1 text-xs font-medium text-green-600">(Free gift)</span>}
-                  {item.isPreorder && (
-                    <span className="ml-1 text-xs font-medium text-blue-700">({copy.product.preorderBadge})</span>
-                  )}
-                  {setLanguageLabel(item) && (
-                    <span className="ml-1 text-xs text-gray-500">({setLanguageLabel(item)})</span>
-                  )}
-                </span>
-                <span className="flex shrink-0 flex-col items-end">
-                  {(item.isGift ? item.originalPrice : isDiscounted ? trueBasePrice : null) && (
-                    <span className="text-xs text-gray-400 line-through tabular-nums">
-                      {formatMoney(trueBasePrice * item.qty)}
+        {/* Line items come first on mobile; on desktop they move to a
+            right-hand column that stays pinned below the sticky header
+            while the form scrolls. */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8">
+          <aside className="lg:sticky lg:top-20 lg:order-2 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+            <div className="mb-6 divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
+              {items.map((item) => {
+                const trueBasePrice = item.originalPrice ?? item.price ?? 0;
+                const effectivePrice = codePriceByProduct.get(item.id) ?? item.price ?? 0;
+                const isDiscounted = !item.isGift && trueBasePrice > effectivePrice;
+                return (
+                  <div key={item.id} className="flex items-center gap-3 px-4 py-2 text-sm">
+                    {item.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="h-10 w-10 shrink-0 rounded border border-gray-200 object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 shrink-0 rounded border border-gray-200 bg-gray-50" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">
+                      {item.name} × {item.qty}
+                      {item.isGift && <span className="ml-1 text-xs font-medium text-green-600">(Free gift)</span>}
+                      {item.isPreorder && (
+                        <span className="ml-1 text-xs font-medium text-blue-700">({copy.product.preorderBadge})</span>
+                      )}
+                      {setLanguageLabel(item) && (
+                        <span className="ml-1 text-xs text-gray-500">({setLanguageLabel(item)})</span>
+                      )}
                     </span>
-                  )}
-                  <span
-                    className={`font-bold tabular-nums ${item.isGift ? "text-green-600 uppercase" : ""}`}
-                  >
-                    {item.isGift
-                      ? "Free"
-                      : item.price !== null
-                        ? formatMoney(effectivePrice * item.qty)
-                        : "—"}
-                  </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-        {items.some((item) => item.isPreorder) && (
-          <p className="-mt-4 mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
-            {copy.checkout.preorderRefundNote}{" "}
-            <Link href="/refund" className="underline hover:text-blue-900">
-              {copy.product.refundPolicyLink}
-            </Link>
-          </p>
-        )}
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <h2 className="mb-1 text-lg font-bold text-black">{copy.checkout.shippingAddress}</h2>
-          <FloatingLabelInput
-            type="text"
-            label={copy.common.fullName}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <FloatingLabelInput
-            type="email"
-            label={copy.common.email}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <FloatingLabelInput
-            type="tel"
-            label={copy.common.phoneNumber}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-          />
-          <AddressRegionSelect onChange={setRegion} initialRegion={savedRegion} />
-          <FloatingLabelTextarea
-            label={copy.checkout.streetLabel}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            required
-            rows={3}
-          />
-          <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input
-              type="checkbox"
-              checked={saveShipping}
-              onChange={(e) => setSaveShipping(e.target.checked)}
-              className="h-4 w-4"
-            />
-            Save shipping details on this device for faster checkout next time
-          </label>
-
-          <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentMethodHeading}</h2>
-          {gateway === "midtrans" ? (
-            <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
-          ) : (
-            <p className="text-sm text-gray-500">{copy.checkout.paymentMethodOnDoku}</p>
-          )}
-
-          <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentSummary}</h2>
-          <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
-            <div className="flex items-center justify-between py-1 text-sm">
-              <span className="text-gray-500">{copy.checkout.subtotal}</span>
-              <span className="tabular-nums">{formatMoney(totalPrice + cartDiscountAmount)}</span>
+                    <span className="flex shrink-0 flex-col items-end">
+                      {(item.isGift ? item.originalPrice : isDiscounted ? trueBasePrice : null) && (
+                        <span className="text-xs text-gray-400 line-through tabular-nums">
+                          {formatMoney(trueBasePrice * item.qty)}
+                        </span>
+                      )}
+                      <span
+                        className={`font-bold tabular-nums ${item.isGift ? "text-green-600 uppercase" : ""}`}
+                      >
+                        {item.isGift
+                          ? "Free"
+                          : item.price !== null
+                            ? formatMoney(effectivePrice * item.qty)
+                            : "—"}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            {cartDiscountAmount > 0 && (
-              <div className="flex items-center justify-between py-1 text-sm">
-                <span className="text-gray-500">
-                  Savings{appliedCode ? ` (${appliedCode.toUpperCase()})` : ""}
-                </span>
-                <span className="flex items-center gap-1 font-medium text-green-600">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
-                  >
-                    <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-                    <circle cx="7" cy="7" r="1" />
-                  </svg>
-                  -{formatMoney(cartDiscountAmount)}
-                </span>
-              </div>
+            {items.some((item) => item.isPreorder) && (
+              <p className="-mt-4 mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
+                {copy.checkout.preorderRefundNote}{" "}
+                <Link href="/refund" className="underline hover:text-blue-900">
+                  {copy.product.refundPolicyLink}
+                </Link>
+              </p>
             )}
-            <div className="flex items-center justify-between py-1 text-sm">
-              <span className="text-gray-500">{copy.checkout.processingFee}</span>
-              <span className="font-medium text-green-600">{copy.checkout.free}</span>
-            </div>
-            <div className="flex items-center justify-between py-1 text-sm">
-              <span className="text-gray-500">{copy.checkout.shippingFee}</span>
-              <span className="font-medium text-green-600">{copy.checkout.free}</span>
-            </div>
-            <div className="flex items-center justify-between py-1 text-sm font-semibold">
-              <span>{copy.common.total}</span>
-              <span className="tabular-nums">{formatMoney(totalPrice)}</span>
-            </div>
-          </div>
+          </aside>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3 lg:order-1">
+            <h2 className="mb-1 text-lg font-bold text-black">{copy.checkout.shippingAddress}</h2>
+            <FloatingLabelInput
+              type="text"
+              label={copy.common.fullName}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+            <FloatingLabelInput
+              type="email"
+              label={copy.common.email}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <FloatingLabelInput
+              type="tel"
+              label={copy.common.phoneNumber}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+            <AddressRegionSelect onChange={setRegion} initialRegion={savedRegion} />
+            <FloatingLabelTextarea
+              label={copy.checkout.streetLabel}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              required
+              rows={3}
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={saveShipping}
+                onChange={(e) => setSaveShipping(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Save shipping details on this device for faster checkout next time
+            </label>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="relative rounded-lg bg-black px-4 py-3 text-sm font-medium tabular-nums text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            <span className={isSubmitting ? "invisible" : ""}>
-              {copy.checkout.payLabel} {formatMoney(totalPrice)}
-            </span>
-            {isSubmitting && <ButtonSpinner />}
-          </button>
-        </form>
+            <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentMethodHeading}</h2>
+            {gateway === "midtrans" ? (
+              <PaymentMethodPicker value={paymentSelection} onChange={setPaymentSelection} />
+            ) : (
+              <p className="text-sm text-gray-500">{copy.checkout.paymentMethodOnDoku}</p>
+            )}
+
+            <h2 className="mt-2 mb-1 text-lg font-bold text-black">{copy.checkout.paymentSummary}</h2>
+            <div className="rounded-lg border border-gray-200 bg-white px-4 py-2">
+              <div className="flex items-center justify-between py-1 text-sm">
+                <span className="text-gray-500">{copy.checkout.subtotal}</span>
+                <span className="tabular-nums">{formatMoney(totalPrice + cartDiscountAmount)}</span>
+              </div>
+              {cartDiscountAmount > 0 && (
+                <div className="flex items-center justify-between py-1 text-sm">
+                  <span className="text-gray-500">
+                    Savings{appliedCode ? ` (${appliedCode.toUpperCase()})` : ""}
+                  </span>
+                  <span className="flex items-center gap-1 font-medium text-green-600">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5"
+                    >
+                      <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                      <circle cx="7" cy="7" r="1" />
+                    </svg>
+                    -{formatMoney(cartDiscountAmount)}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between py-1 text-sm">
+                <span className="text-gray-500">{copy.checkout.processingFee}</span>
+                <span className="font-medium text-green-600">{copy.checkout.free}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 text-sm">
+                <span className="text-gray-500">{copy.checkout.shippingFee}</span>
+                <span className="font-medium text-green-600">{copy.checkout.free}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 text-sm font-semibold">
+                <span>{copy.common.total}</span>
+                <span className="tabular-nums">{formatMoney(totalPrice)}</span>
+              </div>
+            </div>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="relative rounded-lg bg-black px-4 py-3 text-sm font-medium tabular-nums text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              <span className={isSubmitting ? "invisible" : ""}>
+                {copy.checkout.payLabel} {formatMoney(totalPrice)}
+              </span>
+              {isSubmitting && <ButtonSpinner />}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

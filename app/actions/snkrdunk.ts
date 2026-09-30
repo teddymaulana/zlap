@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { PO_PRODUCT_COLUMNS, refreshPoPriceSnapshot } from "@/lib/preorderPricing";
+import { PO_PRODUCT_COLUMNS, refreshAllPoPriceSnapshots, refreshPoPriceSnapshot } from "@/lib/preorderPricing";
 import { snkrdunkApparelId } from "@/lib/snkrdunk";
 import { fetchJpyToIdr, fetchPsa10, type Psa10Reference } from "@/lib/snkrdunkMarket";
 
@@ -61,6 +61,22 @@ export async function refreshPoPrice(productId: string): Promise<{ price: number
     revalidatePath(`/zlap-adm/products/${productId}`);
     revalidatePath(`/products/${productId}`);
   }
+  return result;
+}
+
+// Admin "Refresh all prices" — the whole every-3-days cron run, on demand.
+// Takes a while (products are spaced out), so the calling page raises its
+// maxDuration (app/zlap-adm/preorders/page.tsx).
+export async function refreshAllPoPrices() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const result = await refreshAllPoPriceSnapshots(supabase);
+  // Prices show across the storefront and admin — revalidate everything.
+  revalidatePath("/", "layout");
   return result;
 }
 
