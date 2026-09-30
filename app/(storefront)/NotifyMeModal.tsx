@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { track } from "@vercel/analytics";
+import { trackEvent } from "@/lib/analytics";
 import { submitStockNotification } from "@/app/actions/storefront";
 import { copy } from "@/lib/copy";
 
@@ -22,7 +22,7 @@ export default function NotifyMeModal({ productId, onClose }: { productId: strin
         setError(res.error);
         return;
       }
-      track("Notify Me", { productId });
+      trackEvent("Notify Me", { productId }, { event: "notify_me", params: { item_id: productId } });
       setSubmitted(true);
     } finally {
       setIsSubmitting(false);

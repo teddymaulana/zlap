@@ -46,3 +46,7 @@ export const PRODUCT_TAGS = [
   "blokees",
   "special_box",
 ] as const;
+
+// GA4 measurement ID — public by design (it ships in the page's gtag.js URL).
+// Loaded on storefront pages only, from app/(storefront)/layout.tsx.
+export const GA_MEASUREMENT_ID = "G-6GTJHGK3Q4";

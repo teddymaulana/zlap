@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { GoogleAnalytics } from "@next/third-parties/google";
+import { GA_MEASUREMENT_ID } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import { copy } from "@/lib/copy";
 import { CartProvider } from "./CartContext";
@@ -59,6 +61,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
           <CartDrawer />
           <WhatsAppFloatingButton />
           <Analytics />
+          <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
         </WhatsAppProvider>
       </WishlistProvider>
     </CartProvider>

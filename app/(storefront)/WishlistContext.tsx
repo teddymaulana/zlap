@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { track } from "@vercel/analytics";
+import { trackEvent } from "@/lib/analytics";
 import { toggleWishlist, getWishlistProductIds } from "@/app/actions/customer";
 
 type WishlistContextValue = {
@@ -21,7 +21,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggle = (productId: string) => {
-    if (!productIds.has(productId)) track("Wishlist Add", { productId });
+    if (!productIds.has(productId)) {
+      trackEvent("Wishlist Add", { productId }, { event: "add_to_wishlist", params: { items: [{ item_id: productId }] } });
+    }
     // Optimistic update — reconciled with the server result below.
     setProductIds((prev) => {
       const next = new Set(prev);

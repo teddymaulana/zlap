@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { track } from "@vercel/analytics";
+import { trackEvent } from "@/lib/analytics";
 import { useSearchParams } from "next/navigation";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import PageSpinner from "@/app/PageSpinner";
@@ -262,7 +262,25 @@ export default function CheckoutPage() {
         setError(res.error);
         return;
       }
-      track("Order Placed", { value: totalPrice, paymentMethod: res.paymentMethod });
+      trackEvent(
+        "Order Placed",
+        { value: totalPrice, paymentMethod: res.paymentMethod },
+        {
+          event: "purchase",
+          params: {
+            transaction_id: res.orderId,
+            currency: "IDR",
+            value: totalPrice,
+            payment_type: res.paymentMethod,
+            items: items.map((i) => ({
+              item_id: cartProductId(i),
+              item_name: i.name,
+              price: i.isGift ? 0 : (codePriceByProduct.get(i.id) ?? i.price ?? 0),
+              quantity: i.qty,
+            })),
+          },
+        }
+      );
       setResult(res);
       setJustSubmitted(true);
       window.history.replaceState(null, "", `/checkout?order=${encodeURIComponent(res.orderId)}`);

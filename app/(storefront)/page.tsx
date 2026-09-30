@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
@@ -68,6 +69,9 @@ function StorePageContent() {
     category: searchParams.get("category") ?? "",
   }));
   const [filterSyncToken, setFilterSyncToken] = useState(0);
+  // Last keyword sent as a "Search" event — paging or changing filters on the
+  // same keyword re-runs the search but shouldn't count as a new search.
+  const lastTrackedKeyword = useRef<string | null>(null);
 
   const runSearch = async (q: string, f: StorefrontFilterValue, page = 1) => {
     const trimmed = q.trim();
@@ -77,23 +81,30 @@ function StorePageContent() {
     }
     setIsSearching(true);
     try {
-      setResults(
-        await searchStorefrontProducts(
-          trimmed,
-          {
-            brand: (f.brand || undefined) as "pokemon" | "one_piece" | undefined,
-            setId: f.setId || undefined,
-            category: (f.category || undefined) as
-              | "booster_boxes"
-              | "singles"
-              | "slabs"
-              | "other"
-              | undefined,
-          },
-          page
-        )
+      const res = await searchStorefrontProducts(
+        trimmed,
+        {
+          brand: (f.brand || undefined) as "pokemon" | "one_piece" | undefined,
+          setId: f.setId || undefined,
+          category: (f.category || undefined) as
+            | "booster_boxes"
+            | "singles"
+            | "slabs"
+            | "other"
+            | undefined,
+        },
+        page
       );
+      setResults(res);
       setResultsQuery(trimmed);
+      if (trimmed && trimmed.toLowerCase() !== lastTrackedKeyword.current) {
+        lastTrackedKeyword.current = trimmed.toLowerCase();
+        trackEvent(
+          "Search",
+          { keyword: trimmed.toLowerCase(), results: res.total },
+          { event: "search", params: { search_term: trimmed.toLowerCase(), results: res.total } }
+        );
+      }
     } finally {
       setIsSearching(false);
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { track } from "@vercel/analytics";
+import { trackEvent } from "@/lib/analytics";
 import { getGiftCatalog, type GiftCatalogItem } from "@/app/actions/gwp";
 import { getStorefrontAvailability } from "@/app/actions/storefront";
 import { computeEarnedGifts, giftRoleForTags, type GiftRole } from "@/lib/gwp";
@@ -233,7 +233,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, giftCatalog, discounts, bogoFreeProducts, giftDataLoaded, hydrated]);
 
   const addItem = async (product: NewCartItem) => {
-    track("Add to Cart", { product: product.name, preorder: Boolean(product.isPreorder) });
+    trackEvent(
+      "Add to Cart",
+      { product: product.name, preorder: Boolean(product.isPreorder) },
+      {
+        event: "add_to_cart",
+        params: {
+          currency: "IDR",
+          value: product.price ?? 0,
+          items: [{ item_id: cartProductId(product), item_name: product.name, price: product.price ?? 0, quantity: 1 }],
+        },
+      }
+    );
     if (product.isPreorder) {
       // No stock to check — capped per order instead (the server enforces
       // the same cap at checkout).

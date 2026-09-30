@@ -17,6 +17,7 @@ import OfferButton from "./OfferButton";
 import SalesChart from "./SalesChart";
 import ProductCard from "../../ProductCard";
 import WhatsAppProductAnnouncer from "../../WhatsAppProductAnnouncer";
+import ProductViewTracker from "./ProductViewTracker";
 import { copy, fillCopy, formatShortDate } from "@/lib/copy";
 import { PO_ESTIMATE_WEEKS } from "@/lib/preorder";
 
@@ -94,6 +95,7 @@ export default async function StorefrontProductDetailPage({
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       <WhatsAppProductAnnouncer name={product.name} path={`/products/${product.id}`} />
+      <ProductViewTracker productId={product.id} name={product.name} />
       <div className="grid gap-8 sm:grid-cols-2">
         <div className="relative">
           {product.image_url ? (
