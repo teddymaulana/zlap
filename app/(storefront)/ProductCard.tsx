@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { StorefrontProduct } from "@/app/actions/storefront";
 import { isSlabProduct } from "@/lib/productCategory";
@@ -50,10 +51,13 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
       <div className="relative mb-2">
         <Link href={`/products/${product.id}`}>
           {product.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={product.image_url}
               alt={product.name}
+              width={400}
+              height={400}
+              // Grid is 2 / 3 / 4 columns inside a max-w-5xl container.
+              sizes="(min-width: 1024px) 240px, (min-width: 640px) 33vw, 50vw"
               className="aspect-square w-full rounded object-cover"
             />
           ) : (
