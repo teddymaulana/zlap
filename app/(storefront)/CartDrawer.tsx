@@ -96,7 +96,16 @@ export default function CartDrawer() {
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {items.length === 0 ? (
-            <p className="text-sm text-gray-500">{copy.cart.empty}</p>
+            <div className="text-sm text-gray-500">
+              <p>{copy.cart.empty}</p>
+              <Link
+                href="/?all=1"
+                onClick={closeCart}
+                className="mt-4 block w-full rounded bg-black px-4 py-3 text-center text-sm font-medium text-white hover:bg-gray-800"
+              >
+                {copy.cart.startShopping}
+              </Link>
+            </div>
           ) : (
             <div className="flex flex-col gap-4">
               {items.map((item) => {

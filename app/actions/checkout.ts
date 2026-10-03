@@ -8,6 +8,7 @@ import type { PaymentGateway } from "@/lib/types";
 import { getCurrentCustomerId } from "@/lib/customerAuth";
 import { createClient } from "@/lib/supabase/server";
 import { sendOrderConfirmationEmail, type OrderConfirmationLine } from "@/lib/email";
+import { sendNewOrderAdminAlert } from "@/lib/whatsapp";
 import { ALL_GIFT_TAGS, computeEarnedGifts, giftRoleForTags, isGiftProduct, type GiftRole } from "@/lib/gwp";
 import { getActiveDiscounts } from "@/lib/activeDiscounts";
 import { priceWithDiscounts, computeEarnedBogoFreebies, applyCodeToCart, findDiscountByCode } from "@/lib/discounts";
@@ -257,6 +258,8 @@ export async function chargeExistingOrder(params: {
         redirectUrl,
       });
 
+      await sendNewOrderAdminAlert({ orderCode, customerName: name, total: grossAmount });
+
       return { orderId: orderCode, paymentMethod: "doku_checkout", redirectUrl };
     }
 
@@ -329,6 +332,8 @@ export async function chargeExistingOrder(params: {
       paymentCode,
       store,
     });
+
+    await sendNewOrderAdminAlert({ orderCode, customerName: name, total: grossAmount });
 
     return { orderId: orderCode, paymentMethod, bank, vaNumber, qrUrl, qrExpiry, deeplinkUrl, paymentCode, store };
   } catch (err) {

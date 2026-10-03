@@ -5,7 +5,6 @@ import { getWishlistProducts } from "@/app/actions/storefront";
 import { formatStatus } from "@/lib/format";
 import ProductCard from "../ProductCard";
 import SignOutButton from "./SignOutButton";
-import CancelOrderButton from "./CancelOrderButton";
 import ProfileEditor from "./ProfileEditor";
 import VerifyEmailBanner from "./VerifyEmailBanner";
 
@@ -44,12 +43,12 @@ export default async function AccountPage() {
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                       Cancelled
                     </span>
-                  ) : o.cancellation_requested_at ? (
-                    <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-800">
-                      Cancellation requested
-                    </span>
                   ) : (
-                    o.status === "pending" && <CancelOrderButton orderId={o.id} />
+                    o.cancellation_requested_at && (
+                      <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-800">
+                        Cancellation requested
+                      </span>
+                    )
                   )}
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${

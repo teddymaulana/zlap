@@ -9,6 +9,7 @@
 import { createHash, createHmac, randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendPaymentConfirmedEmail } from "@/lib/email";
+import { sendOrderPaidAdminAlert } from "@/lib/whatsapp";
 
 const BASE_URL =
   process.env.DOKU_IS_PRODUCTION === "true" ? "https://api.doku.com" : "https://api-sandbox.doku.com";
@@ -241,8 +242,11 @@ export async function applyDokuStatus(
   const { error } = await service.from("orders").update({ payment_status: newStatus }).eq("id", existing.id);
   if (error) return { error: error.message };
 
-  if (newStatus === "paid" && existing.customer_email) {
-    await sendPaymentConfirmedEmail({ to: existing.customer_email, orderCode: invoiceNumber });
+  if (newStatus === "paid") {
+    if (existing.customer_email) {
+      await sendPaymentConfirmedEmail({ to: existing.customer_email, orderCode: invoiceNumber });
+    }
+    await sendOrderPaidAdminAlert(service, invoiceNumber);
   }
   return {};
 }

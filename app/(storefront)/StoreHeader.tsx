@@ -32,7 +32,7 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
 
   return (
     <header className="sticky top-0 z-20 border-b bg-white">
-      <div className="relative mx-auto grid w-full max-w-5xl grid-cols-3 items-center px-4 py-2">
+      <div className="relative mx-auto grid w-full max-w-5xl grid-cols-3 items-center sm:grid-cols-[1fr_auto] px-4 py-2">
         <div className="col-start-1 flex items-center gap-2 justify-self-start">
           <button
             type="button"
@@ -71,16 +71,22 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
           {tagline}
         </span>
         {!isCheckout && (
-          <div className="col-start-3 flex items-center gap-3 justify-self-end">
+          <div className="col-start-3 flex items-center gap-3 justify-self-end sm:col-start-2">
+            <Link
+              href="/?all=1"
+              className="hidden text-sm whitespace-nowrap text-gray-600 hover:text-black sm:inline"
+            >
+              {copy.header.shopAll}
+            </Link>
             <Link
               href="/request"
-              className="hidden text-sm text-gray-600 hover:text-black sm:inline"
+              className="hidden text-sm whitespace-nowrap text-gray-600 hover:text-black sm:inline"
             >
               {copy.header.requestCard}
             </Link>
             <Link
               href="/track"
-              className="hidden text-sm text-gray-600 hover:text-black sm:inline"
+              className="hidden text-sm whitespace-nowrap text-gray-600 hover:text-black sm:inline"
             >
               {copy.header.trackOrder}
             </Link>
@@ -161,6 +167,13 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
           </button>
         </div>
         <nav className="flex flex-col px-4 py-3">
+          <Link
+            href="/?all=1"
+            onClick={closeMenu}
+            className="py-3 text-sm text-gray-600 hover:text-black"
+          >
+            {copy.header.shopAll}
+          </Link>
           <Link
             href="/request"
             onClick={closeMenu}

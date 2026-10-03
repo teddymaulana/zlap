@@ -602,35 +602,6 @@ export async function getGuestOrderDetail(
   return loadOrderDetail(service, order);
 }
 
-export async function requestOrderCancellation(
-  orderId: string,
-  reason: string
-): Promise<{ error?: string }> {
-  const customerId = await getCurrentCustomerId();
-  if (!customerId) return { error: "You need to be signed in" };
-
-  const service = serviceClient();
-  const { data: order } = await service
-    .from("orders")
-    .select("id, customer_id, status, cancellation_requested_at")
-    .eq("id", orderId)
-    .maybeSingle();
-
-  if (!order || order.customer_id !== customerId) return { error: "Order not found" };
-  if (order.status !== "pending") return { error: "This order can no longer be cancelled" };
-  if (order.cancellation_requested_at) return { error: "Cancellation already requested" };
-
-  const { error } = await service
-    .from("orders")
-    .update({ cancellation_requested_at: new Date().toISOString(), cancellation_reason: reason.trim() || null })
-    .eq("id", orderId);
-  if (error) return { error: error.message };
-
-  revalidatePath("/account");
-  revalidatePath(`/zlap-adm/orders/${orderId}`);
-  return {};
-}
-
 export async function toggleWishlist(
   productId: string
 ): Promise<{ error?: string; wishlisted?: boolean }> {

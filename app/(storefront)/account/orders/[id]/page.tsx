@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCustomerOrderDetail } from "@/app/actions/customer";
-import CancelOrderButton from "../../CancelOrderButton";
 import BuyAgainButton from "../../BuyAgainButton";
 import QrPayment from "../../../QrPayment";
 import PreorderProgress from "../../../PreorderProgress";
@@ -29,6 +28,11 @@ export default async function CustomerOrderDetailPage({
   const order = await getCustomerOrderDetail(id);
   if (!order) notFound();
   const hasStockItems = order.lines.some((l) => !l.isPreorder);
+  // Once it's with the courier, or a pre-order item has already been bought
+  // for the customer, the order can't be cancelled anymore.
+  const preorderSecured =
+    !!order.poProgress && !["ordered", "buying"].includes(order.poProgress.stage);
+  const canAskToCancel = order.status === "pending" && !order.awb && !preorderSecured;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
@@ -184,7 +188,22 @@ export default async function CustomerOrderDetailPage({
       {order.status === "cancelled" ? null : order.cancellation_requested_at ? (
         <p className="text-sm text-yellow-800">Cancellation requested — waiting on review.</p>
       ) : (
-        order.status === "pending" && <CancelOrderButton orderId={order.id} />
+        canAskToCancel && (
+          // Customers can't cancel from here — staff handle it over chat.
+          <p className="text-sm text-gray-600">
+            Need to cancel this order?{" "}
+            <a
+              href={`https://wa.me/6285121369155?text=${encodeURIComponent(
+                `Hi, I'd like to cancel order ${order.order_id}.`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-black underline"
+            >
+              Contact us on WhatsApp
+            </a>
+          </p>
+        )
       )}
     </div>
   );

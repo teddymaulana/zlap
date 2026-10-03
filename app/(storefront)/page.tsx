@@ -50,7 +50,8 @@ function StorePageContent() {
       Boolean(searchParams.get("q")?.trim()) ||
       Boolean(searchParams.get("brand")) ||
       Boolean(searchParams.get("setId")) ||
-      Boolean(searchParams.get("category"))
+      Boolean(searchParams.get("category")) ||
+      searchParams.get("all") === "1"
   );
   const [section1, setSection1] = useState<StorefrontProduct[]>([]);
   const [section2, setSection2] = useState<StorefrontProduct[]>([]);
@@ -69,13 +70,16 @@ function StorePageContent() {
     category: searchParams.get("category") ?? "",
   }));
   const [filterSyncToken, setFilterSyncToken] = useState(0);
+  // "Shop all" mode (/?all=1) — lists every product even with no query or
+  // filter set. Cleared by starting a new keyword search or shortcut.
+  const [showAll, setShowAll] = useState(() => searchParams.get("all") === "1");
   // Last keyword sent as a "Search" event — paging or changing filters on the
   // same keyword re-runs the search but shouldn't count as a new search.
   const lastTrackedKeyword = useRef<string | null>(null);
 
-  const runSearch = async (q: string, f: StorefrontFilterValue, page = 1) => {
+  const runSearch = async (q: string, f: StorefrontFilterValue, page = 1, all = showAll) => {
     const trimmed = q.trim();
-    if (!trimmed && !f.brand && !f.setId && !f.category) {
+    if (!trimmed && !f.brand && !f.setId && !f.category && !all) {
       setResults(null);
       return;
     }
@@ -92,6 +96,7 @@ function StorePageContent() {
             | "slabs"
             | "other"
             | undefined,
+          all,
         },
         page
       );
@@ -138,12 +143,14 @@ function StorePageContent() {
       setId: searchParams.get("setId") ?? "",
       category: searchParams.get("category") ?? "",
     };
+    const all = searchParams.get("all") === "1";
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state from the URL is the point of this effect
     setQuery(q);
     setFilters(next);
     setFilterSyncToken((t) => t + 1);
-    if (q.trim() || next.brand || next.setId || next.category) {
-      runSearch(q, next, Number(searchParams.get("page")) || 1);
+    setShowAll(all);
+    if (q.trim() || next.brand || next.setId || next.category || all) {
+      runSearch(q, next, Number(searchParams.get("page")) || 1, all);
     } else {
       setResults(null);
     }
@@ -158,7 +165,8 @@ function StorePageContent() {
     const trimmed = query.trim();
     const url = trimmed ? `/?q=${encodeURIComponent(trimmed)}` : "/";
     window.history.replaceState(null, "", url);
-    runSearch(trimmed, filters);
+    setShowAll(false);
+    runSearch(trimmed, filters, 1, false);
   };
 
   const handleKeywordClick = (keyword: string) => {
@@ -166,7 +174,19 @@ function StorePageContent() {
     setFilters(EMPTY_FILTERS);
     setFilterSyncToken((t) => t + 1);
     window.history.replaceState(null, "", `/?q=${encodeURIComponent(keyword)}`);
-    runSearch(keyword, EMPTY_FILTERS);
+    setShowAll(false);
+    runSearch(keyword, EMPTY_FILTERS, 1, false);
+  };
+
+  // "View all products" from the no-results message — drops the query and
+  // filters and switches to shop-all mode in place.
+  const handleShowAll = () => {
+    setQuery("");
+    setFilters(EMPTY_FILTERS);
+    setFilterSyncToken((t) => t + 1);
+    setShowAll(true);
+    window.history.replaceState(null, "", "/?all=1");
+    runSearch("", EMPTY_FILTERS, 1, true);
   };
 
   // Canonical query string for the currently applied query/filters, built the
@@ -215,7 +235,8 @@ function StorePageContent() {
     setFilters(next);
     setFilterSyncToken((t) => t + 1);
     window.history.replaceState(null, "", `/?${params.toString()}`);
-    runSearch(q, next);
+    setShowAll(false);
+    runSearch(q, next, 1, false);
   };
 
   return (
@@ -254,7 +275,7 @@ function StorePageContent() {
             type="button"
             onClick={() => {
               setQuery("");
-              window.history.replaceState(null, "", "/");
+              window.history.replaceState(null, "", showAll ? "/?all=1" : "/");
               runSearch("", filters);
             }}
             aria-label={copy.home.clearSearchAria}
@@ -341,7 +362,18 @@ function StorePageContent() {
           )}
         </>
       ) : results.products.length === 0 ? (
-        <p className="text-sm text-gray-500">{copy.home.noProducts}</p>
+        <div className="text-sm text-gray-500">
+          <p>{copy.home.noProducts}</p>
+          {!(showAll && !resultsQuery && !filters.brand && !filters.setId && !filters.category) && (
+            <button
+              type="button"
+              onClick={handleShowAll}
+              className="mt-2 font-medium text-black underline"
+            >
+              {copy.home.viewAllProducts}
+            </button>
+          )}
+        </div>
       ) : (
         <>
           {resultsQuery.toLowerCase() === "graded" && (

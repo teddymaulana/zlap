@@ -270,6 +270,9 @@ export type StorefrontFilters = {
   brand?: "pokemon" | "one_piece";
   setId?: string;
   category?: StorefrontCategory;
+  // "Shop all" — list every storefront product even with no query or other
+  // filter set, instead of treating that as an empty search.
+  all?: boolean;
 };
 
 function matchesCategory(p: { tags: string[] | null; name: string }, category: StorefrontCategory) {
@@ -306,7 +309,7 @@ export async function searchStorefrontProducts(
   // containing them can't break or alter the query.
   const trimmed = query.trim().replace(/[,()]/g, "");
   const hasFilters = Boolean(filters.brand || filters.setId || filters.category);
-  if (!trimmed && !hasFilters) return { products: [], total: 0, page: 1, pageSize: SEARCH_PAGE_SIZE };
+  if (!trimmed && !hasFilters && !filters.all) return { products: [], total: 0, page: 1, pageSize: SEARCH_PAGE_SIZE };
 
   const supabase = await createClient();
 

@@ -23,6 +23,11 @@ export default function StoreFooter() {
               </h3>
               <ul className="mt-3 flex flex-col gap-2 text-xs text-gray-400">
                 <li>
+                  <Link href="/?all=1" className="hover:text-white">
+                    {copy.footer.shopAll}
+                  </Link>
+                </li>
+                <li>
                   <Link href="/?category=slabs" className="hover:text-white">
                     {copy.filters.categories.slabs}
                   </Link>
