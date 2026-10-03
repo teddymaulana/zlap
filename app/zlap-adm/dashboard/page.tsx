@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { Balance, InventoryBatchAvailability, MarketplaceBalances } from "@/lib/types";
+import { isBoosterBoxProduct } from "@/lib/productCategory";
 import Pagination from "@/app/Pagination";
 import MarketplaceBalanceForm from "./MarketplaceBalanceForm";
 
@@ -65,7 +66,7 @@ const SOLD_CATEGORIES = [
 ] as const;
 
 function classifyProduct(tags: string[], name: string): (typeof SOLD_CATEGORIES)[number]["value"] {
-  if (tags.includes("booster_box")) return "booster_box";
+  if (isBoosterBoxProduct({ tags })) return "booster_box";
   if (tags.includes("graded")) return "graded";
   if (tags.includes("etb")) return "etb";
   if (tags.includes("special_box")) return "special_box";
@@ -315,7 +316,7 @@ export default async function DashboardPage({
   };
   for (const [productId, v] of inventoryByProduct.entries()) {
     const tags = productTagsById.get(productId) ?? [];
-    if (tags.includes("booster_box")) {
+    if (isBoosterBoxProduct({ tags })) {
       valueByTag.booster_box.value += v.totalValue;
       valueByTag.booster_box.pieces += v.available;
     }
