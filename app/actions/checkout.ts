@@ -258,7 +258,7 @@ export async function chargeExistingOrder(params: {
         redirectUrl,
       });
 
-      await sendNewOrderAdminAlert({ orderCode, customerName: name, total: grossAmount });
+      await sendNewOrderAdminAlert(service, orderCode);
 
       return { orderId: orderCode, paymentMethod: "doku_checkout", redirectUrl };
     }
@@ -333,7 +333,7 @@ export async function chargeExistingOrder(params: {
       store,
     });
 
-    await sendNewOrderAdminAlert({ orderCode, customerName: name, total: grossAmount });
+    await sendNewOrderAdminAlert(service, orderCode);
 
     return { orderId: orderCode, paymentMethod, bank, vaNumber, qrUrl, qrExpiry, deeplinkUrl, paymentCode, store };
   } catch (err) {

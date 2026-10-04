@@ -5,12 +5,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // WhatsApp hiccup must never break checkout or a payment webhook.
 //
 // Business-initiated messages must use a Meta-approved template. The one
-// used here (WHATSAPP_ORDER_TEMPLATE, "Utility" category) has 4 body
-// variables, in this order:
-//   Order update: {{1}}
-//   Order: {{2}}
-//   Customer: {{3}}
-//   Total: {{4}}
+// used here (WHATSAPP_ORDER_TEMPLATE, "Utility" category) is one of:
+//   admin_order_alert (default)    admin_order_items
+//     Order update: {{1}}            Order update: {{1}}
+//     Order: {{2}}                   Order: {{2}}
+//     Customer: {{3}}                Customer: {{3}}
+//     Total: {{4}}                   Items: {{4}}
+//                                    Total: {{5}}
 //
 // Env (read lazily, like lib/email.ts, so .env.local edits apply without a
 // dev server restart):
@@ -22,6 +23,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const GRAPH_API_VERSION = "v23.0";
 const SEND_TIMEOUT_MS = 5000;
+// Meta caps a body parameter well above this; kept short so a big order
+// still reads as one message.
+const MAX_ITEMS_LENGTH = 700;
 
 function config() {
   const token = process.env.WHATSAPP_TOKEN;
@@ -49,12 +53,21 @@ function formatMoney(amount: number) {
   return `IDR ${Math.round(amount).toLocaleString("id-ID")}`;
 }
 
-async function sendTemplate(params: string[]) {
+type OrderAlertFields = { update: string; orderCode: string; customer: string; items: string; total: string };
+
+// Body variables in the order each template expects them.
+function templateParams(template: string, f: OrderAlertFields): string[] {
+  if (template === "admin_order_items") return [f.update, f.orderCode, f.customer, f.items, f.total];
+  return [f.update, f.orderCode, f.customer, f.total];
+}
+
+async function sendTemplate(fields: OrderAlertFields) {
   const cfg = config();
   if (!cfg) {
-    console.error("WhatsApp alert not sent (WHATSAPP_* env not configured):", params.join(" | "));
+    console.error("WhatsApp alert not sent (WHATSAPP_* env not configured):", Object.values(fields).join(" | "));
     return;
   }
+  const params = templateParams(cfg.template, fields);
   const body = (to: string) =>
     JSON.stringify({
       messaging_product: "whatsapp",
@@ -84,16 +97,29 @@ async function sendTemplate(params: string[]) {
   );
 }
 
-// Sent from chargeExistingOrder once the payment has been started — the order
-// exists and is waiting on the customer to pay.
-export async function sendNewOrderAdminAlert(params: { orderCode: string; customerName: string; total: number }) {
-  await sendTemplate(["New order, awaiting payment", params.orderCode, params.customerName, formatMoney(params.total)]);
+// Order lines are one row per unit — grouped here into "2x Name" per product,
+// with pre-order units listed separately and marked (PO).
+function formatItems(lines: { product_id: string; is_po: boolean | null }[], nameById: Map<string, string>) {
+  const qtyByKey = new Map<string, { name: string; qty: number }>();
+  for (const l of lines) {
+    const key = `${l.product_id}:${l.is_po ? "po" : ""}`;
+    const entry = qtyByKey.get(key);
+    if (entry) entry.qty += 1;
+    else qtyByKey.set(key, { name: `${nameById.get(l.product_id) ?? "Item"}${l.is_po ? " (PO)" : ""}`, qty: 1 });
+  }
+  const parts = [...qtyByKey.values()].map((e) => `${e.qty}x ${e.name}`);
+  let text = "";
+  for (let i = 0; i < parts.length; i++) {
+    const next = text ? `${text}, ${parts[i]}` : parts[i];
+    if (next.length > MAX_ITEMS_LENGTH) return `${text}, +${parts.length - i} more`;
+    text = next;
+  }
+  return text;
 }
 
-// Sent from the Midtrans/DOKU webhooks on the actual transition into "paid".
-// Looks the order up itself since the webhooks only carry the order code.
+// Looks the order up itself (both callers only need to pass the order code).
 // Total = sum of order_lines.price, the same way orderCheckout.ts derives it.
-export async function sendOrderPaidAdminAlert(service: SupabaseClient, orderCode: string) {
+async function sendOrderAlert(service: SupabaseClient, orderCode: string, update: string) {
   try {
     const { data: order } = await service
       .from("orders")
@@ -101,10 +127,36 @@ export async function sendOrderPaidAdminAlert(service: SupabaseClient, orderCode
       .eq("order_id", orderCode)
       .maybeSingle();
     if (!order) return;
-    const { data: lines } = await service.from("order_lines").select("price").eq("order_id", order.id);
-    const total = (lines ?? []).reduce((sum, l) => sum + (Number(l.price) || 0), 0);
-    await sendTemplate(["Paid", orderCode, order.customer_name ?? "-", formatMoney(total)]);
+    const { data: lines } = await service
+      .from("order_lines")
+      .select("product_id, price, is_po")
+      .eq("order_id", order.id);
+    const orderLines = lines ?? [];
+    const { data: products } = await service
+      .from("products")
+      .select("id, name")
+      .in("id", [...new Set(orderLines.map((l) => l.product_id))]);
+    const nameById = new Map((products ?? []).map((p) => [p.id, p.name as string]));
+    const total = orderLines.reduce((sum, l) => sum + (Number(l.price) || 0), 0);
+    await sendTemplate({
+      update,
+      orderCode,
+      customer: order.customer_name ?? "-",
+      items: formatItems(orderLines, nameById),
+      total: formatMoney(total),
+    });
   } catch (err) {
-    console.error(`WhatsApp paid alert for ${orderCode} threw:`, err);
+    console.error(`WhatsApp "${update}" alert for ${orderCode} threw:`, err);
   }
+}
+
+// Sent from chargeExistingOrder once the payment has been started — the order
+// exists and is waiting on the customer to pay.
+export async function sendNewOrderAdminAlert(service: SupabaseClient, orderCode: string) {
+  await sendOrderAlert(service, orderCode, "New order, awaiting payment");
+}
+
+// Sent from the Midtrans/DOKU webhooks on the actual transition into "paid".
+export async function sendOrderPaidAdminAlert(service: SupabaseClient, orderCode: string) {
+  await sendOrderAlert(service, orderCode, "Paid");
 }
