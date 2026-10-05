@@ -617,19 +617,22 @@ export async function getStorefrontProductDetail(
   if (error) throw new Error(error.message);
   if (!product || !product.storefront_enabled) return null;
 
-  const { data: set, error: setError } = product.set_id
-    ? await supabase.from("card_sets").select("name, language").eq("id", product.set_id).maybeSingle()
-    : { data: null, error: null };
+  // Independent of each other — fetched together rather than as a waterfall.
+  const [{ data: set, error: setError }, infos, availability] = await Promise.all([
+    product.set_id
+      ? supabase.from("card_sets").select("name, language").eq("id", product.set_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    priceByProductId([product.id]),
+    getStorefrontAvailability([product.id]),
+  ]);
   if (setError) throw new Error(setError.message);
 
-  const infos = await priceByProductId([product.id]);
   // Not sellable on the storefront (no storefront price set, not open for
   // pre-order) — unless it's listed anyway via show_when_oos, in which case
   // its page shows it out of stock with no price.
   const info = infos.get(product.id) ?? (product.show_when_oos ? UNPRICED_INFO : null);
   if (!info) return null;
 
-  const availability = await getStorefrontAvailability([product.id]);
   const stockCount = availability[0]?.available ?? 0;
   const inStock = stockCount > 0;
   const marketPrice =
