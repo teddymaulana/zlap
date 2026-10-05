@@ -712,6 +712,11 @@ insert into storefront_settings (id) values (1) on conflict (id) do nothing;
 -- with the bank, so admin can switch to DOKU in the meantime (see
 -- lib/doku.ts, lib/midtrans.ts, and the branch in chargeExistingOrder).
 alter table storefront_settings add column if not exists payment_gateway text not null default 'midtrans';
+
+-- Whether customers can place cart orders (canPlaceOrders in
+-- app/actions/checkout.ts). Off by default; admin can always check out to
+-- test regardless.
+alter table storefront_settings add column if not exists checkout_open boolean not null default false;
 alter table storefront_settings drop constraint if exists storefront_settings_payment_gateway_check;
 alter table storefront_settings add constraint storefront_settings_payment_gateway_check
   check (payment_gateway in ('midtrans', 'doku'));

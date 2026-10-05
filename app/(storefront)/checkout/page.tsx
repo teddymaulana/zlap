@@ -71,8 +71,9 @@ export default function CheckoutPage() {
   const [saveShipping, setSaveShipping] = useState(false);
   const [paymentSelection, setPaymentSelection] = useState<PaymentSelection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Placing new orders is admin-only while the payment gateway is being
-  // tested (see canPlaceOrders) — everyone else gets the coming-soon notice.
+  // Placing new orders is admin-only until checkout is opened in
+  // /zlap-adm/storefront (see canPlaceOrders) — everyone else gets the
+  // coming-soon notice.
   // Existing order status lookups (the `?order=` flow) stay working either way.
   const [checkoutEnabled, setCheckoutEnabled] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -63,12 +63,18 @@ export async function getActivePaymentGateway(): Promise<PaymentGateway> {
   return data?.payment_gateway === "doku" ? "doku" : "midtrans";
 }
 
-// Cart checkout is admin-only while the payment gateway is being tested —
-// a Supabase Auth session only ever exists for admin (storefront customers
-// use customer_sessions, and the Google sign-in callback signs Supabase Auth
-// straight back out). Existing order lookups (`/checkout?order=`) and the
-// admin-issued pay/offer/request links aren't gated by this.
+// Cart checkout is open to customers only once admin flips
+// storefront_settings.checkout_open (/zlap-adm/storefront). While it's
+// closed, admin can still check out to test — a Supabase Auth session only
+// ever exists for admin (storefront customers use customer_sessions, and the
+// Google sign-in callback signs Supabase Auth straight back out). Existing
+// order lookups (`/checkout?order=`) and the admin-issued pay/offer/request
+// links aren't gated by this. Fails closed if the setting can't be read.
 export async function canPlaceOrders(): Promise<boolean> {
+  const service = serviceClient();
+  const { data } = await service.from("storefront_settings").select("checkout_open").eq("id", 1).maybeSingle();
+  if (data?.checkout_open === true) return true;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -545,7 +551,7 @@ export async function createOrderAndCharge(
 
   const lines: { product_id: string; inventory_batch_id: string | null; price: number; is_po?: boolean }[] = [];
   const finalItems: { productId: string; qty: number; price: number; isPreorder?: boolean }[] = [];
-  let grossAmount = 0;
+  const regularLines: { product_id: string; inventory_batch_id: string; price: number }[] = [];
   for (const item of regularItems) {
     const batch = batchByProduct.get(item.productId);
     if (!batch) return { error: "One of the items in your cart is no longer available" };
@@ -553,15 +559,39 @@ export async function createOrderAndCharge(
       return { error: "Not enough stock left for one of the items in your cart" };
     }
     const price = codePriceByProduct.get(item.productId)!;
-    grossAmount += price * item.qty;
-    finalItems.push({ productId: item.productId, qty: item.qty, price });
     for (let i = 0; i < item.qty; i++) {
-      lines.push({ product_id: item.productId, inventory_batch_id: batch.id, price });
+      regularLines.push({ product_id: item.productId, inventory_batch_id: batch.id, price });
     }
   }
   // A whole-cart code's own cut isn't reflected in any line price — see
-  // applyCodeToCart — so it comes off the total here instead.
-  grossAmount = Math.max(0, grossAmount - cartDiscountAmount);
+  // applyCodeToCart — so it's spread across the units here instead. The
+  // gateway charges the sum of the line prices, so taking it off only the
+  // total would show the customer the discount but charge them full price;
+  // this way the stored lines, the charge, and the email all agree. Rounded
+  // to whole rupiah, with the rounding remainder on the last unit.
+  const regularSubtotal = regularLines.reduce((sum, l) => sum + l.price, 0);
+  if (cartDiscountAmount > 0 && regularSubtotal > 0) {
+    const target = Math.round(Math.max(0, regularSubtotal - cartDiscountAmount));
+    const factor = target / regularSubtotal;
+    let allocated = 0;
+    regularLines.forEach((line, i) => {
+      line.price =
+        i === regularLines.length - 1 ? Math.max(0, target - allocated) : Math.round(line.price * factor);
+      allocated += line.price;
+    });
+  }
+  // Regrouped per (product, price) for the confirmation email — the
+  // remainder unit above can end up priced differently from its siblings.
+  const regularItemByKey = new Map<string, { productId: string; qty: number; price: number }>();
+  for (const line of regularLines) {
+    const key = `${line.product_id}:${line.price}`;
+    const existing = regularItemByKey.get(key);
+    if (existing) existing.qty += 1;
+    else regularItemByKey.set(key, { productId: line.product_id, qty: 1, price: line.price });
+  }
+  finalItems.push(...regularItemByKey.values());
+  lines.push(...regularLines);
+  let grossAmount = regularLines.reduce((sum, l) => sum + l.price, 0);
 
   // Pre-order lines: priced from the product's saved pre-order price (never
   // the client's), never discounted, no stock to check — capped per order

@@ -106,6 +106,7 @@ export type StorefrontSettings = {
   header_tagline: string;
   announcement_messages: string[];
   payment_gateway: PaymentGateway;
+  checkout_open: boolean;
   updated_at: string;
 };
 

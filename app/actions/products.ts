@@ -329,6 +329,17 @@ export async function updatePaymentGateway(gateway: PaymentGateway) {
   revalidatePath("/zlap-adm/storefront");
 }
 
+// Opens/closes cart checkout to customers — read live by canPlaceOrders
+// (app/actions/checkout.ts), so like the gateway switch only the admin page
+// needs revalidating.
+export async function updateCheckoutOpen(open: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("storefront_settings").update({ checkout_open: open }).eq("id", 1);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/zlap-adm/storefront");
+}
+
 export async function addPopularKeyword(keyword: string) {
   const trimmed = keyword.trim();
   if (!trimmed) throw new Error("Keyword is required");

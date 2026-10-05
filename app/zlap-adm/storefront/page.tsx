@@ -14,6 +14,7 @@ import KeywordManager from "./KeywordManager";
 import ShortcutManager from "./ShortcutManager";
 import StorefrontSettingsEditor from "./StorefrontSettingsEditor";
 import PaymentGatewayToggle from "./PaymentGatewayToggle";
+import CheckoutOpenToggle from "./CheckoutOpenToggle";
 
 export default async function StorefrontSettingsPage() {
   const supabase = await createClient();
@@ -71,6 +72,11 @@ export default async function StorefrontSettingsPage() {
         <p className="mt-1 text-sm text-gray-500">
           Choose which products show in the storefront&apos;s featured carousels.
         </p>
+      </div>
+
+      <div className="mb-10">
+        <h2 className="mb-2 text-sm font-semibold text-gray-700">Customer checkout</h2>
+        <CheckoutOpenToggle value={(settingsRow as StorefrontSettings).checkout_open ?? false} />
       </div>
 
       <div className="mb-10">
