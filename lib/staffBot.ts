@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isGoogleAnalyticsConfigured, runAnalyticsReport, type AnalyticsReportInput } from "@/lib/googleAnalytics";
 
 // Staff WhatsApp bot: answers questions about stock, products, orders,
 // customers, purchases, etc. by letting Claude run read-only queries against
@@ -13,8 +14,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // stays accurate as the schema grows without a second description to keep
 // in sync. It's ~15k tokens and cached, so repeat questions are cheap.
 //
-// Read-only by construction: the only tool builds a supabase-js select, and
-// there is no code path here that inserts, updates or deletes.
+// Read-only by construction: query_database builds a supabase-js select,
+// site_analytics runs a GA4 report, and there is no code path here that
+// inserts, updates or deletes.
 
 const MODEL = "claude-sonnet-5-5";
 const MAX_TOOL_ROUNDS = 10;
@@ -114,6 +116,38 @@ const tools: Anthropic.Beta.BetaTool[] = [
   },
 ];
 
+// Only offered when GA_PROPERTY_ID / GOOGLE_SERVICE_ACCOUNT_JSON are set.
+const analyticsTool: Anthropic.Beta.BetaTool = {
+  name: "site_analytics",
+  description:
+    "Run a Google Analytics 4 report for the zlapcards.com storefront: visitors, sessions, page views, traffic " +
+    "sources, devices, locations, and ecommerce events. Use it for website traffic questions (\"any visits in the " +
+    "last 3 days?\"); use query_database for orders, stock and sales. Dates are YYYY-MM-DD or relative like " +
+    "\"today\", \"yesterday\", \"3daysAgo\". Common metrics: activeUsers, newUsers, sessions, screenPageViews, " +
+    "engagedSessions, averageSessionDuration, bounceRate, eventCount, addToCarts, checkouts, ecommercePurchases, " +
+    "purchaseRevenue. Common dimensions: date, pagePath, pageTitle, sessionDefaultChannelGroup, sessionSource, " +
+    "sessionMedium, country, city, deviceCategory, eventName, itemName, searchTerm. Set realtime for the last 30 " +
+    "minutes (no dates; realtime supports fewer dimensions, e.g. country, deviceCategory, unifiedScreenName).",
+  input_schema: {
+    type: "object",
+    properties: {
+      start_date: { type: "string", description: "Default 7daysAgo." },
+      end_date: { type: "string", description: "Default today." },
+      metrics: { type: "array", items: { type: "string" }, description: "Default [activeUsers]." },
+      dimensions: { type: "array", items: { type: "string" } },
+      filter: {
+        type: "object",
+        description: "Keep rows whose dimension contains this text (case-insensitive).",
+        properties: { dimension: { type: "string" }, contains: { type: "string" } },
+        required: ["dimension", "contains"],
+      },
+      order_by_metric: { type: "string", description: "Sort rows by this metric, highest first." },
+      limit: { type: "integer", description: "Max rows, 1-100. Default 25." },
+      realtime: { type: "boolean" },
+    },
+  },
+};
+
 let systemPrompt: string | null = null;
 
 function getSystemPrompt(): string {
@@ -129,6 +163,7 @@ How the data works:
 - payment_status is only meaningful for website orders (channel = 'website') paid through the payment gateway. Marketplace and manual orders leave it at 'unpaid', so never report those as unpaid; use orders.status for them.
 - orders.order_id is the human order code staff will quote (e.g. from WhatsApp alerts); orders.id is the internal uuid.
 - Match product names loosely with ilike and % wildcards, and try alternatives (e.g. "151", "SV2a") if the first search finds nothing.
+- Website traffic (visitors, page views, traffic sources) comes from the site_analytics tool when it is available. product_views in the database only counts product detail page views, without visitor identity.
 - Admin links: https://zlapcards.com/zlap-adm/orders/<orders.id>, https://zlapcards.com/zlap-adm/products/<products.id>, https://zlapcards.com/zlap-adm/customers/<customers.id>.
 
 Replying:
@@ -246,7 +281,7 @@ export async function answerStaffMessage(service: SupabaseClient, phone: string)
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system: [{ type: "text", text: getSystemPrompt(), cache_control: { type: "ephemeral" } }],
-      tools,
+      tools: isGoogleAnalyticsConfigured() ? [...tools, analyticsTool] : tools,
       messages,
     });
 
@@ -270,8 +305,10 @@ export async function answerStaffMessage(service: SupabaseClient, phone: string)
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = await Promise.all(
       toolUses.map(async (tool) => {
         try {
-          if (tool.name !== "query_database") throw new Error(`Unknown tool ${tool.name}`);
-          const content = await queryDatabase(service, tool.input as QueryInput);
+          let content: string;
+          if (tool.name === "query_database") content = await queryDatabase(service, tool.input as QueryInput);
+          else if (tool.name === "site_analytics") content = await runAnalyticsReport(tool.input as AnalyticsReportInput);
+          else throw new Error(`Unknown tool ${tool.name}`);
           return { type: "tool_result" as const, tool_use_id: tool.id, content };
         } catch (err) {
           return {
