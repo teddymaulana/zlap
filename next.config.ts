@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
     // given URL never changes content — safe to keep optimized copies a month.
     minimumCacheTTL: 2678400,
   },
+  // The staff WhatsApp bot (lib/staffBot.ts) reads the schema at runtime to
+  // give Claude the full table/column reference.
+  outputFileTracingIncludes: {
+    "/api/whatsapp/webhook": ["./supabase/schema.sql"],
+  },
 };
 
 export default nextConfig;

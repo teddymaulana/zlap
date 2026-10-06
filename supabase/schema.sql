@@ -1058,3 +1058,19 @@ create policy "authenticated update product images" on storage.objects for updat
   using (bucket_id = 'product-images' and auth.role() = 'authenticated');
 create policy "authenticated delete product images" on storage.objects for delete
   using (bucket_id = 'product-images' and auth.role() = 'authenticated');
+
+-- Staff WhatsApp bot (app/api/whatsapp/webhook, lib/staffBot.ts): one row per
+-- text message in or out, so a follow-up question ("and the second one?")
+-- has the recent conversation as context. wa_message_id is Meta's id for an
+-- incoming message — unique so a webhook Meta retries is only answered once.
+-- Service role only (RLS on, no policies), same as the customers tables.
+create table if not exists wa_bot_messages (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null,
+  role text not null check (role in ('user', 'assistant')),
+  content text not null,
+  wa_message_id text unique,
+  created_at timestamptz not null default now()
+);
+create index if not exists wa_bot_messages_phone_idx on wa_bot_messages (phone, created_at desc);
+alter table wa_bot_messages enable row level security;

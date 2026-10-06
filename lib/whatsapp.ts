@@ -160,3 +160,62 @@ export async function sendNewOrderAdminAlert(service: SupabaseClient, orderCode:
 export async function sendOrderPaidAdminAlert(service: SupabaseClient, orderCode: string) {
   await sendOrderAlert(service, orderCode, "Paid");
 }
+
+// ---------------------------------------------------------------------------
+// Free-form replies for the staff bot (app/api/whatsapp/webhook). Unlike the
+// alerts above these need no template: they only ever answer a message the
+// staff member just sent, which opens Meta's 24-hour customer-service window.
+
+// WhatsApp's text body limit is 4096 characters.
+const MAX_TEXT_LENGTH = 4000;
+
+async function graphPost(payload: object): Promise<boolean> {
+  const token = process.env.WHATSAPP_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneNumberId) {
+    console.error("WhatsApp message not sent (WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID not configured)");
+    return false;
+  }
+  try {
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", ...payload }),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
+    if (!res.ok) console.error(`WhatsApp send failed (${res.status}):`, await res.text());
+    return res.ok;
+  } catch (err) {
+    console.error("WhatsApp send threw:", err);
+    return false;
+  }
+}
+
+// Blue ticks plus the "typing…" bubble while the bot works on an answer
+// (Meta clears it on the next message, or after ~25 seconds).
+export async function markReadWithTyping(messageId: string) {
+  await graphPost({ status: "read", message_id: messageId, typing_indicator: { type: "text" } });
+}
+
+// Long answers are split on paragraph (then line) breaks so each part stays
+// under the limit.
+function splitText(text: string): string[] {
+  const parts: string[] = [];
+  let rest = text.trim();
+  while (rest.length > MAX_TEXT_LENGTH) {
+    const window = rest.slice(0, MAX_TEXT_LENGTH);
+    let cut = window.lastIndexOf("\n\n");
+    if (cut < MAX_TEXT_LENGTH / 2) cut = window.lastIndexOf("\n");
+    if (cut < MAX_TEXT_LENGTH / 2) cut = MAX_TEXT_LENGTH;
+    parts.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) parts.push(rest);
+  return parts;
+}
+
+export async function sendWhatsAppText(to: string, text: string) {
+  for (const body of splitText(text)) {
+    await graphPost({ to, type: "text", text: { body, preview_url: false } });
+  }
+}
