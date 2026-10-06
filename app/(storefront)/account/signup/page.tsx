@@ -53,8 +53,18 @@ export default function SignupPage() {
         <input
           type="tel"
           name="phone"
-          placeholder="Phone number (optional)"
+          placeholder="Phone number, e.g. 0812xxxxxxxx (optional)"
           className="rounded border px-3 py-2 text-sm"
+        />
+        {/* Honeypot — hidden from people (and screen readers), but bots that
+            fill every input fill this too. See lib/signupGuard.ts. */}
+        <input
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="absolute -left-[9999px] h-0 w-0 opacity-0"
         />
         <label className="flex items-start gap-2 text-sm text-gray-600">
           <input type="checkbox" name="agreeToTerms" required className="mt-0.5 h-4 w-4" />

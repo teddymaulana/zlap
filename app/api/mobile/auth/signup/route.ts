@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { hashPassword, createCustomerSession } from "@/lib/customerAuth";
 import { sendVerificationEmail } from "@/lib/email";
+import { checkSignup } from "@/lib/signupGuard";
 
 const SITE_URL = "https://zlapcard.com";
 // Same TTL as the web signup flow (app/actions/customer.ts) — not
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
   if (password.length < 8) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
+  const check = checkSignup({ email, phone });
+  if (check.error !== null) return NextResponse.json({ error: check.error }, { status: 400 });
 
   const service = serviceClient();
   const { data: existing } = await service
@@ -53,7 +56,7 @@ export async function POST(request: Request) {
       email,
       password_hash: hashPassword(password),
       name,
-      phone: phone || null,
+      phone: check.phone,
       verification_token: verificationToken,
       verification_token_expires_at: verificationTokenExpiresAt,
     })

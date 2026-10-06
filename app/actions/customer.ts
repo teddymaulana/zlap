@@ -15,6 +15,7 @@ import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { isGradedOrSingleProduct } from "@/lib/productCategory";
 import type { PoProgress } from "@/lib/preorder";
 import { loadPoProgress } from "@/lib/preorderProgress";
+import { checkSignup } from "@/lib/signupGuard";
 
 const SITE_URL = "https://zlapcard.com";
 const RESET_TOKEN_TTL_HOURS = 1;
@@ -38,6 +39,8 @@ export async function signUpCustomer(formData: FormData): Promise<{ error: strin
 
   if (!email || !password || !name) return { error: "Name, email, and password are required" };
   if (password.length < 8) return { error: "Password must be at least 8 characters" };
+  const check = checkSignup({ email, phone, honeypot: String(formData.get("website") ?? "") });
+  if (check.error !== null) return { error: check.error };
 
   const service = serviceClient();
   const { data: existing } = await service
@@ -61,7 +64,7 @@ export async function signUpCustomer(formData: FormData): Promise<{ error: strin
       email,
       password_hash: hashPassword(password),
       name,
-      phone: phone || null,
+      phone: check.phone,
       verification_token: verificationToken,
       verification_token_expires_at: verificationTokenExpiresAt,
     })
