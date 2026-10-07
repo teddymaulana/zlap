@@ -285,7 +285,7 @@ export default function CheckoutPage() {
       setResult(res);
       setJustSubmitted(true);
       window.history.replaceState(null, "", `/checkout?order=${encodeURIComponent(res.orderId)}`);
-      clearCart();
+      clearCart(res.orderId);
       // The form can be long enough that the Pay button sits well below the
       // fold — jump back up so the payment screen is actually visible.
       window.scrollTo({ top: 0, behavior: "smooth" });

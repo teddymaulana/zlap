@@ -58,6 +58,8 @@ const QUERYABLE = [
   "storefront_shortcuts",
   "popular_keywords",
   "product_views",
+  "carts",
+  "cart_adds",
   "regions",
 ] as const;
 

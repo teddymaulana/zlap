@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { getGiftCatalog, type GiftCatalogItem } from "@/app/actions/gwp";
 import { getStorefrontAvailability } from "@/app/actions/storefront";
+import { markCartConverted, recordCartAdd, syncCart } from "@/app/actions/carts";
 import { computeEarnedGifts, giftRoleForTags, type GiftRole } from "@/lib/gwp";
 import {
   getBogoFreeProductCatalog,
@@ -57,7 +58,12 @@ type CartContextValue = {
   addItem: (product: NewCartItem) => Promise<void>;
   removeItem: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
-  clearCart: () => void;
+  // Pass the order code after an order is placed — closes out this cart's
+  // server-side copy so it's never treated as abandoned.
+  clearCart: (orderCode?: string) => void;
+  // The abandoned-cart email's "View your cart" link (/cart/restore): loads
+  // the saved lines, unless this browser already has a cart going.
+  restoreCart: (cartId: string, items: CartItem[]) => void;
   totalCount: number;
   totalPrice: number;
   // Discount code redeemed in the cart (see applyCodeToCart in lib/discounts.ts).
@@ -90,6 +96,14 @@ export function preorderMaxQty(slotsLeft: number | null | undefined) {
 
 const STORAGE_KEY = "zlap_cart";
 const CODE_STORAGE_KEY = "zlap_cart_code";
+// Random id for the server-side copy of this cart (app/actions/carts.ts) —
+// replaced after every order so each shopping trip gets its own row.
+const CART_ID_STORAGE_KEY = "zlap_cart_id";
+const SYNC_DELAY_MS = 1500;
+
+function newCartId() {
+  return crypto.randomUUID();
+}
 
 // Order-independent — so the gift-sync effect below can tell "nothing
 // actually changed" apart from "the array was rebuilt with the same
@@ -114,6 +128,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // cart never holds the full list of code-gated discounts (see
   // getStorefrontDiscounts), so it can't look a code up locally.
   const [appliedDiscount, setAppliedDiscount] = useState<Discount | null>(null);
+  const [cartId, setCartId] = useState<string | null>(null);
+  // Contents last sent to syncCart, so re-renders (and the gift-line
+  // reconciling below) don't re-send an unchanged cart.
+  const lastSyncedSignature = useRef("");
+  // Latest values for restoreCart, which runs after an async fetch and so
+  // can't trust the items/cartId its closure captured.
+  const itemsRef = useRef(items);
+  const cartIdRef = useRef(cartId);
+  useEffect(() => {
+    itemsRef.current = items;
+    cartIdRef.current = cartId;
+  }, [items, cartId]);
 
   useEffect(() => {
     // localStorage doesn't exist during SSR, so this has to run post-mount —
@@ -122,6 +148,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setItems(JSON.parse(raw));
+      let storedCartId = localStorage.getItem(CART_ID_STORAGE_KEY);
+      if (!storedCartId) {
+        storedCartId = newCartId();
+        localStorage.setItem(CART_ID_STORAGE_KEY, storedCartId);
+      }
+      setCartId(storedCartId);
       const code = localStorage.getItem(CODE_STORAGE_KEY);
       if (code) {
         setAppliedCode(code);
@@ -137,8 +169,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore malformed/inaccessible storage — cart just starts empty
     }
+    // Storage blocked: still track this visit's cart, just not across visits.
+    setCartId((prev) => prev ?? newCartId());
     setHydrated(true);
   }, []);
+
+  // Mirror the cart to the server (debounced) — feeds /zlap-adm/carts and
+  // abandoned-cart emails. Gift lines are left out since they're derived.
+  useEffect(() => {
+    if (!hydrated || !cartId) return;
+    const lines = items.filter((i) => !i.isGift);
+    const sig = cartSignature(lines);
+    if (sig === lastSyncedSignature.current) return;
+    const timer = setTimeout(() => {
+      lastSyncedSignature.current = sig;
+      syncCart(cartId, lines).catch(() => {});
+    }, SYNC_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [items, hydrated, cartId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -257,6 +305,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         return [...prev, { ...product, tags: product.tags ?? [], isGift: false, qty: 1 }];
       });
+      if (cartId) recordCartAdd(cartId, cartProductId(product), true).catch(() => {});
       setIsOpen(true);
       return;
     }
@@ -266,6 +315,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // only clamps its own increment; it never protected these entry points).
     const [row] = await getStorefrontAvailability([product.id]);
     const available = row?.available;
+    // Same "nothing to add" case as addedOrAlreadyPresent below, decided up
+    // front so the click can be recorded.
+    const soldOut = typeof available === "number" && available <= 0 && !items.some((i) => i.id === product.id);
+    if (cartId && !soldOut) recordCartAdd(cartId, product.id, false).catch(() => {});
     // A product that's not in the cart yet and has just sold out (stock hit
     // 0 between page load and this click) has nothing to show for itself —
     // don't pop the drawer open with no explanation. An item already in the
@@ -288,10 +341,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
-  const clearCart = () => {
+  const clearCart = (orderCode?: string) => {
+    if (orderCode && cartId) markCartConverted(cartId, orderCode).catch(() => {});
     setItems([]);
     setAppliedCode(null);
     setAppliedDiscount(null);
+    // Start the next shopping trip as a new server-side cart.
+    const nextId = newCartId();
+    try {
+      localStorage.setItem(CART_ID_STORAGE_KEY, nextId);
+    } catch {
+      // ignore — e.g. private browsing with storage disabled
+    }
+    lastSyncedSignature.current = "";
+    setCartId(nextId);
+  };
+
+  const restoreCart = (savedCartId: string, savedItems: CartItem[]) => {
+    if (savedCartId !== cartIdRef.current && itemsRef.current.length === 0 && savedItems.length > 0) {
+      try {
+        localStorage.setItem(CART_ID_STORAGE_KEY, savedCartId);
+      } catch {
+        // ignore — e.g. private browsing with storage disabled
+      }
+      // Already on the server — no need to sync it straight back.
+      lastSyncedSignature.current = cartSignature(savedItems);
+      setCartId(savedCartId);
+      setItems(savedItems.map((i) => ({ ...i, isGift: false })));
+    }
+    setIsOpen(true);
   };
 
   const updateQty = (id: string, qty: number) => {
@@ -350,6 +428,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeItem,
         updateQty,
         clearCart,
+        restoreCart,
         totalCount,
         totalPrice,
         appliedCode,

@@ -1,4 +1,7 @@
 {
   "regions": ["sin1"],
-  "crons": [{ "path": "/api/cron/preorder-prices", "schedule": "0 1 */3 * *" }]
+  "crons": [
+    { "path": "/api/cron/preorder-prices", "schedule": "0 1 */3 * *" },
+    { "path": "/api/cron/abandoned-carts", "schedule": "0 12 * * *" }
+  ]
 }

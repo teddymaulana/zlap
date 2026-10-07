@@ -107,6 +107,7 @@ export type StorefrontSettings = {
   announcement_messages: string[];
   payment_gateway: PaymentGateway;
   checkout_open: boolean;
+  abandoned_cart_emails: boolean;
   updated_at: string;
 };
 

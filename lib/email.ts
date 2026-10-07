@@ -67,17 +67,24 @@ function wrapEmail(heading: string, bodyHtml: string): string {
   `;
 }
 
-async function send(to: string, subject: string, html: string) {
+// Resolves true when Resend accepted the email — most callers ignore it, but
+// the abandoned-cart cron only marks a cart reminded once it actually went.
+async function send(to: string, subject: string, html: string): Promise<boolean> {
   const resend = resendClient();
   if (!resend) {
     console.error(`Email not sent (RESEND_API_KEY not configured): "${subject}" to ${to}`);
-    return;
+    return false;
   }
   try {
     const { error } = await resend.emails.send({ from: fromAddress(), to, subject, html });
-    if (error) console.error(`Email send failed: "${subject}" to ${to}:`, error.message);
+    if (error) {
+      console.error(`Email send failed: "${subject}" to ${to}:`, error.message);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error(`Email send threw: "${subject}" to ${to}:`, err);
+    return false;
   }
 }
 
@@ -425,4 +432,55 @@ export async function sendPreorderUpdateEmail(params: {
      ${orderLookupLink(params.orderCode)}`
   );
   await send(params.to, `${params.heading} — ${params.orderCode}`, html);
+}
+
+export type AbandonedCartLine = { name: string; qty: number; price: number | null; imageUrl: string | null };
+
+// One reminder for a signed-in customer's untouched cart (see
+// app/api/cron/abandoned-carts). Just a nudge — no discount.
+export async function sendAbandonedCartEmail(params: {
+  to: string;
+  customerName: string | null;
+  cartId: string;
+  lines: AbandonedCartLine[];
+}): Promise<boolean> {
+  const restoreUrl = `${SITE_URL}/cart/restore?c=${encodeURIComponent(params.cartId)}`;
+  const unsubscribeUrl = `${SITE_URL}/cart/unsubscribe?c=${encodeURIComponent(params.cartId)}`;
+  const itemRowsHtml = params.lines
+    .map(
+      (l, i) => `
+        <tr>
+          <td style="padding:14px 16px; width:48px; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">
+            ${
+              l.imageUrl
+                ? `<img src="${escapeHtml(l.imageUrl)}" width="40" height="40" alt="" style="width:40px; height:40px; object-fit:cover; border-radius:4px; border:1px solid #e5e7eb; display:block;" />`
+                : `<div style="width:40px; height:40px; border-radius:4px; background:#f3f4f6;"></div>`
+            }
+          </td>
+          <td style="padding:14px 8px; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">
+            <div style="font-weight:600;">${escapeHtml(l.name)}</div>
+            <div style="color:#6b7280; font-size:12px; margin-top:2px;">Qty: ${l.qty}</div>
+          </td>
+          <td style="padding:14px 16px; text-align:right; font-weight:700; white-space:nowrap; ${i > 0 ? "border-top:1px solid #e5e7eb;" : ""}">${l.price != null ? formatMoney(l.price * l.qty) : ""}</td>
+        </tr>`
+    )
+    .join("");
+  const greeting = params.customerName ? `Hi ${escapeHtml(params.customerName.split(" ")[0])},` : "Hi,";
+
+  const html = wrapEmail(
+    "You left something in your cart",
+    `
+      <p>${greeting}</p>
+      <p>Your cart is still saved. Cards can sell out fast, so check out while they're still available.</p>
+      <div style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; margin:20px 0;">
+        <table role="presentation" width="100%" style="border-collapse:collapse; font-size:14px;">${itemRowsHtml}</table>
+      </div>
+      <p style="text-align:center; margin:24px 0;">
+        <a href="${restoreUrl}" style="display:inline-block; background:#111; color:#fff; text-decoration:none; font-weight:600; padding:12px 24px; border-radius:6px;">View your cart</a>
+      </p>
+      <p style="font-size:12px; color:#6b7280;">Prices and stock are confirmed at checkout.
+        Don't want cart reminders? <a href="${unsubscribeUrl}" style="color:#6b7280; text-decoration:underline;">Unsubscribe</a>.</p>
+    `
+  );
+  return send(params.to, "You left something in your cart", html);
 }

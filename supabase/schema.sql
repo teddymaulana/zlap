@@ -1074,3 +1074,53 @@ create table if not exists wa_bot_messages (
 );
 create index if not exists wa_bot_messages_phone_idx on wa_bot_messages (phone, created_at desc);
 alter table wa_bot_messages enable row level security;
+
+-- Storefront carts (app/actions/carts.ts). The cart itself lives in the
+-- shopper's localStorage (CartContext); this is a server-side copy, synced
+-- whenever its contents change, so staff can see what's sitting in carts
+-- (/zlap-adm/carts) and signed-in customers can get one abandoned-cart
+-- reminder email (app/api/cron/abandoned-carts). id is generated in the
+-- browser and replaced with a fresh one after an order is placed, so one
+-- row = one shopping trip. Service role only (RLS on, no policies), same as
+-- the customers tables — admin reads go through requireAdmin.
+create table if not exists carts (
+  id uuid primary key,
+  -- Whoever was signed in the last time the cart synced; null for guests.
+  customer_id uuid references customers(id) on delete set null,
+  -- CartItem snapshot (gift/BOGO lines left out — they're recomputed).
+  items jsonb not null default '[]'::jsonb,
+  item_count integer not null default 0,
+  subtotal numeric not null default 0,
+  created_at timestamptz not null default now(),
+  -- Last time the contents changed (not just a re-sync on page load).
+  updated_at timestamptz not null default now(),
+  -- Set when an order is placed from this cart.
+  converted_at timestamptz,
+  order_id text,
+  -- Abandoned-cart email sent for the current contents; cleared again when
+  -- the contents change.
+  reminder_sent_at timestamptz
+);
+create index if not exists carts_updated_at_idx on carts (updated_at);
+create index if not exists carts_customer_id_idx on carts (customer_id);
+alter table carts enable row level security;
+
+-- One row per "Add to cart" click (CartContext addItem) — answers "how many
+-- times was product X added to a cart today". Guests included.
+create table if not exists cart_adds (
+  id uuid primary key default gen_random_uuid(),
+  cart_id uuid not null,
+  product_id uuid not null references products(id) on delete cascade,
+  is_preorder boolean not null default false,
+  customer_id uuid references customers(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists cart_adds_created_at_idx on cart_adds (created_at);
+create index if not exists cart_adds_product_id_idx on cart_adds (product_id);
+alter table cart_adds enable row level security;
+
+-- Abandoned-cart reminder emails — off by default, switched in
+-- /zlap-adm/storefront. Cart tracking itself runs either way.
+alter table storefront_settings add column if not exists abandoned_cart_emails boolean not null default false;
+-- Set by the unsubscribe link in the reminder email.
+alter table customers add column if not exists cart_reminders_opt_out boolean not null default false;

@@ -15,6 +15,7 @@ import ShortcutManager from "./ShortcutManager";
 import StorefrontSettingsEditor from "./StorefrontSettingsEditor";
 import PaymentGatewayToggle from "./PaymentGatewayToggle";
 import CheckoutOpenToggle from "./CheckoutOpenToggle";
+import AbandonedCartToggle from "./AbandonedCartToggle";
 
 export default async function StorefrontSettingsPage() {
   const supabase = await createClient();
@@ -77,6 +78,11 @@ export default async function StorefrontSettingsPage() {
       <div className="mb-10">
         <h2 className="mb-2 text-sm font-semibold text-gray-700">Customer checkout</h2>
         <CheckoutOpenToggle value={(settingsRow as StorefrontSettings).checkout_open ?? false} />
+      </div>
+
+      <div className="mb-10">
+        <h2 className="mb-2 text-sm font-semibold text-gray-700">Abandoned cart emails</h2>
+        <AbandonedCartToggle value={(settingsRow as StorefrontSettings).abandoned_cart_emails ?? false} />
       </div>
 
       <div className="mb-10">

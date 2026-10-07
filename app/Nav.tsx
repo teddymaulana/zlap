@@ -11,6 +11,7 @@ export default function Nav() {
         <Link href="/zlap-adm/preorders">Pre-orders</Link>
         <Link href="/zlap-adm/orders">Orders</Link>
         <Link href="/zlap-adm/customers">Customers</Link>
+        <Link href="/zlap-adm/carts">Carts</Link>
         <Link href="/zlap-adm/offers">Offers</Link>
         <Link href="/zlap-adm/discounts">Discounts</Link>
         <Link href="/zlap-adm/requests">Requests</Link>
