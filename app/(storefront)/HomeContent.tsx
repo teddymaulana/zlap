@@ -4,6 +4,7 @@ import { Suspense, use, useEffect, useRef, useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   searchStorefrontProducts,
   type StorefrontProduct,
@@ -336,22 +337,24 @@ export default function HomeContent({
         <ZlapLoader label={copy.home.searching} />
       ) : results === null ? (
         <>
-          <Image
-            src="/zlap-card-hero-banner-mobile.png"
-            alt="Zlap Card"
-            width={390}
-            height={170}
-            priority
-            className="mb-8 h-auto w-full rounded sm:hidden"
-          />
-          <Image
-            src="/zlap-card-hero-banner.png"
-            alt="Zlap Card"
-            width={3200}
-            height={360}
-            priority
-            className="mb-8 hidden h-auto w-full rounded sm:block"
-          />
+          <Link href="/?all=1" aria-label={copy.header.shopAll} className="mb-8 block">
+            <Image
+              src="/zcb-hero-banner-mobile.webp"
+              alt="Zlap Card"
+              width={390}
+              height={200}
+              priority
+              className="h-auto w-full rounded sm:hidden"
+            />
+            <Image
+              src="/zcb-hero-banner.webp"
+              alt="Zlap Card"
+              width={3200}
+              height={360}
+              priority
+              className="hidden h-auto w-full rounded sm:block"
+            />
+          </Link>
           <ShopBySetCTAs />
           <Suspense fallback={<ZlapLoader label={copy.home.loadingProducts} />}>
             <FeaturedSections featured={featured} titles={sectionTitles} />

@@ -154,9 +154,18 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
         }`}
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <span className="text-lg font-bold tracking-wide">
-            {copy.common.brandName}
-          </span>
+          <div className="flex items-center gap-3">
+            <Link href="/" onClick={closeMenu} className="flex shrink-0 items-center">
+              <Image
+                src="/zlap-logo.png"
+                alt={copy.common.brandName}
+                width={40}
+                height={40}
+                className="h-10 w-10"
+              />
+            </Link>
+            <span className="text-xs font-normal text-gray-600">{tagline}</span>
+          </div>
           <button
             type="button"
             onClick={closeMenu}
@@ -196,6 +205,13 @@ export default function StoreHeader({ tagline }: { tagline: string }) {
             {accountLabel}
           </Link>
         </nav>
+        <Image
+          src="/menu-footer-illustration.webp"
+          alt=""
+          width={600}
+          height={191}
+          className="h-auto w-full px-4"
+        />
       </div>
     </header>
   );

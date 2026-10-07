@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "./CartContext";
 import { getStorefrontAvailability } from "@/app/actions/storefront";
@@ -96,7 +97,14 @@ export default function CartDrawer() {
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {items.length === 0 ? (
-            <div className="text-sm text-gray-500">
+            <div className="text-center text-sm text-gray-500">
+              <Image
+                src="/empty-cart-illustration.webp"
+                alt=""
+                width={800}
+                height={604}
+                className="mx-auto mb-4 h-auto w-full max-w-xs"
+              />
               <p>{copy.cart.empty}</p>
               <Link
                 href="/?all=1"

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { signUpCustomer } from "@/app/actions/customer";
 import ButtonSpinner from "@/app/ButtonSpinner";
@@ -25,82 +26,92 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-col gap-6 px-4 py-12">
-      <h1 className="text-xl font-semibold">Create an account</h1>
-      <form action={submit} className="flex flex-col gap-3">
-        <input
-          type="text"
-          name="name"
-          placeholder="Full name"
-          required
-          className="rounded border px-3 py-2 text-sm"
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          required
-          className="rounded border px-3 py-2 text-sm"
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="Password (min. 8 characters)"
-          required
-          minLength={8}
-          className="rounded border px-3 py-2 text-sm"
-        />
-        <input
-          type="tel"
-          name="phone"
-          placeholder="Phone number, e.g. 0812xxxxxxxx (optional)"
-          className="rounded border px-3 py-2 text-sm"
-        />
-        {/* Honeypot — hidden from people (and screen readers), but bots that
-            fill every input fill this too. See lib/signupGuard.ts. */}
-        <input
-          type="text"
-          name="website"
-          tabIndex={-1}
-          autoComplete="off"
-          aria-hidden="true"
-          className="absolute -left-[9999px] h-0 w-0 opacity-0"
-        />
-        <label className="flex items-start gap-2 text-sm text-gray-600">
-          <input type="checkbox" name="agreeToTerms" required className="mt-0.5 h-4 w-4" />
-          <span>
-            By registering, I agree to Zlap Card&rsquo;s{" "}
-            <Link href="/terms" className="text-black underline">
-              Terms and Conditions
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="text-black underline">
-              Privacy Policy
-            </Link>
-          </span>
-        </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={isPending}
-          className="relative rounded bg-black px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          <span className={isPending ? "invisible" : ""}>Create account</span>
-          {isPending && <ButtonSpinner />}
-        </button>
-      </form>
-      <div className="flex items-center gap-3 text-xs text-gray-400">
-        <div className="h-px flex-1 bg-gray-200" />
-        or
-        <div className="h-px flex-1 bg-gray-200" />
+    <div className="mx-auto flex w-full max-w-sm flex-col gap-6 px-4 py-12 md:max-w-4xl md:flex-row md:items-center md:gap-12">
+      <Image
+        src="/login-illustration.webp"
+        alt=""
+        width={800}
+        height={604}
+        priority
+        className="mx-auto h-auto w-full max-w-xs md:w-1/2 md:max-w-none"
+      />
+      <div className="flex w-full flex-col gap-6 md:w-1/2">
+        <h1 className="text-xl font-semibold">Create an account</h1>
+        <form action={submit} className="flex flex-col gap-3">
+          <input
+            type="text"
+            name="name"
+            placeholder="Full name"
+            required
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            required
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <input
+            type="password"
+            name="password"
+            placeholder="Password (min. 8 characters)"
+            required
+            minLength={8}
+            className="rounded border px-3 py-2 text-sm"
+          />
+          <input
+            type="tel"
+            name="phone"
+            placeholder="Phone number, e.g. 0812xxxxxxxx (optional)"
+            className="rounded border px-3 py-2 text-sm"
+          />
+          {/* Honeypot — hidden from people (and screen readers), but bots that
+              fill every input fill this too. See lib/signupGuard.ts. */}
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="absolute -left-[9999px] h-0 w-0 opacity-0"
+          />
+          <label className="flex items-start gap-2 text-sm text-gray-600">
+            <input type="checkbox" name="agreeToTerms" required className="mt-0.5 h-4 w-4" />
+            <span>
+              By registering, I agree to Zlap Card&rsquo;s{" "}
+              <Link href="/terms" className="text-black underline">
+                Terms and Conditions
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-black underline">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="relative rounded bg-black px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            <span className={isPending ? "invisible" : ""}>Create account</span>
+            {isPending && <ButtonSpinner />}
+          </button>
+        </form>
+        <div className="flex items-center gap-3 text-xs text-gray-400">
+          <div className="h-px flex-1 bg-gray-200" />
+          or
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+        <GoogleSignInButton />
+        <p className="text-sm text-gray-500">
+          Already have an account?{" "}
+          <Link href="/account/login" className="text-black underline">
+            Sign in
+          </Link>
+        </p>
       </div>
-      <GoogleSignInButton />
-      <p className="text-sm text-gray-500">
-        Already have an account?{" "}
-        <Link href="/account/login" className="text-black underline">
-          Sign in
-        </Link>
-      </p>
     </div>
   );
 }
