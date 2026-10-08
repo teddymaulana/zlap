@@ -22,6 +22,8 @@ export const BALANCE_CATEGORIES = [
 export const PRODUCT_BRANDS = [
   { value: "pokemon", label: "Pokemon Card Game" },
   { value: "one_piece", label: "One Piece Trading Card Game" },
+  { value: "dragon_ball", label: "Dragon Ball Card Game" },
+  { value: "gundam", label: "Gundam Card Game" },
 ] as const;
 
 export const CARD_SET_LANGUAGES = [

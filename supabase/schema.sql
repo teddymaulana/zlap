@@ -9,7 +9,7 @@ create extension if not exists "pgcrypto";
 create table if not exists card_sets (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  brand text not null check (brand in ('pokemon', 'one_piece')),
+  brand text not null check (brand in ('pokemon', 'one_piece', 'dragon_ball', 'gundam')),
   language text not null check (language in ('en', 'jp', 'id')),
   created_at timestamptz not null default now(),
   unique (name, brand, language)
@@ -113,13 +113,18 @@ insert into card_sets (name, brand, language) values
   ('OP-15 Adventure on Kami''s Island', 'one_piece', 'jp'), ('OP-16 The Time of Battle', 'one_piece', 'jp')
 on conflict (name, brand, language) do nothing;
 
+-- Existing databases created before Dragon Ball / Gundam were added.
+alter table card_sets drop constraint if exists card_sets_brand_check;
+alter table card_sets add constraint card_sets_brand_check
+  check (brand in ('pokemon', 'one_piece', 'dragon_ball', 'gundam'));
+
 create table if not exists products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   sku text unique,
   tags text[] not null default '{}',
   image_url text,
-  brand text check (brand in ('pokemon', 'one_piece')),
+  brand text check (brand in ('pokemon', 'one_piece', 'dragon_ball', 'gundam')),
   set_id uuid references card_sets(id) on delete set null,
   -- Shown in the storefront's featured carousels (set from /zlap-adm/storefront in the ERP).
   -- Sections are generic slots (see storefront_sections for their display
@@ -160,6 +165,11 @@ create table if not exists products (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Existing databases created before Dragon Ball / Gundam were added.
+alter table products drop constraint if exists products_brand_check;
+alter table products add constraint products_brand_check
+  check (brand in ('pokemon', 'one_piece', 'dragon_ball', 'gundam'));
 
 -- Existing databases created before this column existed.
 alter table products add column if not exists show_when_oos boolean not null default false;

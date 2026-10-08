@@ -1,9 +1,12 @@
 import type { Courier } from "@/lib/couriers";
+import type { PRODUCT_BRANDS } from "@/lib/constants";
+
+export type ProductBrand = (typeof PRODUCT_BRANDS)[number]["value"];
 
 export type CardSet = {
   id: string;
   name: string;
-  brand: "pokemon" | "one_piece";
+  brand: ProductBrand;
   language: "en" | "jp" | "id";
 };
 
@@ -13,7 +16,7 @@ export type Product = {
   sku: string | null;
   tags: string[];
   image_url: string | null;
-  brand: "pokemon" | "one_piece" | null;
+  brand: ProductBrand | null;
   set_id: string | null;
   featured_section_1: boolean;
   featured_section_1_order: number | null;

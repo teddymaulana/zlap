@@ -3,11 +3,11 @@
 import { useState, useTransition } from "react";
 import { addCardSet, removeCardSet } from "@/app/actions/sets";
 import { PRODUCT_BRANDS, CARD_SET_LANGUAGES } from "@/lib/constants";
-import type { CardSet } from "@/lib/types";
+import type { CardSet, ProductBrand } from "@/lib/types";
 
 export default function SetManager({ sets }: { sets: CardSet[] }) {
   const [name, setName] = useState("");
-  const [brand, setBrand] = useState<"pokemon" | "one_piece">("pokemon");
+  const [brand, setBrand] = useState<ProductBrand>("pokemon");
   const [language, setLanguage] = useState<"en" | "jp" | "id">("en");
   const [isPending, startTransition] = useTransition();
 
@@ -36,7 +36,7 @@ export default function SetManager({ sets }: { sets: CardSet[] }) {
           <label className="text-xs text-gray-500">Brand</label>
           <select
             value={brand}
-            onChange={(e) => setBrand(e.target.value as "pokemon" | "one_piece")}
+            onChange={(e) => setBrand(e.target.value as ProductBrand)}
             className="rounded border px-3 py-2 text-sm"
           >
             {PRODUCT_BRANDS.map((b) => (

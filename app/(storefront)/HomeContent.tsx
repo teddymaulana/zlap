@@ -10,7 +10,7 @@ import {
   type StorefrontProduct,
   type StorefrontSearchResult,
 } from "@/app/actions/storefront";
-import type { CardSet, StorefrontShortcut } from "@/lib/types";
+import type { CardSet, ProductBrand, StorefrontShortcut } from "@/lib/types";
 import { copy } from "@/lib/copy";
 import ButtonSpinner from "@/app/ButtonSpinner";
 import ZlapLoader from "@/app/ZlapLoader";
@@ -120,7 +120,7 @@ export default function HomeContent({
       const res = await searchStorefrontProducts(
         trimmed,
         {
-          brand: (f.brand || undefined) as "pokemon" | "one_piece" | undefined,
+          brand: (f.brand || undefined) as ProductBrand | undefined,
           setId: f.setId || undefined,
           category: (f.category || undefined) as
             | "booster_boxes"

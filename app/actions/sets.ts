@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import type { CardSet } from "@/lib/types";
+import type { CardSet, ProductBrand } from "@/lib/types";
 
 export async function getCardSets(): Promise<CardSet[]> {
   const supabase = await createClient();
@@ -54,7 +54,7 @@ export async function getCardSetsInStock(): Promise<CardSet[]> {
 
 export async function addCardSet(
   name: string,
-  brand: "pokemon" | "one_piece",
+  brand: ProductBrand,
   language: "en" | "jp" | "id"
 ) {
   const trimmed = name.trim();

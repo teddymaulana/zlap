@@ -7,7 +7,7 @@ import { getActiveDiscounts } from "@/lib/activeDiscounts";
 import { activePoPrice, isPoPriceFresh, poSlotsLeft } from "@/lib/preorder";
 import { priceWithDiscounts, badgesByProduct } from "@/lib/discounts";
 import { isSlabProduct, isBoosterBoxProduct } from "@/lib/productCategory";
-import type { StorefrontShortcut } from "@/lib/types";
+import type { ProductBrand, StorefrontShortcut } from "@/lib/types";
 
 const DEFAULT_DIRECT_PRICE_PCT = 1.15;
 
@@ -267,7 +267,7 @@ async function marketPriceByProductId(
 export type StorefrontCategory ="booster_boxes" | "singles" | "slabs" | "other";
 
 export type StorefrontFilters = {
-  brand?: "pokemon" | "one_piece";
+  brand?: ProductBrand;
   setId?: string;
   category?: StorefrontCategory;
   // "Shop all" — list every storefront product even with no query or other
@@ -599,7 +599,7 @@ export async function getProductsForReorder(productIds: string[]): Promise<Store
 }
 
 export type StorefrontProductDetail = StorefrontProduct & {
-  brand: "pokemon" | "one_piece" | null;
+  brand: ProductBrand | null;
   offersEnabled: boolean;
 };
 
