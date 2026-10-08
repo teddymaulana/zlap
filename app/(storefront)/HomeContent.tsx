@@ -361,7 +361,14 @@ export default function HomeContent({
           </Suspense>
         </>
       ) : results.products.length === 0 ? (
-        <div className="text-sm text-gray-500">
+        <div className="text-center text-sm text-gray-500">
+          <Image
+            src="/empty-search-illustration.webp"
+            alt=""
+            width={800}
+            height={604}
+            className="mx-auto mb-4 h-auto w-full max-w-xs"
+          />
           <p>{copy.home.noProducts}</p>
           {!(showAll && !resultsQuery && !filters.brand && !filters.setId && !filters.category) && (
             <button
