@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   getStorefrontProductDetail,
@@ -11,7 +13,7 @@ import { GIFT_ROLE_TAGS } from "@/lib/gwp";
 import { isEtbProduct } from "@/lib/productCategory";
 import { getBogoFreeProductCatalog } from "@/app/actions/discounts";
 import { getActiveDiscounts } from "@/lib/activeDiscounts";
-import { PRODUCT_BRANDS, CARD_SET_LANGUAGES, LOW_STOCK_THRESHOLD } from "@/lib/constants";
+import { PRODUCT_BRANDS, CARD_SET_LANGUAGES, LOW_STOCK_THRESHOLD, SITE_URL } from "@/lib/constants";
 import ProductDetailActions from "./ProductDetailActions";
 import OfferButton from "./OfferButton";
 import SalesChart from "./SalesChart";
@@ -47,13 +49,108 @@ function preorderText(preorder: { days?: number; date?: string } | null) {
   return fillCopy(copy.product.shipsInDays, { days: preorder.days ?? 30 });
 }
 
+// generateMetadata and the page both need the product — cache() so the
+// Supabase lookups run once per request, not twice.
+const getProduct = cache(getStorefrontProductDetail);
+
+type Product = NonNullable<Awaited<ReturnType<typeof getStorefrontProductDetail>>>;
+
+function brandLabelOf(product: Product) {
+  return PRODUCT_BRANDS.find((b) => b.value === product.brand)?.label ?? null;
+}
+
+function setLanguageLabelOf(product: Product) {
+  return CARD_SET_LANGUAGES.find((l) => l.value === product.setLanguage)?.label ?? null;
+}
+
+// The offer a search engine should see: the regular price while in stock,
+// else the pre-order price, else the regular price marked out of stock.
+// Display-only market prices aren't a real offer, so they're left out.
+function seoOffer(product: Product) {
+  if (product.inStock && product.price !== null) return { price: product.price, availability: "InStock" };
+  if (product.poPrice !== null) return { price: product.poPrice, availability: "PreOrder" };
+  if (product.price !== null) return { price: product.price, availability: "OutOfStock" };
+  return null;
+}
+
+function metaDescription(product: Product) {
+  const languageLabel = setLanguageLabelOf(product);
+  const set = product.setName ? `${product.setName}${languageLabel ? ` (${languageLabel})` : ""}` : null;
+  const details = [brandLabelOf(product), set].filter(Boolean).join(" · ");
+  const offer = seoOffer(product);
+  const price = offer
+    ? `${formatMoney(offer.price)}${offer.availability === "PreOrder" ? " (pre-order)" : ""}.`
+    : null;
+  return [`${product.name}.`, details && `${details}.`, price, "Authentic, shipped across Indonesia from ZLAP CARD."]
+    .filter(Boolean)
+    .join(" ");
+}
+
+// schema.org Product markup so search results can show price and stock.
+function productJsonLd(product: Product) {
+  const url = `${SITE_URL}/products/${product.id}`;
+  const offer = seoOffer(product);
+  const brand = brandLabelOf(product);
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    url,
+    ...(product.image_url && { image: [product.image_url] }),
+    ...(product.sku && { sku: product.sku }),
+    ...(brand && { brand: { "@type": "Brand", name: brand } }),
+    description: metaDescription(product),
+    ...(offer && {
+      offers: {
+        "@type": "Offer",
+        url,
+        priceCurrency: "IDR",
+        price: Math.round(offer.price),
+        availability: `https://schema.org/${offer.availability}`,
+        seller: { "@type": "Organization", name: "ZLAP CARD" },
+      },
+    }),
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const product = await getProduct(id);
+  if (!product) return {};
+
+  const title = `${product.name} | ZLAP CARD`;
+  const description = metaDescription(product);
+  const path = `/products/${product.id}`;
+  return {
+    title: { absolute: title },
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      type: "website",
+      siteName: "ZLAP CARD",
+      locale: "id_ID",
+      url: path,
+      title,
+      description,
+      images: product.image_url
+        ? [{ url: product.image_url, alt: product.name }]
+        : [{ url: "/zlap-logo.png", width: 500, height: 500, alt: "ZLAP CARD" }],
+    },
+    twitter: { card: product.image_url ? "summary_large_image" : "summary" },
+  };
+}
+
 export default async function StorefrontProductDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = await getStorefrontProductDetail(id);
+  const product = await getProduct(id);
   if (!product) notFound();
   const preorderOnly = product.poPrice !== null && (product.inStock === false || product.price === null);
 
@@ -75,9 +172,8 @@ export default async function StorefrontProductDetailPage({
   const setProductIds = new Set(setProducts.map((p) => p.id));
   const relatedProducts = relatedProductsRaw.filter((p) => !setProductIds.has(p.id));
 
-  const brandLabel = PRODUCT_BRANDS.find((b) => b.value === product.brand)?.label ?? null;
-  const setLanguageLabel =
-    CARD_SET_LANGUAGES.find((l) => l.value === product.setLanguage)?.label ?? null;
+  const brandLabel = brandLabelOf(product);
+  const setLanguageLabel = setLanguageLabelOf(product);
   const isLowStock =
     product.inStock !== false && typeof product.stockCount === "number" && product.stockCount > 0 &&
     product.stockCount <= LOW_STOCK_THRESHOLD;
@@ -94,6 +190,11 @@ export default async function StorefrontProductDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      <script
+        type="application/ld+json"
+        // Escape "<" so a product name can't close the script tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd(product)).replace(/</g, "\\u003c") }}
+      />
       <WhatsAppProductAnnouncer name={product.name} path={`/products/${product.id}`} />
       <ProductViewTracker productId={product.id} name={product.name} />
       <div className="grid gap-8 sm:grid-cols-2">

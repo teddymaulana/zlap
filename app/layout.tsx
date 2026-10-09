@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono, Anton } from "next/font/google";
 import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
+import { SITE_URL } from "@/lib/constants";
 import Nav from "./Nav";
 
 const inter = Inter({
@@ -22,6 +23,8 @@ const anton = Anton({
 });
 
 export const metadata: Metadata = {
+  // Resolves relative og:image / canonical URLs set by storefront pages.
+  metadataBase: new URL(SITE_URL),
   title: "zlap-erp",
   description: "Internal inventory, purchases, and order tracking",
 };

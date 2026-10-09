@@ -658,6 +658,29 @@ export async function getStorefrontProductDetail(
   };
 }
 
+// Every product with a live PDP, for app/sitemap.ts — the same "listable"
+// rule as getStorefrontProductDetail (storefront-enabled, and priced/open
+// for pre-order or listed anyway via show_when_oos), without the per-product
+// stock and set lookups the sitemap doesn't need. Uses the service client
+// (no request cookies) so the sitemap can be statically cached.
+export async function getSitemapProducts(): Promise<{ id: string; updatedAt: string }[]> {
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { data, error } = await service
+    .from("products")
+    .select("id, updated_at, show_when_oos")
+    .eq("storefront_enabled", true)
+    .limit(1000);
+  if (error) throw new Error(error.message);
+  const products = data ?? [];
+  const infos = await priceByProductId(products.map((p) => p.id));
+  return products
+    .filter((p) => infos.has(p.id) || p.show_when_oos)
+    .map((p) => ({ id: p.id, updatedAt: p.updated_at }));
+}
+
 // Generic/common words that show up in most card product names and so carry
 // no signal for "same-ish item" (grades, condition, packaging terms, etc.).
 const NAME_TOKEN_STOPWORDS = new Set([

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import {
   getFeaturedProducts,
   getStorefrontSectionTitles,
@@ -10,6 +11,25 @@ import { getCardSetsInStock } from "@/app/actions/sets";
 import { copy } from "@/lib/copy";
 import ZlapLoader from "@/app/ZlapLoader";
 import HomeContent from "./HomeContent";
+
+const HOME_TITLE = "ZLAP CARD — Pokémon & One Piece Trading Cards Indonesia";
+const HOME_DESCRIPTION =
+  "Shop authentic Pokémon, One Piece, Dragon Ball and Gundam trading cards — Japanese, English and Indonesian booster boxes, singles and PSA slabs, with pre-orders. Shipped across Indonesia.";
+
+export const metadata: Metadata = {
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "ZLAP CARD",
+    locale: "id_ID",
+    url: "/",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    images: [{ url: "/zlap-logo.png", width: 500, height: 500, alt: "ZLAP CARD" }],
+  },
+};
 
 // Homepage data is fetched here on the server, all at once, rather than by
 // HomeContent calling each server action after hydration — the browser runs

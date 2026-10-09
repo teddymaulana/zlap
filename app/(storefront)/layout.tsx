@@ -15,9 +15,19 @@ import MarketplaceLinks from "./MarketplaceLinks";
 import CartDrawer from "./CartDrawer";
 import WhatsAppFloatingButton from "./WhatsAppFloatingButton";
 
+// Defaults for every storefront page; the homepage and product pages
+// override title/description/canonical with their own.
 export const metadata: Metadata = {
   title: "ZLAP CARD",
-  description: "Authentic Pokemon and One Piece trading cards, shipped across Indonesia.",
+  description:
+    "Authentic Pokémon, One Piece, Dragon Ball and Gundam trading cards — booster boxes, singles and PSA slabs, shipped across Indonesia.",
+  openGraph: {
+    type: "website",
+    siteName: "ZLAP CARD",
+    locale: "id_ID",
+    images: [{ url: "/zlap-logo.png", width: 500, height: 500, alt: "ZLAP CARD" }],
+  },
+  twitter: { card: "summary" },
 };
 
 const DEFAULT_TAGLINE = copy.announcementDefaults.tagline;

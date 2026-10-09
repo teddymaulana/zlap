@@ -52,3 +52,7 @@ export const PRODUCT_TAGS = [
 // GA4 measurement ID — public by design (it ships in the page's gtag.js URL).
 // Loaded on storefront pages only, from app/(storefront)/layout.tsx.
 export const GA_MEASUREMENT_ID = "G-6GTJHGK3Q4";
+
+// Canonical storefront origin — the base for absolute URLs in page metadata,
+// the sitemap, robots.txt, and product structured data.
+export const SITE_URL = "https://zlapcards.com";
