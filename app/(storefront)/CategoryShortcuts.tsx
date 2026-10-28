@@ -40,7 +40,7 @@ export default function CategoryShortcuts({
   if (shortcuts.length === 0) return null;
 
   return (
-    <div className="mb-6 flex gap-3 overflow-x-auto px-1 pt-4 pb-1">
+    <div className="mb-6 flex gap-3 overflow-x-auto px-1 pt-4 pb-4">
       {shortcuts.map((s) => {
         const isStoreFilter = s.href.startsWith("/?");
         const isExternal = /^https?:\/\//.test(s.href);
@@ -76,7 +76,7 @@ export default function CategoryShortcuts({
               <img
                 src={s.image_url}
                 alt={s.label}
-                className="max-h-10 max-w-10 object-contain"
+                className="zl-key-icon max-h-10 max-w-10 object-contain"
               />
             ) : (
               <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-100 text-[9px] text-gray-400">
@@ -93,8 +93,8 @@ export default function CategoryShortcuts({
           </>
         );
 
-        const className = `relative flex w-20 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-gray-200 px-2 py-3 text-center hover:bg-gray-50 ${
-          isActive ? "bg-gray-100" : "bg-white"
+        const className = `zl-key relative flex w-20 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-gray-200 px-2 py-3 text-center hover:bg-gray-50 ${
+          isActive ? "zl-key-pressed bg-gray-100" : "bg-white"
         }`;
 
         if (isStoreFilter) {

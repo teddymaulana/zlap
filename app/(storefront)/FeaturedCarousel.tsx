@@ -70,7 +70,7 @@ export default function FeaturedCarousel({
         className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {products.map((p) => (
-          <div key={p.id} className="w-40 shrink-0 snap-start sm:w-[calc((100%-4rem)/5)]">
+          <div key={p.id} className="zl-shelf-item w-40 shrink-0 snap-start sm:w-[calc((100%-4rem)/5)]">
             <ProductCard product={p} />
           </div>
         ))}

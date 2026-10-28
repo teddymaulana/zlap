@@ -8,6 +8,7 @@ import { isSlabProduct } from "@/lib/productCategory";
 import { preorderCartId, preorderMaxQty, useCart } from "./CartContext";
 import { useWishlist } from "./WishlistContext";
 import NotifyMeModal from "./NotifyMeModal";
+import Tilt3D from "./Tilt3D";
 import { copy, fillCopy, formatShortDate } from "@/lib/copy";
 import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { PO_ESTIMATE_WEEKS } from "@/lib/preorder";
@@ -41,15 +42,19 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
   const preorderOnly = !inStock && product.poPrice !== null;
   const unavailable = !inStock && !preorderOnly;
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
+  // Set on the tap that adds to the wishlist, cleared when the pop animation
+  // ends — so hearts that load already filled don't all pop at once.
+  const [heartPop, setHeartPop] = useState(false);
 
   return (
     <div
-      className={`group flex h-full cursor-pointer flex-col rounded border px-3 pt-3 transition-colors ${
+      className={`zl-press group flex h-full cursor-pointer flex-col rounded border bg-white px-3 pt-3 ${
         unavailable ? "border-red-300" : "border-gray-200 hover:border-gray-400"
       }`}
     >
       <div className="relative mb-2">
-        <Link href={`/products/${product.id}`}>
+        <Tilt3D className="rounded" maxTilt={8}>
+        <Link href={`/products/${product.id}`} className="block">
           {product.image_url ? (
             <Image
               src={product.image_url}
@@ -66,6 +71,7 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
             </div>
           )}
         </Link>
+        </Tilt3D>
         <div className="absolute right-1.5 bottom-1.5 flex flex-col items-end gap-1">
           {preorderOnly ? (
             <span className="rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white">
@@ -94,9 +100,13 @@ export default function ProductCard({ product }: { product: StorefrontProduct })
         </div>
         <button
           type="button"
-          onClick={() => toggle(product.id)}
+          onClick={() => {
+            if (!isWishlisted) setHeartPop(true);
+            toggle(product.id);
+          }}
+          onAnimationEnd={() => setHeartPop(false)}
           aria-label={isWishlisted ? copy.common.removeFromWishlist : copy.common.addToWishlist}
-          className={`absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow transition-opacity hover:bg-white ${
+          className={`absolute top-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow transition-opacity hover:bg-white ${heartPop ? "zl-heart-pop" : ""} ${
             isWishlisted ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           }`}
         >

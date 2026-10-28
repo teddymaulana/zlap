@@ -90,3 +90,292 @@ body {
     animation: none;
   }
 }
+
+/* 3D tilt + holo glare (Tilt3D.tsx). The pointer position arrives as
+   --zl-rx/--zl-ry (rotation) and --zl-gx/--zl-gy (glare origin). */
+.zl-tilt-scene {
+  perspective: 900px;
+}
+
+.zl-tilt {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--zl-rx, 0deg)) rotateY(var(--zl-ry, 0deg));
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.zl-tilt[data-active] {
+  transition-duration: 0.12s;
+}
+
+.zl-tilt-glare {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  mix-blend-mode: soft-light;
+  background:
+    radial-gradient(circle at var(--zl-gx, 50%) var(--zl-gy, 50%), rgba(255, 255, 255, 0.85), transparent 55%),
+    linear-gradient(
+      115deg,
+      transparent 20%,
+      rgba(255, 92, 205, 0.45) 36%,
+      rgba(255, 228, 92, 0.45) 46%,
+      rgba(92, 255, 214, 0.45) 56%,
+      rgba(92, 140, 255, 0.45) 66%,
+      transparent 80%
+    );
+  background-size: 100% 100%, 250% 250%;
+  background-position: center, var(--zl-gx, 50%) var(--zl-gy, 50%);
+  transition: opacity 0.3s ease;
+}
+
+.zl-tilt[data-active] .zl-tilt-glare {
+  opacity: 1;
+}
+
+/* Lifts a child off the tilted surface so it parallaxes against it. */
+.zl-tilt-pop {
+  transform: translateZ(28px);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zl-tilt[data-active] .zl-tilt-pop {
+  transform: translateZ(48px) scale(1.06);
+}
+
+/* Fade-and-rise as a section scrolls into view (Reveal.tsx). */
+.zl-reveal {
+  opacity: 0;
+  transform: perspective(900px) translateY(24px) rotateX(8deg);
+  transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zl-reveal[data-visible] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zl-tilt,
+  .zl-tilt-pop,
+  .zl-reveal {
+    transform: none !important;
+    transition: none;
+  }
+  .zl-reveal {
+    opacity: 1;
+  }
+  .zl-tilt-glare {
+    display: none;
+  }
+}
+
+/* Featured carousels as a curved 3D shelf: each card turns away and shrinks
+   as it scrolls toward either edge, driven by its own position in the
+   scroller (a scroll-driven animation — no JS, so it works on touch too).
+   Browsers without animation-timeline just show the flat row. */
+@supports (animation-timeline: view()) {
+  .zl-shelf-item {
+    animation: zl-shelf linear both;
+    animation-timeline: view(inline);
+  }
+}
+
+@keyframes zl-shelf {
+  0% { transform: perspective(800px) rotateY(24deg) scale(0.9); opacity: 0.6; }
+  35%, 65% { transform: perspective(800px) rotateY(0deg) scale(1); opacity: 1; }
+  100% { transform: perspective(800px) rotateY(-24deg) scale(0.9); opacity: 0.6; }
+}
+
+/* Homepage shortcut chips as raised keys — a hard bottom shadow gives them
+   depth, and pressing sinks the key into it. */
+.zl-key {
+  box-shadow: 0 4px 0 #e5e7eb, 0 6px 12px rgba(0, 0, 0, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.zl-key:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #e5e7eb, 0 10px 18px rgba(0, 0, 0, 0.08);
+}
+
+.zl-key:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #e5e7eb, 0 2px 4px rgba(0, 0, 0, 0.06);
+  transition-duration: 0.05s;
+}
+
+/* The shortcut whose filter is currently applied stays pushed in. */
+.zl-key.zl-key-pressed {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #d1d5db, inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.zl-key-icon {
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zl-key:hover .zl-key-icon {
+  transform: perspective(300px) rotateY(-18deg) rotateX(8deg) scale(1.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zl-shelf-item {
+    animation: none;
+  }
+  .zl-key,
+  .zl-key:hover,
+  .zl-key:active,
+  .zl-key:hover .zl-key-icon {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Touch screens can't hover to tilt a card, so the holo foil on Tilt3D
+   images drifts with page scroll instead — scrolling past a card shifts its
+   rainbow band the way tilting a real foil card would. */
+@media (hover: none) {
+  @supports (animation-timeline: view()) {
+    .zl-tilt-glare {
+      opacity: 0.55;
+      background: linear-gradient(
+        115deg,
+        transparent 20%,
+        rgba(255, 92, 205, 0.5) 36%,
+        rgba(255, 228, 92, 0.5) 46%,
+        rgba(92, 255, 214, 0.5) 56%,
+        rgba(92, 140, 255, 0.5) 66%,
+        transparent 80%
+      );
+      background-size: 250% 250%;
+      animation: zl-foil linear both;
+      animation-timeline: view();
+    }
+  }
+}
+
+@keyframes zl-foil {
+  from { background-position: 100% 100%; }
+  to { background-position: 0% 0%; }
+}
+
+/* Product cards give a little under the finger (or mouse) when pressed. */
+.zl-press {
+  transition: border-color 0.15s ease, scale 0.15s ease;
+}
+
+.zl-press:active {
+  scale: 0.97;
+}
+
+/* Wishlist heart bounce plus a ring bursting outward, on adding only. */
+.zl-heart-pop {
+  animation: zl-heart-pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1.4);
+}
+
+.zl-heart-pop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid #ef4444;
+  animation: zl-heart-ring 0.45s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes zl-heart-pop {
+  0% { scale: 1; }
+  35% { scale: 1.35; }
+  100% { scale: 1; }
+}
+
+@keyframes zl-heart-ring {
+  from { scale: 0.8; opacity: 0.8; }
+  to { scale: 1.9; opacity: 0; }
+}
+
+/* Gentle bob for the Shop by Set images. Uses the separate `translate`
+   property so it stacks with .zl-tilt-pop's transform instead of
+   replacing it. */
+.zl-float {
+  animation: zl-float 3.6s ease-in-out infinite;
+}
+
+@keyframes zl-float {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  50% { translate: 0 -6px; rotate: -2deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zl-press:active {
+    scale: none;
+  }
+  .zl-heart-pop,
+  .zl-heart-pop::after,
+  .zl-float {
+    animation: none;
+  }
+}
+
+/* Homepage 3D grid floor (HomeBackdrop.tsx). A tall plane tipped back with
+   rotateX from its bottom edge, so its far end shrinks toward a horizon
+   partway up the screen; the mask fades it out before the horizon. */
+.zl-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse 70% 40% at 50% 55%, rgba(255, 210, 63, 0.1), transparent 70%);
+}
+
+.zl-backdrop-floor {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: 0;
+  height: 55vh;
+  perspective: 320px;
+  perspective-origin: 50% 0%;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
+}
+
+.zl-backdrop-plane {
+  position: absolute;
+  inset: -150% 0 0 0;
+  transform-origin: 50% 100%;
+  transform: rotateX(72deg);
+  background-image:
+    linear-gradient(to right, rgba(20, 16, 10, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(20, 16, 10, 0.09) 1px, transparent 1px);
+  background-size: 64px 64px;
+  animation: zl-grid-drift 8s linear infinite;
+}
+
+@keyframes zl-grid-drift {
+  from { background-position: 0 0; }
+  to { background-position: 0 64px; }
+}
+
+/* Where supported, the floor moves with page scroll instead of on a timer. */
+@supports (animation-timeline: scroll()) {
+  .zl-backdrop-plane {
+    animation: zl-grid-scroll linear both;
+    animation-timeline: scroll(root);
+  }
+}
+
+@keyframes zl-grid-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 1280px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zl-backdrop-plane {
+    animation: none;
+  }
+}

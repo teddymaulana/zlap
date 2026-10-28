@@ -20,6 +20,9 @@ import CategoryShortcuts from "./CategoryShortcuts";
 import FilterToolbar, { type StorefrontFilterValue } from "./FilterToolbar";
 import ShopBySetCTAs from "./ShopBySetCTAs";
 import SearchPagination from "./SearchPagination";
+import Tilt3D from "./Tilt3D";
+import Reveal from "./Reveal";
+import HomeBackdrop from "./HomeBackdrop";
 
 const EMPTY_FILTERS: StorefrontFilterValue = { brand: "", setId: "", category: "" };
 
@@ -43,8 +46,13 @@ function FeaturedSections({
   const [section1, section2] = use(featured);
   return (
     <>
-      <FeaturedCarousel title={titles.featured_section_1} products={section1} />
-      <FeaturedCarousel title={titles.featured_section_2} products={section2} />
+      <Reveal>
+        <FeaturedCarousel title={titles.featured_section_1} products={section1} />
+      </Reveal>
+      <Reveal>
+        <FeaturedCarousel title={titles.featured_section_2} products={section2} />
+      </Reveal>
+      <Reveal>
       <Image
         src="/free-gift-banner-mobile.png"
         alt="Free gift with purchase"
@@ -59,6 +67,7 @@ function FeaturedSections({
         height={260}
         className="mb-8 hidden h-auto w-full rounded sm:block"
       />
+      </Reveal>
     </>
   );
 }
@@ -257,7 +266,10 @@ export default function HomeContent({
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8">
+    // isolate: keeps the backdrop's negative z-index behind this page's
+    // content but still above <main>'s white background.
+    <div className="relative isolate mx-auto w-full max-w-5xl px-4 py-8">
+      <HomeBackdrop />
       <form onSubmit={handleSubmit} className="relative">
         <button
           type="submit"
@@ -337,7 +349,8 @@ export default function HomeContent({
         <ZlapLoader label={copy.home.searching} />
       ) : results === null ? (
         <>
-          <Link href="/?all=1" aria-label={copy.header.shopAll} className="mb-8 block">
+          <Tilt3D className="rounded" wrapperClassName="mb-8" maxTilt={3}>
+          <Link href="/?all=1" aria-label={copy.header.shopAll} className="block">
             <Image
               src="/zcb-hero-banner-mobile.webp"
               alt="Zlap Card"
@@ -355,6 +368,7 @@ export default function HomeContent({
               className="hidden h-auto w-full rounded sm:block"
             />
           </Link>
+          </Tilt3D>
           <ShopBySetCTAs />
           <Suspense fallback={<ZlapLoader label={copy.home.loadingProducts} />}>
             <FeaturedSections featured={featured} titles={sectionTitles} />
