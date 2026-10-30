@@ -41,6 +41,15 @@ export function computePoPrice(
   return Math.max(PO_MIN_PRICE, Math.ceil(marked / 1000) * 1000);
 }
 
+// In-stock copies shouldn't undercut the pre-order: when a refresh leaves a
+// product's storefront batch priced below po_price, it's raised to this much
+// above it, rounded up to the next IDR 1,000 (lib/preorderPricing.ts).
+export const IN_STOCK_OVER_PO_PERCENT = 5;
+
+export function inStockPriceOverPo(poPrice: number): number {
+  return Math.ceil((poPrice * (1 + IN_STOCK_OVER_PO_PERCENT / 100)) / 1000) * 1000;
+}
+
 export function isPoPriceFresh(updatedAt: string | null | undefined, now = Date.now()): boolean {
   if (!updatedAt) return false;
   return now - new Date(updatedAt).getTime() <= PO_PRICE_MAX_AGE_DAYS * DAY_MS;

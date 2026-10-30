@@ -4,7 +4,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { snkrdunkApparelId } from "@/lib/snkrdunk";
 import { fetchJpyToIdr, fetchPsa10 } from "@/lib/snkrdunkMarket";
-import { computePoPrice, type PoMarkupType } from "@/lib/preorder";
+import { computePoPrice, inStockPriceOverPo, type PoMarkupType } from "@/lib/preorder";
 import { isSlabProduct } from "@/lib/productCategory";
 
 type PoProductRow = {
@@ -13,6 +13,7 @@ type PoProductRow = {
   po_markup_type: PoMarkupType;
   po_markup_value: number;
   po_price: number | null;
+  po_enabled: boolean;
 };
 
 // Base = median of recent PSA 10 sales. A card with no recent PSA 10 sales
@@ -51,10 +52,45 @@ export async function refreshPoPriceSnapshot(
     })
     .eq("id", product.id);
   if (error) return { error: error.message };
+  if (product.po_enabled) {
+    const raised = await raiseInStockPriceAbovePo(db, product.id, price);
+    if ("error" in raised) return raised;
+  }
   return { price };
 }
 
-export const PO_PRODUCT_COLUMNS = "id, snkrdunk_url, po_markup_type, po_markup_value, po_price";
+// Keeps the in-stock storefront batch from undercutting a pre-order: if it's
+// priced below the new po_price, raise it to inStockPriceOverPo. Batch-level
+// pre-orders, sold-out batches and an explicit 0 ("no price set") are left
+// alone. A null direct_price is the storefront default, 115% of cost
+// (app/actions/storefront.ts DEFAULT_DIRECT_PRICE_PCT).
+async function raiseInStockPriceAbovePo(
+  db: SupabaseClient,
+  productId: string,
+  poPrice: number
+): Promise<{ ok: true } | { error: string }> {
+  const { data: batch, error } = await db
+    .from("inventory_batch_availability")
+    .select("id, cost, direct_price")
+    .eq("product_id", productId)
+    .eq("is_storefront_price", true)
+    .eq("is_preorder", false)
+    .gt("storefront_available", 0)
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!batch || batch.direct_price === 0) return { ok: true };
+
+  const current = batch.direct_price ?? Number(batch.cost) * 1.15;
+  if (current >= poPrice) return { ok: true };
+  const { error: updateError } = await db
+    .from("inventory_batches")
+    .update({ direct_price: inStockPriceOverPo(poPrice) })
+    .eq("id", batch.id);
+  if (updateError) return { error: updateError.message };
+  return { ok: true };
+}
+
+export const PO_PRODUCT_COLUMNS = "id, snkrdunk_url, po_markup_type, po_markup_value, po_price, po_enabled";
 
 // Products are refreshed one at a time with a pause in between — a handful
 // of requests, spaced out, rather than a burst at SNKRDUNK.
@@ -70,7 +106,7 @@ export async function refreshAllPoPriceSnapshots(
 ): Promise<{ refreshed: number; failed: { id: string; name: string; error: string }[] } | { error: string }> {
   const { data: candidates, error } = await db
     .from("products")
-    .select(`${PO_PRODUCT_COLUMNS}, po_enabled, name, tags`)
+    .select(`${PO_PRODUCT_COLUMNS}, name, tags`)
     .or("po_enabled.eq.true,and(storefront_enabled.eq.true,show_when_oos.eq.true,snkrdunk_url.not.is.null)");
   if (error) return { error: error.message };
   const products = (candidates ?? []).filter((p) => p.po_enabled || isSlabProduct(p));
