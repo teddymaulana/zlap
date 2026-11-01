@@ -71,16 +71,24 @@ export function poSlotsLeft(openLimit: number | null | undefined, openCount: num
   return Math.max(0, (openLimit ?? PO_DEFAULT_OPEN_LIMIT) - openCount);
 }
 
-// The staff "price went up" alert: the last refresh raised the price and
-// nobody has dismissed it since.
-export function hasPoPriceIncrease(p: {
-  po_price: number | null;
-  po_price_previous: number | null;
-  po_price_changed_at: string | null;
-  po_price_alert_dismissed_at: string | null;
-}): boolean {
+// A "price went up" alert nobody dismissed clears itself this long after the
+// change, so a "Refresh all" doesn't leave a list to dismiss one by one.
+export const PO_PRICE_ALERT_DAYS = 1;
+
+// The staff "price went up" alert: the last refresh raised the price within
+// PO_PRICE_ALERT_DAYS and nobody has dismissed it since.
+export function hasPoPriceIncrease(
+  p: {
+    po_price: number | null;
+    po_price_previous: number | null;
+    po_price_changed_at: string | null;
+    po_price_alert_dismissed_at: string | null;
+  },
+  now = Date.now()
+): boolean {
   if (p.po_price === null || p.po_price_previous === null || !p.po_price_changed_at) return false;
   if (Number(p.po_price) <= Number(p.po_price_previous)) return false;
+  if (now - new Date(p.po_price_changed_at).getTime() > PO_PRICE_ALERT_DAYS * DAY_MS) return false;
   if (!p.po_price_alert_dismissed_at) return true;
   return new Date(p.po_price_alert_dismissed_at).getTime() < new Date(p.po_price_changed_at).getTime();
 }

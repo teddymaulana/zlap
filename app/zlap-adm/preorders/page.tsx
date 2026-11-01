@@ -51,7 +51,7 @@ export default async function PreordersPage() {
   if (openCountsError) throw new Error(openCountsError.message);
 
   const openCountById = new Map((openCounts ?? []).map((r) => [r.product_id, Number(r.open_count)]));
-  const priceAlerts = (poProducts ?? []).filter(hasPoPriceIncrease);
+  const priceAlerts = (poProducts ?? []).filter((p) => hasPoPriceIncrease(p));
 
   const groups = new Map<string, QueueGroup>();
   for (const line of lines ?? []) {
@@ -79,7 +79,15 @@ export default async function PreordersPage() {
     <div className="mx-auto w-full max-w-4xl px-4 py-8">
       <div className="mb-1 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Pre-order queue</h1>
-        <RefreshAllPrices />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/zlap-adm/preorders/bulk"
+            className="rounded border px-3 py-1.5 text-sm whitespace-nowrap hover:bg-gray-50"
+          >
+            Bulk settings
+          </Link>
+          <RefreshAllPrices />
+        </div>
       </div>
       <p className="mb-6 text-sm text-gray-500">
         Paid pre-order items waiting to be bought in Japan. Select the ones you&apos;re buying together and create a

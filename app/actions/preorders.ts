@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { sendPreorderUpdateEmail } from "@/lib/email";
-import { addDays, PO_DEFAULT_TRANSIT_DAYS } from "@/lib/preorder";
+import { addDays, computePoPrice, PO_DEFAULT_TRANSIT_DAYS, PO_MIN_MARKUP_PERCENT, type PoMarkupType } from "@/lib/preorder";
 import { pushToInventory } from "@/app/actions/purchases";
 
 // Staff workflow for Japan-sourced pre-orders: paid pre-order lines wait in
@@ -272,4 +272,73 @@ export async function addPoDelay(purchaseId: string, days: number, reason: strin
 
 export async function markPoArrived(purchaseId: string) {
   return asResult(() => markPoArrivedImpl(purchaseId));
+}
+
+export type BulkPreorderChanges = {
+  enabled?: boolean;
+  markup?: { type: PoMarkupType; value: number };
+  openLimit?: number;
+};
+
+// Bulk pre-order settings (/zlap-adm/preorders/bulk): applies the same
+// changes to every selected product. Enabling skips products without a
+// SNKRDUNK link, since they can never get a pre-order price. A markup
+// change reprices from each product's saved market snapshot, same as
+// updateProduct; fresh SNKRDUNK prices are a separate step (refreshPoPrice).
+export async function bulkUpdatePreorders(
+  productIds: string[],
+  changes: BulkPreorderChanges
+): Promise<{ updated: number; skippedNoLink: number } | { error: string }> {
+  if (productIds.length === 0) return { updated: 0, skippedNoLink: 0 };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: products, error } = await supabase
+    .from("products")
+    .select("id, snkrdunk_url, po_base_jpy, po_fx_rate, po_markup_type, po_markup_value")
+    .in("id", productIds);
+  if (error) return { error: error.message };
+
+  const markup = changes.markup && {
+    type: changes.markup.type,
+    // Same floor as updateProduct; negative markup is allowed for testing.
+    value:
+      changes.markup.type === "percent"
+        ? Math.max(PO_MIN_MARKUP_PERCENT, changes.markup.value)
+        : changes.markup.value,
+  };
+  const openLimit = changes.openLimit === undefined ? undefined : Math.max(0, Math.floor(changes.openLimit));
+
+  let updated = 0;
+  let skippedNoLink = 0;
+  for (const product of products ?? []) {
+    const enabling = changes.enabled === true;
+    if (enabling && !product.snkrdunk_url) {
+      skippedNoLink++;
+      continue;
+    }
+    const poPrice =
+      markup && product.po_base_jpy && product.po_fx_rate
+        ? computePoPrice(Number(product.po_base_jpy), Number(product.po_fx_rate), markup.type, markup.value)
+        : undefined;
+    const { error: updateError } = await supabase
+      .from("products")
+      .update({
+        ...(changes.enabled !== undefined ? { po_enabled: changes.enabled } : {}),
+        ...(markup ? { po_markup_type: markup.type, po_markup_value: markup.value } : {}),
+        ...(poPrice !== undefined ? { po_price: poPrice } : {}),
+        ...(openLimit !== undefined ? { po_open_limit: openLimit } : {}),
+      })
+      .eq("id", product.id);
+    if (updateError) return { error: updateError.message };
+    updated++;
+  }
+
+  revalidatePath("/zlap-adm/preorders/bulk");
+  revalidatePath("/zlap-adm/products");
+  revalidatePath("/", "layout");
+  return { updated, skippedNoLink };
 }
